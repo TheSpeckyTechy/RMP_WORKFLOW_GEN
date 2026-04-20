@@ -1,3 +1,16 @@
+// ─── RoadSpaceRequest.jsx ─────────────────────────────────────────────────────
+// Road Space Request form — inline HTML preview built entirely from live scheme
+// data. No external template file is needed; all 16 bound fields are resolved
+// directly from the scheme object and highlighted in the side panel.
+//
+// Components:
+//   RoadSpaceRequestDoc  — the A4 form layout (used inside RSRModal)
+//   RSRModal             — full-screen preview with field binding inspector
+//
+// Exports (via window): RoadSpaceRequestDoc, RSRModal
+// Depends on: React, window.Icon
+// ─────────────────────────────────────────────────────────────────────────────
+
 const daysBetween = (dmyA, dmyB) => {
   const p = (s) => { const [d,m,y] = (s||"").split("/"); return new Date(+y,+m-1,+d); };
   const a = p(dmyA), b = p(dmyB);
@@ -86,13 +99,13 @@ const RSRModal = ({ scheme, onClose }) => {
             <div className="rsr-side-title">Field bindings</div>
             <div className="rsr-bind-list">
               {bindings.map(b => {
-                const val = scheme[b]; const filled = val!==undefined&&val!==""&&val!==null;
+                const val = scheme[b]; const filled = val!==undefined&&val!==" "&&val!==null;
                 return (
                   <div key={b} className={"rsr-bind "+(filled?"":"missing")}
                     onMouseEnter={()=>document.querySelectorAll(`[data-field="${b}"]`).forEach(el=>el.classList.add("hover"))}
                     onMouseLeave={()=>document.querySelectorAll(`[data-field="${b}"]`).forEach(el=>el.classList.remove("hover"))}>
                     <div className="rsr-bind-key mono">{b}</div>
-                    <div className="rsr-bind-val">{filled?String(val):"\u2014"}</div>
+                    <div className="rsr-bind-val">{filled?String(val):"—"}</div>
                   </div>
                 );
               })}
@@ -104,5 +117,6 @@ const RSRModal = ({ scheme, onClose }) => {
     </div>
   );
 };
+
 window.RoadSpaceRequestDoc = RoadSpaceRequestDoc;
 window.RSRModal = RSRModal;

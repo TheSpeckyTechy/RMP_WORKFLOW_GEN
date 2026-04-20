@@ -1,3 +1,22 @@
+// ─── LetterPreview.jsx ────────────────────────────────────────────────────────
+// Resident / business letter preview.
+// Renders a Word template via docx-preview then walks the rendered DOM to
+// replace <<TAG>> and «TAG» placeholders with values derived from the scheme.
+// Each scheme has its own recipients list; selecting one re-renders the letter
+// for that address. The download button triggers a mail-merge for all.
+//
+// Template file: Residential_Letter_Template (1) (2).docx (repo root)
+//   ↑ replace this file with the correct letter .docx if it currently holds
+//     the RSR form — see README for template file map.
+//
+// Components:
+//   LetterDoc    — renders one letter for a given recipient
+//   LetterModal  — full-screen preview with recipient selector + binding list
+//
+// Exports (via window): LetterDoc, LetterModal
+// Depends on: React, window.Icon, window.WARDS, window.docx (docx-preview CDN)
+// ─────────────────────────────────────────────────────────────────────────────
+
 const LETTER_BINDINGS = [
   { tag: "<<Our_Ref>>", derive: s => s.project_number || "" },
   { tag: "<<Letter_Date>>", derive: s => new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) },
@@ -17,7 +36,8 @@ const LETTER_BINDINGS = [
 let _letterBuffer = null;
 const loadLetterBuffer = async () => {
   if (_letterBuffer) return _letterBuffer;
-  const res = await fetch("assets/Residential_Letter_Template.docx?v=2");
+  // Template lives at repo root — URL-encode the spaces in the filename
+  const res = await fetch("Residential_Letter_Template%20(1)%20(2).docx");
   _letterBuffer = await res.arrayBuffer(); return _letterBuffer;
 };
 
@@ -35,8 +55,8 @@ const applyLetter = (root, scheme, recipient) => {
       const mA=/^<<([A-Za-z0-9_]+)>>$/.exec(p), mG=/^«([A-Za-z0-9_]+)»$/.exec(p), m=mA||mG;
       if (m) {
         const name=m[1]; let val,filled;
-        if (mG&&recipientBindings.hasOwnProperty(name)) { val=recipientBindings[name]; filled=val!==""&&val!==undefined; }
-        else { const b=byTag[mA?p:`<<${name}>>`]; val=b?b.derive(scheme):""; filled=val!==undefined&&val!==""; }
+        if (mG&&recipientBindings.hasOwnProperty(name)) { val=recipientBindings[name]; filled=val!==" "&&val!==undefined; }
+        else { const b=byTag[mA?p:`<<${name}>>`]; val=b?b.derive(scheme):""; filled=val!==undefined&&val!=""; }
         const span=document.createElement("span"); span.className="pci-bound"+(filled?"":" pci-missing"); span.dataset.key=name;
         String(filled?val:p).split("\n").forEach((line,i)=>{ if(i>0){span.appendChild(document.createElement("br"));span.appendChild(document.createElement("br"));} span.appendChild(document.createTextNode(line)); });
         frag.appendChild(span);
@@ -107,7 +127,7 @@ const LetterModal = ({ scheme, onClose }) => {
             </div>}
             <div style={{marginTop:18}}>
               <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Template bindings</div>
-              <div className="rsr-bind-list">{LETTER_BINDINGS.map(b=>{ const val=recipient?b.derive(scheme):""; const filled=val!==""&&val!==undefined; return <div key={b.tag} className={"rsr-bind "+(filled?"":"missing")}><div className="rsr-bind-key mono">{b.tag}</div><div className="rsr-bind-val" style={{marginTop:3}}>{filled?String(val).slice(0,60):"\u2014"}</div></div>; })}</div>
+              <div className="rsr-bind-list">{LETTER_BINDINGS.map(b=>{ const val=recipient?b.derive(scheme):""; const filled=val!==" "&&val!==undefined; return <div key={b.tag} className={"rsr-bind "+(filled?"":"missing")}><div className="rsr-bind-key mono">{b.tag}</div><div className="rsr-bind-val" style={{marginTop:3}}>{filled?String(val).slice(0,60):"—"}</div></div>; })}</div>
             </div>
           </div>
         </div>
@@ -115,4 +135,5 @@ const LetterModal = ({ scheme, onClose }) => {
     </div>
   );
 };
+
 window.LetterDoc=LetterDoc; window.LetterModal=LetterModal;
