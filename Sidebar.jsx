@@ -1,3 +1,14 @@
+// ─── Sidebar.jsx ─────────────────────────────────────────────────────────────
+// Left-hand navigation sidebar: RMP branding, main nav links, user chip.
+//
+// Props:
+//   view   (string) — currently active view key ("dashboard" | "settings")
+//   onView (fn)     — called with the new view key on nav item click
+//
+// Exports (via window): Sidebar
+// Depends on: React, window.Icon
+// ─────────────────────────────────────────────────────────────────────────────
+
 const Sidebar = ({ view, onView }) => (
   <aside className="sidebar">
     <div className="sidebar-logo">
@@ -23,4 +34,5 @@ const Sidebar = ({ view, onView }) => (
     </div>
   </aside>
 );
+
 window.Sidebar = Sidebar;

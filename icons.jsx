@@ -1,3 +1,16 @@
+// ─── icons.jsx ───────────────────────────────────────────────────────────────
+// SVG icon set and shared formatting helpers used throughout the application.
+//
+// Exports (via window):
+//   Icon         — { Search, Plus, Folder, Clock, Check, Doc, Users, Map,
+//                    Cog, Wand, X, Alert, Download, Arrow, Link, Bell }
+//   fmtGBP(n)    — format a number as "£1,234"
+//   fmtDate(iso) — format an ISO date string as "01 Jan 2026"
+//   STATUS_LABELS — map of status keys → display strings
+//
+// Depends on: React (loaded before this in RMP Design Studio.html)
+// ─────────────────────────────────────────────────────────────────────────────
+
 const Icon = {
   Search: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>,
   Plus: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>,
