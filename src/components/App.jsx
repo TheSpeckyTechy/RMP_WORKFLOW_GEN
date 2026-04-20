@@ -171,10 +171,14 @@ const AppInner = () => {
   );
 };
 
-const App = () => (
-  <SchemeProvider>
-    <AppInner />
-  </SchemeProvider>
-);
+const App = () => {
+  const [authed, setAuthed] = React.useState(sessionStorage.getItem("rmp_authed") === "1");
+  if (!authed) return <PasswordGate onAuth={() => setAuthed(true)} />;
+  return (
+    <SchemeProvider>
+      <AppInner />
+    </SchemeProvider>
+  );
+};
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
