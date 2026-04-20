@@ -63,6 +63,8 @@ const baseScheme = (overrides) => ({
   total_depth_mm: 0,
   traffic_category: "Medium",
   binder_grade: "40/60",
+  matrix: { traffic:"Moderate", bus_stops:"None", junctions:"None", turning:"None", parking:"No" },
+  treatments: [],
   // 3. Key Dates
   date_prepared: "",
   date_approved: "",
@@ -147,6 +149,11 @@ window.SCHEMES = [
     treatment_type: "HRA 30/14F surf 40/60",
     surface_depth_mm: 40, binder_depth_mm: 50, subbase_depth_mm: 10, total_depth_mm: 100,
     traffic_category: "Medium-High",
+    matrix: { traffic:"Heavy", bus_stops:"1–2", junctions:"Minor", turning:"Occasional", parking:"No" },
+    treatments: [
+      { id:1, zone:"40mm inlay — main carriageway", area_m2:805,  depth_mm:40,  treatment_type:"HRA 30/14F surf 40/60" },
+      { id:2, zone:"100mm deep inlay — junction areas", area_m2:1565, depth_mm:100, treatment_type:"HRA 30/14F surf 40/60" },
+    ],
     ward_num: 3, ward_selected: "Coldside",
     postcode: "DD3 7EE",
     tender_total: 129436.41, budget: 135000, cost_per_m2: 54.61,
