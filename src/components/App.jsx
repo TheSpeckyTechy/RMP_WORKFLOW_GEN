@@ -83,6 +83,27 @@ const GenerateModal = ({ scheme, onClose }) => {
   );
 };
 
+const SyncDot = ({ status }) => {
+  const cfg = {
+    off:     { color: 'var(--ink-3)',      label: 'GitHub sync off' },
+    loading: { color: 'var(--amber)',      label: 'Loading from GitHub…' },
+    syncing: { color: 'var(--amber)',      label: 'Syncing to GitHub…' },
+    synced:  { color: 'var(--green)',      label: 'Synced to GitHub' },
+    error:   { color: 'var(--red,#c0392b)', label: 'GitHub sync error' },
+  };
+  const { color, label } = cfg[status] || cfg.off;
+  return (
+    <span
+      title={label}
+      style={{
+        width: 8, height: 8, borderRadius: '50%', background: color,
+        display: 'inline-block', flexShrink: 0,
+        animation: (status === 'loading' || status === 'syncing') ? 'pulse 1s ease-in-out infinite' : 'none',
+      }}
+    />
+  );
+};
+
 const Tweaks = ({ tweaks, setTweaks }) => (
   <div className="tweaks-panel">
     <div className="tweaks-head"><span>Tweaks</span><span style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>design controls</span></div>
@@ -108,7 +129,17 @@ const Tweaks = ({ tweaks, setTweaks }) => (
 );
 
 const SettingsView = ({ tweaks, setTweaks }) => {
-  const { resetAllSchemes } = React.useContext(window.SchemeContext);
+  const { resetAllSchemes, syncStatus, connectGitHub, disconnectGitHub } = React.useContext(window.SchemeContext);
+  const [ghPat, setGhPat]   = React.useState(() => { try { return localStorage.getItem('rmp_gh_pat') || ''; } catch { return ''; } });
+  const [ghRepo, setGhRepo] = React.useState(() => { try { return localStorage.getItem('rmp_gh_repo') || ''; } catch { return ''; } });
+  const [ghError, setGhError] = React.useState('');
+  const isConnected = syncStatus !== 'off';
+  const handleConnect = async () => {
+    setGhError('');
+    try { await connectGitHub(ghPat.trim(), ghRepo.trim()); }
+    catch (e) { setGhError(e.message || 'Connection failed'); }
+  };
+  const handleDisconnect = () => { disconnectGitHub(); setGhPat(''); setGhRepo(''); setGhError(''); };
   const accents = [
     { v: "Orange", c: "oklch(0.62 0.16 45)" },
     { v: "Blue",   c: "oklch(0.52 0.14 240)" },
@@ -165,6 +196,48 @@ const SettingsView = ({ tweaks, setTweaks }) => {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+        <div className="settings-section">
+          <div className="settings-section-title">GitHub Storage</div>
+          <div className="settings-card">
+            {!isConnected ? (
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <div style={{fontSize:12,color:"var(--ink-2)"}}>Store all scheme data in a private GitHub repo. Edits sync automatically after 2 seconds. Requires a Personal Access Token with <span className="mono" style={{fontSize:11}}>repo</span> scope.</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <div>
+                    <div style={{fontSize:11,color:"var(--ink-3)",marginBottom:4}}>Personal Access Token</div>
+                    <input type="password" value={ghPat} onChange={e=>setGhPat(e.target.value)} placeholder="ghp_…" style={{fontFamily:"var(--font-mono)",fontSize:12}} />
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,color:"var(--ink-3)",marginBottom:4}}>Repository</div>
+                    <input type="text" value={ghRepo} onChange={e=>setGhRepo(e.target.value)} placeholder="username/repo-name" />
+                  </div>
+                </div>
+                {ghError && <div style={{fontSize:11,color:"var(--red)",fontFamily:"var(--font-mono)"}}>{ghError}</div>}
+                <div>
+                  <button className="btn sm accent" onClick={handleConnect} disabled={!ghPat.trim()||!ghRepo.trim()||syncStatus==='loading'}>
+                    {syncStatus === 'loading' ? 'Connecting…' : 'Connect'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <SyncDot status={syncStatus} />
+                  <div>
+                    <div style={{fontSize:13,fontWeight:500,fontFamily:"var(--font-mono)"}}>{ghRepo}</div>
+                    <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>
+                      {syncStatus==='synced'&&'All changes synced'}
+                      {syncStatus==='syncing'&&'Syncing…'}
+                      {syncStatus==='loading'&&'Connecting…'}
+                      {syncStatus==='error'&&<span style={{color:"var(--red)"}}>Sync error — check PAT permissions</span>}
+                    </div>
+                  </div>
+                </div>
+                <button className="btn sm" onClick={handleDisconnect}>Disconnect</button>
+              </div>
+            )}
           </div>
         </div>
         <div className="settings-section">
@@ -305,7 +378,7 @@ const NewSchemeModal = ({ onClose, onCreate }) => {
 };
 
 const AppInner = () => {
-  const { addScheme } = React.useContext(window.SchemeContext);
+  const { addScheme, syncStatus } = React.useContext(window.SchemeContext);
   const [view, setView] = React.useState("dashboard");
   const [openScheme, setOpenScheme] = React.useState(null);
   const [filter, setFilter] = React.useState("all");
@@ -364,6 +437,7 @@ const AppInner = () => {
             )}
           </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
+          <SyncDot status={syncStatus} />
           <button className="btn ghost sm"><Icon.Bell /></button>
         </header>
         <div className="content">
