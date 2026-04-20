@@ -31,6 +31,12 @@ const MasterWorkbook = ({ schemeId }) => {
       rows.push([section.section, "", ""]);
       meta.push({ type: "section" });
       for (const f of section.fields) {
+        if (f.type === "subheader") {
+          rows.push([f.label, "", ""]); meta.push({ type: "subheader" }); continue;
+        }
+        if (f.type === "zone-label") {
+          rows.push([f.label, f.sublabel || "", ""]); meta.push({ type: "zone-label" }); continue;
+        }
         const value = f.type === "calc" ? f.formula(scheme) : (scheme[f.key] ?? "");
         const rowNum = rows.length + 1;
         rows.push([f.key, f.label, value == null ? "" : value]);
@@ -79,6 +85,21 @@ const MasterWorkbook = ({ schemeId }) => {
           { fill:{patternType:"solid",fgColor:{rgb:"FAFAFA"}}, font:{sz:11,color:{rgb:"FAFAFA"}},           border: cellBorder },
           { fill:{patternType:"solid",fgColor:{rgb:"FAFAFA"}}, font:{sz:11,color:{rgb:"FAFAFA"}},           border: cellBorder },
         ];
+      } else if (type === "subheader") {
+        hpt = 18;
+        const subBorder = { ...cellBorder, left:{ style:"medium", color:{ rgb:"3B82F6" } } };
+        cellStyles = [
+          { fill:{patternType:"solid",fgColor:{rgb:"EFF6FF"}}, font:{bold:true,sz:10,color:{rgb:"1E40AF"}}, border: subBorder },
+          { fill:{patternType:"solid",fgColor:{rgb:"EFF6FF"}}, font:{sz:10,color:{rgb:"EFF6FF"}},            border: cellBorder },
+          { fill:{patternType:"solid",fgColor:{rgb:"EFF6FF"}}, font:{sz:10,color:{rgb:"EFF6FF"}},            border: cellBorder },
+        ];
+      } else if (type === "zone-label") {
+        hpt = 16;
+        cellStyles = [
+          { fill:{patternType:"solid",fgColor:{rgb:"FFF7ED"}}, font:{bold:true,sz:10,color:{rgb:"C2410C"}}, border: cellBorder },
+          { fill:{patternType:"solid",fgColor:{rgb:"FFF7ED"}}, font:{sz:10,color:{rgb:"92400E"},italic:true}, border: cellBorder },
+          { fill:{patternType:"solid",fgColor:{rgb:"FFF7ED"}}, font:{sz:10,color:{rgb:"FFF7ED"}},             border: cellBorder },
+        ];
       } else if (type === "calc") {
         hpt = 17;
         cellStyles = [
@@ -122,6 +143,17 @@ const MasterWorkbook = ({ schemeId }) => {
   const renderField = (f) => {
     const computed = f.type === "calc" ? f.formula(scheme) : scheme[f.key];
     const value = computed ?? "";
+    if (f.type === "subheader") return (
+      <div className="mwb-row mwb-subheader" key={f.key}>
+        <div className="mwb-subheader-label">{f.label}</div>
+      </div>
+    );
+    if (f.type === "zone-label") return (
+      <div className="mwb-row mwb-zone-label" key={f.key}>
+        <div className="mwb-zone-badge">{f.label}</div>
+        <div className="mwb-zone-label-text">{f.sublabel}</div>
+      </div>
+    );
     if (f.type === "calc") return (
       <div className="mwb-row calc" key={f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
