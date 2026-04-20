@@ -1,0 +1,367 @@
+// PCI / CPP (FM701-10A) — renders the user's EXACT docx file with docx-preview.
+// The pro-forma has NO {{TOKENS}} — it's a standard DCC form. We inject master
+// workbook values next to their label anchors (e.g. "Client Officer:") as
+// yellow highlighted spans. Zero structural changes to the document.
+
+// Each field: a regex matching the "Label: <existing hint text>" in the pro-forma.
+// The hint text (everything after the colon on that line) is REPLACED with the
+// master workbook value. `scope` disambiguates repeated labels.
+const PCI_FIELDS = [
+  // Client block (left column)
+  { label: "Name & address of client",       match: /(Name & address of client:\s*)(.*)$/,           key: "client_name_address", scope: "client" },
+  { label: "Client Officer",                 match: /(Client Officer:\s*)(.*)$/,                     key: "client_officer" },
+  { label: "Department",                     match: /(Department:\s*)(.*)$/,                          key: "department" },
+  { label: "Client Telephone",               match: /(Telephone:\s*)(.*)$/,                           key: "client_phone",   scope: "client" },
+  { label: "Client email",                   match: /(email:\s*)(.*)$/,                               key: "client_email",   scope: "client" },
+
+  // Designer block (right column)
+  { label: "Designer (if not client)",       match: /(Designer \(if not client\):\s*)(.*)$/,         key: "prepared_by" },
+  { label: "Head of …",                      match: /(on behalf of Head of[\s…\.]*)(.*)$/,            key: "designer_head_of" },
+  { label: "Designer Telephone",             match: /(Telephone:\s*)(.*)$/,                           key: "designer_phone", scope: "designer" },
+  { label: "Designer email",                 match: /(email:\s*)(.*)$/,                               key: "designer_email", scope: "designer" },
+  { label: "CDM Principal Designer",         match: /(CDM Principal Designer \(if required\):\s*)(.*)$/, key: "cdm_principal_designer" },
+
+  // Project refs
+  { label: "Client ref / Work order",        match: /(Client ref or Work\/GVA order:\s*)(.*)$/,      key: "client_ref_work_order" },
+  { label: "Project Number",                 match: /(Project Number:\s*)(.*)$/,                     key: "project_number" },
+
+  // Contractor block
+  { label: "Contractor",                     match: /(Contractor\/Principal Contractor:\s*)(.*)$/,   key: "contractor" },
+  { label: "Contractor Address",             match: /(Address:\s*)(.*)$/,                             key: "contractor_address", scope: "contractor" },
+  { label: "Contact",                        match: /(Contact:\s*)(.*)$/,                             key: "contractor_pe" },
+  { label: "Contractor Telephone",           match: /(Telephone:\s*)(.*)$/,                           key: "contractor_phone", scope: "contractor" },
+  { label: "Contractor email",               match: /(email:\s*)(.*)$/,                               key: "contractor_email", scope: "contractor" },
+
+  // Project details
+  { label: "Project Address",                match: /(Project Address:\s*)(.*)$/,                    key: "project_address" },
+  { label: "Description of Work",            match: /(Description of Work:\s*)(.*)$/,                 key: "pci_description" },
+  { label: "Occupiers",                      match: /(Occupier\/tenant\/owner on-site and their contact details:\s*)(.*)$/, key: "pci_occupiers" },
+  { label: "Site security",                  match: /(Arrangements for security of the site:\s*)(.*)$/, key: "pci_site_security" },
+  { label: "Out of hours",                   match: /(Out of hours contact details:\s*)(.*)$/,        key: "contractor_ooh" },
+
+  // 1.1 title row
+  { label: "Project title",                  match: /(1\.1 Project details:\s*)(.*)$/,                key: "project_title" },
+];
+
+const resolveValue = (key, scheme) => {
+  if (key === "project_title") {
+    const parts = [scheme.road_name, scheme.scheme_extent].filter(Boolean);
+    return parts.join(" — ");
+  }
+  if (key === "project_address") {
+    const parts = [scheme.road_name, scheme.scheme_extent, scheme.postcode].filter(Boolean);
+    return parts.join(", ");
+  }
+  return scheme[key] ?? "";
+};
+
+// Cache docx buffer across renders
+let _docxBuffer = null;
+const loadDocxBuffer = async () => {
+  if (_docxBuffer) return _docxBuffer;
+  const res = await fetch("assets/FM701-10A_PCI-CPP.docx");
+  _docxBuffer = await res.arrayBuffer();
+  return _docxBuffer;
+};
+
+// Find the first <p> element whose visible text starts with (or contains) the label,
+// then append/inject a highlighted span with the value.
+// `scope` disambiguates repeated labels (Telephone appears in client/designer/contractor).
+const injectValues = (root, scheme) => {
+  // Restore snapshot of original text so re-renders start from the pro-forma text
+  root.querySelectorAll("p[data-pci-original]").forEach(p => {
+    p.innerHTML = p.dataset.pciOriginal;
+  });
+  root.querySelectorAll(".pci-bound").forEach(el => el.remove());
+
+  // Force left-alignment — the pro-forma sample has some centered paragraphs that
+  // render oddly (hazards table, Additional info). User confirmed these should be
+  // left-aligned. We override centering at the CSS layer already; this is belt-and-braces.
+
+  const allPs = Array.from(root.querySelectorAll("p"));
+
+  // Scope detection: walk up to the nearest <td> and inspect its text
+  const scopeFor = (p) => {
+    const td = p.closest("td");
+    if (!td) return "none";
+    const t = td.textContent;
+    if (t.includes("Contractor/Principal Contractor")) return "contractor";
+    if (t.includes("Designer (if not client)")) return "designer";
+    if (t.includes("Name & address of client")) return "client";
+    return "other";
+  };
+
+  // Snapshot original innerHTML on first pass so we can re-run cleanly on scheme change
+  allPs.forEach(p => {
+    if (!p.dataset.pciOriginal) p.dataset.pciOriginal = p.innerHTML;
+  });
+
+  const used = new Set();
+  PCI_FIELDS.forEach(f => {
+    const val = resolveValue(f.key, scheme);
+    const filled = val !== "" && val !== undefined && val !== null;
+
+    // Find matching <p> by text & scope
+    const target = allPs.find(p => {
+      if (used.has(p)) return false;
+      const t = p.textContent;
+      if (!f.match.test(t)) return false;
+      if (f.scope && scopeFor(p) !== f.scope) return false;
+      return true;
+    });
+    if (!target) return;
+    used.add(target);
+
+    // Replace the matched portion within the text nodes. We work on innerHTML for
+    // simplicity since we only need to alter the trailing hint text in one <p>.
+    const html = target.innerHTML;
+    // Build a regex that matches the label followed by any remaining visible content
+    // on this line. We allow <strong>/<em>/<sup>/<sub> tags between chars.
+    const plainText = target.textContent;
+    const m = f.match.exec(plainText);
+    if (!m) return;
+    const before = m[1]; // "Label: "
+    const after  = m[2]; // old hint text (to replace)
+
+    // Rewrite: keep any prefix before the label, the label text, then injected span,
+    // replacing the "after" part. To do this safely on innerHTML we strip tags from
+    // the trailing hint area. Simplest: set textContent-based reconstruction, then
+    // inject the span.
+    // Preserve bold/italic on the label portion by locating the label's position in
+    // innerHTML via textContent offset mapping.
+    const fullText = plainText;
+    const beforeIdx = fullText.indexOf(before);
+    if (beforeIdx < 0) return;
+    const afterIdx = beforeIdx + before.length;
+
+    // Split innerHTML by mapping text offsets back onto HTML. Safe approach: walk
+    // child nodes, collect text up to afterIdx, then stop — discard everything else
+    // in this paragraph (which is the old hint text) and append our span.
+    let charCount = 0;
+    const newChildren = [];
+    let done = false;
+    const walk = (node) => {
+      if (done) return;
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.nodeValue;
+        if (charCount + text.length <= afterIdx) {
+          newChildren.push(node.cloneNode(false));
+          charCount += text.length;
+        } else {
+          // split
+          const take = afterIdx - charCount;
+          newChildren.push(document.createTextNode(text.slice(0, take)));
+          charCount = afterIdx;
+          done = true;
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        const clone = node.cloneNode(false);
+        const children = Array.from(node.childNodes);
+        const priorCount = charCount;
+        const subChildren = [];
+        let subDone = false;
+        for (const child of children) {
+          if (subDone || done) break;
+          if (child.nodeType === Node.TEXT_NODE) {
+            const text = child.nodeValue;
+            if (charCount + text.length <= afterIdx) {
+              subChildren.push(child.cloneNode(false));
+              charCount += text.length;
+            } else {
+              const take = afterIdx - charCount;
+              if (take > 0) subChildren.push(document.createTextNode(text.slice(0, take)));
+              charCount = afterIdx;
+              done = true;
+              subDone = true;
+            }
+          } else if (child.nodeType === Node.ELEMENT_NODE) {
+            // recurse
+            const result = walkCollect(child);
+            if (result.node) subChildren.push(result.node);
+            if (result.done) { done = true; subDone = true; }
+          }
+        }
+        subChildren.forEach(c => clone.appendChild(c));
+        if (charCount > priorCount) newChildren.push(clone);
+      }
+    };
+    const walkCollect = (node) => {
+      // Returns { node: clone or null, done: bool }
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.nodeValue;
+        if (charCount + text.length <= afterIdx) {
+          charCount += text.length;
+          return { node: node.cloneNode(false), done: false };
+        } else {
+          const take = afterIdx - charCount;
+          charCount = afterIdx;
+          return { node: take > 0 ? document.createTextNode(text.slice(0, take)) : null, done: true };
+        }
+      }
+      const clone = node.cloneNode(false);
+      const children = Array.from(node.childNodes);
+      let localDone = false;
+      const priorCount = charCount;
+      for (const child of children) {
+        if (localDone) break;
+        const r = walkCollect(child);
+        if (r.node) clone.appendChild(r.node);
+        if (r.done) localDone = true;
+      }
+      return { node: charCount > priorCount ? clone : null, done: localDone };
+    };
+
+    Array.from(target.childNodes).forEach(walk);
+
+    // Append the value span
+    const span = document.createElement("span");
+    span.className = "pci-bound" + (filled ? "" : " pci-missing");
+    span.dataset.key = f.key;
+    span.textContent = filled ? String(val) : `[${f.key}]`;
+    newChildren.push(span);
+
+    // Replace target contents
+    target.innerHTML = "";
+    newChildren.forEach(n => target.appendChild(n));
+  });
+
+  // Remove known orphan hint paragraphs — sample text that sits in its own <p>
+  // BELOW a label row, and isn't structural to the pro-forma. Be very specific so
+  // we never nuke labels or field headings.
+  const ORPHAN_HINTS = [
+    "Dundee City Council, Executive Director of Neighbourhood Services",
+    "Dundee City Council, Executive Director of City Development",
+  ];
+  root.querySelectorAll("p").forEach(p => {
+    const t = p.textContent.trim();
+    if (ORPHAN_HINTS.some(h => t === h || t === h + ".")) {
+      p.remove();
+    }
+  });
+};
+
+const PCIDoc = ({ scheme }) => {
+  const ref = React.useRef(null);
+  const [status, setStatus] = React.useState("loading");
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const buf = await loadDocxBuffer();
+        if (cancelled || !ref.current) return;
+        ref.current.innerHTML = "";
+        await window.docx.renderAsync(buf, ref.current, null, {
+          className: "docx",
+          inWrapper: true,
+          ignoreWidth: false,
+          ignoreHeight: false,
+          ignoreFonts: false,
+          breakPages: true,
+          experimental: false,
+          trimXmlDeclaration: true,
+          useBase64URL: true,
+        });
+        if (cancelled) return;
+        injectValues(ref.current, scheme);
+        setStatus("ready");
+      } catch (e) {
+        console.error(e);
+        setStatus("error:" + e.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  React.useEffect(() => {
+    if (status === "ready" && ref.current) {
+      injectValues(ref.current, scheme);
+    }
+  }, [scheme, status]);
+
+  return (
+    <div className="pci-doc-host">
+      {status === "loading" && <div className="pci-loading">Rendering document…</div>}
+      {status.startsWith("error") && <div className="pci-loading err">Could not render: {status.slice(6)}</div>}
+      <div ref={ref} className="pci-docx-mount" />
+    </div>
+  );
+};
+
+const PCIModal = ({ scheme, onClose }) => {
+  const boundCount = PCI_FIELDS.filter(f => {
+    const v = resolveValue(f.key, scheme);
+    return v !== "" && v !== undefined && v !== null;
+  }).length;
+
+  const groups = [
+    { label: "Client",     keys: ["project_title", "client_name_address", "client_officer", "department", "client_phone", "client_email"] },
+    { label: "Designer",   keys: ["prepared_by", "designer_head_of", "designer_phone", "designer_email", "cdm_principal_designer"] },
+    { label: "Project",    keys: ["client_ref_work_order", "project_number", "project_address", "pci_description", "date_start", "date_finish"] },
+    { label: "Site",       keys: ["pci_occupiers", "pci_site_security", "contractor_ooh"] },
+    { label: "Contractor", keys: ["contractor", "contractor_address", "contractor_pe", "contractor_phone", "contractor_email"] },
+  ];
+
+  const hover = (key, on) => {
+    document.querySelectorAll(`[data-key="${key}"]`).forEach(el => {
+      if (on) el.classList.add("hover"); else el.classList.remove("hover");
+    });
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal rsr-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>PCI / CPP (FM701-10A) · Preview</div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+              {scheme.project_number} · {scheme.road_name} · {boundCount}/{PCI_FIELDS.length} fields bound
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button className="btn sm"><Icon.Download /> Download .docx</button>
+            <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
+          </div>
+        </div>
+        <div className="rsr-body">
+          <div className="rsr-preview-pane">
+            <PCIDoc scheme={scheme} />
+          </div>
+          <div className="rsr-side">
+            <div className="rsr-side-title">Master Workbook bindings</div>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 10, lineHeight: 1.5 }}>
+              The original DCC pro-forma is rendered unchanged. Values from the Master Workbook are injected next to their labels as <span style={{ background: "#fff59d", padding: "0 3px", fontWeight: 600 }}>highlighted</span> text.
+            </div>
+            {groups.map(g => (
+              <div key={g.label} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{g.label}</div>
+                <div className="rsr-bind-list">
+                  {g.keys.map(k => {
+                    const field = PCI_FIELDS.find(f => f.key === k);
+                    if (!field) return null;
+                    const val = resolveValue(k, scheme);
+                    const filled = val !== undefined && val !== "" && val !== null;
+                    return (
+                      <div key={k} className={"rsr-bind " + (filled ? "" : "missing")}
+                           onMouseEnter={() => hover(k, true)}
+                           onMouseLeave={() => hover(k, false)}>
+                        <div className="rsr-bind-key">{field.label}</div>
+                        <div style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginTop: 1 }}>→ {k}</div>
+                        <div className="rsr-bind-val" style={{ marginTop: 3 }}>
+                          {filled ? (String(val).length > 70 ? String(val).slice(0, 70) + "…" : String(val)) : "—"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+window.PCIDoc = PCIDoc;
+window.PCIModal = PCIModal;

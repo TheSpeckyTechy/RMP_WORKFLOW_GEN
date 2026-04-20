@@ -1,0 +1,18 @@
+// Central store for scheme edits — live updates across all views
+const SchemeContext = React.createContext();
+
+const SchemeProvider = ({ children }) => {
+  const [schemes, setSchemes] = React.useState(window.SCHEMES);
+  const updateScheme = (id, patch) => {
+    setSchemes(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
+  };
+  const getScheme = (id) => schemes.find(s => s.id === id);
+  return (
+    <SchemeContext.Provider value={{ schemes, updateScheme, getScheme }}>
+      {children}
+    </SchemeContext.Provider>
+  );
+};
+
+window.SchemeContext = SchemeContext;
+window.SchemeProvider = SchemeProvider;
