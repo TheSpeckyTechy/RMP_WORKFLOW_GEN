@@ -1,3 +1,31 @@
+// ─── App.jsx ───────────────────────────────────────────────────────────────────
+// Root of the React application. Loaded last — all other scripts must be
+// defined before this one (see load order in RMP Design Studio.html).
+//
+// Component tree:
+//   App
+//   └─ SchemeProvider        (per-project state isolation via SchemeContext)
+//      └─ AppInner
+//         ├─ Sidebar             (left nav: Schemes / Settings)
+//         ├─ header.topbar       (breadcrumbs + search bar)
+//         ├─ Dashboard           (all-schemes overview)    ─┬ shown
+//         ├─ SchemeDetail        (per-scheme tabbed view)  ─┘ one at a time
+//         └─ Modals (zero or one open at a time)
+//            ├─ GenerateModal     (animated pack-generation timeline)
+//            ├─ RSRModal          (Road Space Request preview)
+//            ├─ PCIModal          (PCI/CPP document preview)
+//            └─ LetterModal       (resident/business letter preview)
+//
+// Also defined here:
+//   GenerateModal — step-through animation of the pack generation process
+//   Tweaks        — design-mode density / aesthetic / accent controls
+//
+// Exports: none (calls ReactDOM.createRoot directly)
+// Depends on: React, ReactDOM, window.SchemeProvider, window.Sidebar,
+//             window.Dashboard, window.SchemeDetail,
+//             window.RSRModal, window.PCIModal, window.LetterModal, window.Icon
+// ─────────────────────────────────────────────────────────────────────────────
+
 const GenerateModal = ({ scheme, onClose }) => {
   const [step, setStep] = React.useState(0);
   const [done, setDone] = React.useState(false);
@@ -136,7 +164,7 @@ const AppInner = () => {
       </div>
       {generating && <GenerateModal scheme={generating} onClose={() => setGenerating(null)} />}
       {previewing?.docKey === "rsr" && <RSRModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
-      {previewing?.docKey === "pci" && <PCIModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
+      {previewing?.docKey === "pci" && <PCIModal schemeId={previewing.scheme.id} onClose={() => setPreviewing(null)} />}
       {previewing?.docKey === "letter" && <LetterModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
       {tweaksOn && <Tweaks tweaks={tweaks} setTweaks={setTweaks} />}
     </div>
