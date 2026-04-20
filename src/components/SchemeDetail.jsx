@@ -305,8 +305,20 @@ const WardTab = ({ schemeId }) => {
 // ─── Utilities Tab ────────────────────────────────────────────────────────────
 
 const UtilitiesTab = ({ scheme }) => {
-  const [rows,setRows]=React.useState(()=>window.UTILITIES.map((u,i)=>({...u,requested:i<7?"2026-02-24":"",received:i<5?"2026-03-02":"",filed:i<5?"2026-03-03":""})));
-  const toggle=(i,field)=>setRows(r=>r.map((x,j)=>j===i?{...x,[field]:x[field]?"":"2026-04-20"}:x));
+  const today = new Date().toISOString().slice(0,10);
+  const addMonths = (dateStr, n) => { const d = new Date(dateStr); d.setMonth(d.getMonth()+n); return d.toISOString().slice(0,10); };
+  const [rows,setRows] = React.useState(()=>window.UTILITIES.map((u,i)=>({...u, applied: i<7 ? "2026-02-24" : ""})));
+  const toggleApplied = (i) => setRows(r => r.map((x,j) => j===i ? {...x, applied: x.applied ? "" : today} : x));
+
+  const getStatus = (applied) => {
+    if (!applied) return { label:"todo", cls:"archived" };
+    const expiry = addMonths(applied, 3);
+    const daysLeft = Math.ceil((new Date(expiry)-new Date()) / 86400000);
+    if (daysLeft < 0)  return { label:"expired", cls:"design", expiry };
+    if (daysLeft < 14) return { label:`exp. soon`, cls:"review", expiry };
+    return { label:"valid", cls:"ready", expiry };
+  };
+
   return (
     <div>
     <div className="portal-links">
@@ -323,16 +335,25 @@ const UtilitiesTab = ({ scheme }) => {
     </div>
     <div style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--ink-3)",padding:"14px 0 8px"}}>Utility Search Tracker</div>
     <div className="form-section" style={{padding:0}}>
-      <div className="util-row" style={{background:"var(--bg-sunken)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}><div>Utility</div><div>Requested</div><div>Received</div><div>Filed</div><div>Status</div></div>
-      {rows.map((r,i)=>{ const done=r.requested&&r.received&&r.filed; return (
-        <div key={i} className="util-row">
-          <div><div className="util-name">{r.name}</div><div className="util-portal">{r.portal}</div></div>
-          <div className={"util-date "+(r.requested?"":"empty")} onClick={()=>toggle(i,"requested")} style={{cursor:"pointer"}}>{r.requested?fmtDate(r.requested):"— click —"}</div>
-          <div className={"util-date "+(r.received?"":"empty")} onClick={()=>toggle(i,"received")} style={{cursor:"pointer"}}>{r.received?fmtDate(r.received):"—"}</div>
-          <div className={"util-date "+(r.filed?"":"empty")} onClick={()=>toggle(i,"filed")} style={{cursor:"pointer"}}>{r.filed?fmtDate(r.filed):"—"}</div>
-          <div><span className={"pill "+(done?"ready":r.requested?"review":"archived")}>{done?"done":r.requested?"waiting":"todo"}</span></div>
-        </div>
-      );})}
+      <div className="util-row util-row--tracker" style={{background:"var(--bg-sunken)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}><div>Utility</div><div>Applied</div><div>Expiry</div><div>Status</div></div>
+      {rows.map((r,i) => {
+        const st = getStatus(r.applied);
+        return (
+          <div key={i} className="util-row util-row--tracker">
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <input type="checkbox" checked={!!r.applied} onChange={()=>toggleApplied(i)}
+                style={{width:15,height:15,accentColor:"var(--accent)",cursor:"pointer",flexShrink:0}} />
+              <div>
+                <div className="util-name">{r.name}</div>
+                <div className="util-portal">{r.portal}</div>
+              </div>
+            </div>
+            <div className={"util-date "+(r.applied?"":"empty")}>{r.applied ? fmtDate(r.applied) : "—"}</div>
+            <div className={"util-date "+(st.expiry?"":"empty")}>{st.expiry ? fmtDate(st.expiry) : "—"}</div>
+            <div><span className={"pill "+st.cls}>{st.label}</span></div>
+          </div>
+        );
+      })}
     </div>
     </div>
   );
