@@ -210,7 +210,7 @@ const TreatmentTab = ({ schemeId }) => {
             <div key={zone.id} style={{ border:"1px solid var(--line)", borderRadius:"var(--radius)", marginBottom:10, overflow:"hidden" }}>
               {/* Zone header */}
               <div style={{ background:"var(--bg-sunken)", padding:"8px 14px", display:"flex", alignItems:"center", gap:10, borderBottom:"1px solid var(--line)" }}>
-                <span className="section-num" style={{ fontSize:10, minWidth:26, textAlign:"center" }}>{String(idx+1).padStart(2,"0")}</span>
+                <span className="section-num" style={{ fontSize:10, minWidth:26, textAlign:"center" }}>{`A${idx+1}`}</span>
                 <input value={zone.zone} onChange={e => updZone(zone.id, {zone:e.target.value})} placeholder="Zone description — e.g. Main carriageway" style={{ flex:1, border:"none", background:"transparent", fontWeight:500, fontSize:13, outline:"none", color:"var(--ink)" }} />
                 {zones.length > 1 && <button className="btn ghost sm" onClick={() => rmZone(zone.id)}><Icon.X /></button>}
               </div>
