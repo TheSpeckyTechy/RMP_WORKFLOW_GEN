@@ -1,188 +1,78 @@
-// Generate modal — the money shot
-const GenerateModal = ({ scheme, onClose }) => {
-  const [step, setStep] = React.useState(0);
-  const [done, setDone] = React.useState(false);
-  const steps = [
-    { l: "Reading Master Workbook", meta: "45 named ranges" },
-    { l: "Validating inputs", meta: "0 errors" },
-    { l: "Looking up ward councillors", meta: `W${scheme.ward_num}` },
-    { l: "Populating Front Sheet", meta: "DOCX" },
-    { l: "Populating PCI / CPP", meta: "DOCX" },
-    { l: "Populating Road Space Request Form", meta: "DOCX" },
-    { l: "Populating Resident Letter", meta: "DOCX" },
-    { l: "Building BoQ summary", meta: "XLSX" },
-    { l: "Collating utility searches", meta: "PDF" },
-    { l: "Saving to OneDrive · Projects (AI)", meta: "Complete" },
+// ─── Dashboard.jsx ─────────────────────────────────────────────────────────
+// Main overview page: stats strip, status filter chips, schemes data table.
+// Reads all schemes from SchemeContext — no direct data imports.
+//
+// Props:
+//   onOpen     (fn)     — called with schemeId when a table row is clicked
+//   filter     (string) — active status filter key
+//   setFilter  (fn)     — updates the active filter
+//
+// Exports (via window): Dashboard
+// Depends on: React, window.SchemeContext, window.Icon,
+//             window.fmtGBP, window.STATUS_LABELS, window.WARDS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const Dashboard = ({ onOpen, filter, setFilter }) => {
+  const { schemes } = React.useContext(window.SchemeContext);
+  const list = filter === "all" ? schemes : schemes.filter(s => s.status === filter);
+  const totals = {
+    live: schemes.filter(s => s.status !== "archived").length,
+    tender: schemes.filter(s => s.status !== "archived").reduce((a,s) => a + (+s.tender_total||0), 0),
+    m2: schemes.filter(s => s.status !== "archived").reduce((a,s) => a + (+s.area_m2||0), 0),
+    ready: schemes.filter(s => s.packProgress === s.packTotal && s.status !== "archived").length,
+  };
+  const filters = [
+    { k: "all", l: "All" },{ k: "design", l: "In design" },{ k: "review", l: "In review" },
+    { k: "ready", l: "Ready" },{ k: "works", l: "On site" },{ k: "archived", l: "Archived" },
   ];
-  React.useEffect(() => {
-    if (step >= steps.length) { setDone(true); return; }
-    const t = setTimeout(() => setStep(s => s + 1), step === 0 ? 400 : 280);
-    return () => clearTimeout(t);
-  }, [step]);
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-head">
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 15 }}>Generating handover pack</div>
-            <div style={{ fontSize: 12, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{scheme.project_number} · {scheme.road_name}</div>
-          </div>
-          <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
+    <>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Schemes</h1>
+          <p className="page-sub">Your RMP design workload — from survey to handover pack, in one place.</p>
         </div>
-        <div className="modal-body">
-          <div className="gen-timeline">
-            {steps.map((s, i) => (
-              <div key={i} className={"gen-step " + (i < step ? "done" : i === step ? "active" : "")}>
-                <div className="gen-step-icon">{i < step ? <Icon.Check /> : i + 1}</div>
-                <div>{s.l}</div>
-                <div className="gen-step-meta">{s.meta}</div>
-              </div>
-            ))}
-          </div>
-          {done && (
-            <div style={{ padding: "16px 18px", background: "var(--green-wash)", border: "1px solid var(--green)", borderRadius: "var(--radius-sm)", marginTop: 8 }}>
-              <div style={{ fontWeight: 600, color: "var(--green)", marginBottom: 4, fontSize: 14 }}>✓ Pack generated</div>
-              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>8 documents written to <span className="mono">OneDrive · Projects (AI) · {scheme.project_number} {scheme.road_name}/</span></div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginTop: 8 }}>Estimated time saved: 2h 15m vs manual copy-paste</div>
-            </div>
-          )}
-        </div>
-        <div className="modal-foot">
-          <button className="btn" onClick={onClose}>Close</button>
-          <button className="btn primary" disabled={!done}><Icon.Folder /> Open folder</button>
+        <div style={{ display:"flex", gap:8 }}>
+          <button className="btn"><Icon.Download /> Export register</button>
+          <button className="btn accent"><Icon.Plus /> New scheme <span className="kbd">N</span></button>
         </div>
       </div>
-    </div>
+      <div className="stats">
+        <div className="stat"><div className="stat-label">Live schemes</div><div className="stat-value">{totals.live}</div><div className="stat-meta"><span className="up">▲ 2</span> vs last quarter</div></div>
+        <div className="stat"><div className="stat-label">Combined tender value</div><div className="stat-value">{fmtGBP(totals.tender)}</div><div className="stat-meta">FY 2025/26 + 2026/27</div></div>
+        <div className="stat"><div className="stat-label">Total area</div><div className="stat-value">{totals.m2.toLocaleString()}<span className="unit">m²</span></div><div className="stat-meta">across {totals.live} roads</div></div>
+        <div className="stat"><div className="stat-label">Packs ready to issue</div><div className="stat-value">{totals.ready}<span className="unit">/ {totals.live}</span></div><div className="stat-meta">auto-generated from workbook</div></div>
+      </div>
+      <div className="filters">
+        {filters.map(f => <button key={f.k} className={"chip "+(filter===f.k?"active":"")} onClick={()=>setFilter(f.k)}>{f.l}</button>)}
+        <div style={{ marginLeft:"auto", fontSize:12, color:"var(--ink-3)", fontFamily:"var(--font-mono)" }}>{list.length} of {schemes.length}</div>
+      </div>
+      <div className="table-wrap">
+        <table className="schemes">
+          <thead><tr><th style={{width:100}}>Ref</th><th>Scheme</th><th style={{width:120}}>Ward</th><th style={{width:170}}>Treatment</th><th style={{width:100}}>Area</th><th style={{width:120}}>Tender</th><th style={{width:160}}>Pack</th><th style={{width:120}}>Status</th><th style={{width:30}}></th></tr></thead>
+          <tbody>
+            {list.map(s => {
+              const ward = window.WARDS.find(w => w.num === s.ward_num);
+              const pct = (s.packProgress / s.packTotal) * 100;
+              return (
+                <tr key={s.id} onClick={() => onOpen(s.id)}>
+                  <td><span className="row-ref mono">{s.project_number}</span>{s.flags&&s.flags.length>0&&<span style={{marginLeft:6,color:"var(--amber)",display:"inline-flex",verticalAlign:"middle"}}><Icon.Alert /></span>}</td>
+                  <td><div className="row-name">{s.road_name}</div><div className="row-sub">{s.scheme_extent}</div></td>
+                  <td><span className="mono" style={{fontSize:11,color:"var(--ink-3)"}}>W{ward?.num}</span> <span style={{fontSize:12}}>{ward?.name}</span></td>
+                  <td style={{fontSize:12,color:"var(--ink-2)"}}>{s.treatment_type}<div className="row-sub">{s.total_depth_mm}mm · {s.scheme_type}</div></td>
+                  <td className="mono" style={{fontSize:12}}>{(+s.area_m2).toLocaleString()} m²</td>
+                  <td className="mono" style={{fontSize:12}}>{fmtGBP(+s.tender_total||0)}</td>
+                  <td><div className="pack-bar"><div className="pack-bar-track"><div className={"pack-bar-fill "+(pct===100?"full":"")} style={{width:pct+"%"}}></div></div><div className="pack-bar-count">{s.packProgress}/{s.packTotal}</div></div></td>
+                  <td><span className={"pill "+s.status}>{STATUS_LABELS[s.status]}</span></td>
+                  <td style={{color:"var(--ink-3)"}}><Icon.Arrow /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 };
 
-// Tweaks panel
-const Tweaks = ({ tweaks, setTweaks }) => (
-  <div className="tweaks-panel">
-    <div className="tweaks-head"><span>Tweaks</span><span style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>design controls</span></div>
-    <div className="tweaks-body">
-      <div className="tweak">
-        <div className="tweak-label">Density</div>
-        <div className="tweak-seg">
-          {["Comfortable", "Dense"].map(v => (
-            <button key={v} className={tweaks.density === v ? "active" : ""} onClick={() => setTweaks({ ...tweaks, density: v })}>{v}</button>
-          ))}
-        </div>
-      </div>
-      <div className="tweak">
-        <div className="tweak-label">Aesthetic</div>
-        <div className="tweak-seg">
-          {["Technical", "Soft", "Mono"].map(v => (
-            <button key={v} className={tweaks.aesthetic === v ? "active" : ""} onClick={() => setTweaks({ ...tweaks, aesthetic: v })}>{v}</button>
-          ))}
-        </div>
-      </div>
-      <div className="tweak">
-        <div className="tweak-label">Accent</div>
-        <div className="tweak-seg">
-          {[{ v: "Orange", c: "oklch(0.62 0.16 45)" }, { v: "Blue", c: "oklch(0.52 0.14 240)" }, { v: "Green", c: "oklch(0.52 0.14 150)" }].map(o => (
-            <button key={o.v} className={tweaks.accent === o.v ? "active" : ""} onClick={() => setTweaks({ ...tweaks, accent: o.v })}>{o.v}</button>
-          ))}
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// Root app
-const AppInner = () => {
-  const [view, setView] = React.useState("dashboard");
-  const [openScheme, setOpenScheme] = React.useState(null);
-  const [filter, setFilter] = React.useState("all");
-  const [generating, setGenerating] = React.useState(null);
-  const [previewing, setPreviewing] = React.useState(null); // { scheme, docKey }
-  const [tweaksOn, setTweaksOn] = React.useState(false);
-  const [tweaks, setTweaks] = React.useState(/*EDITMODE-BEGIN*/{
-    "density": "Comfortable",
-    "aesthetic": "Technical",
-    "accent": "Orange"
-  }/*EDITMODE-END*/);
-
-  // Apply tweaks
-  React.useEffect(() => {
-    document.body.classList.toggle("dense", tweaks.density === "Dense");
-    document.body.classList.toggle("soft", tweaks.aesthetic === "Soft");
-    document.body.classList.toggle("mono-aesthetic", tweaks.aesthetic === "Mono");
-    const root = document.documentElement.style;
-    if (tweaks.accent === "Blue") {
-      root.setProperty("--accent", "oklch(0.52 0.14 240)");
-      root.setProperty("--accent-ink", "oklch(0.32 0.12 240)");
-      root.setProperty("--accent-wash", "oklch(0.96 0.03 240)");
-    } else if (tweaks.accent === "Green") {
-      root.setProperty("--accent", "oklch(0.52 0.14 150)");
-      root.setProperty("--accent-ink", "oklch(0.32 0.12 150)");
-      root.setProperty("--accent-wash", "oklch(0.96 0.03 150)");
-    } else {
-      root.setProperty("--accent", "oklch(0.62 0.16 45)");
-      root.setProperty("--accent-ink", "oklch(0.32 0.12 45)");
-      root.setProperty("--accent-wash", "oklch(0.96 0.03 45)");
-    }
-  }, [tweaks]);
-
-  // Edit-mode bridge
-  React.useEffect(() => {
-    const handler = (e) => {
-      if (e.data?.type === "__activate_edit_mode") setTweaksOn(true);
-      else if (e.data?.type === "__deactivate_edit_mode") setTweaksOn(false);
-    };
-    window.addEventListener("message", handler);
-    window.parent.postMessage({ type: "__edit_mode_available" }, "*");
-    return () => window.removeEventListener("message", handler);
-  }, []);
-
-  const filtered = view === "dashboard" ? "all" : view;
-  React.useEffect(() => { if (view !== "dashboard") setFilter(view); }, [view]);
-
-  return (
-    <div className="app">
-      <Sidebar view={view} onView={(v) => { setView(v); setOpenScheme(null); }} />
-      <div className="main">
-        <header className="topbar">
-          <div className="crumbs">
-            <span>Workspace</span>
-            <span className="sep">/</span>
-            {openScheme ? (
-              <>
-                <span style={{ cursor: "pointer" }} onClick={() => setOpenScheme(null)}>Schemes</span>
-                <span className="sep">/</span>
-                <span className="current mono">{openScheme}</span>
-              </>
-            ) : (
-              <span className="current">Schemes</span>
-            )}
-          </div>
-          <div className="searchbar">
-            <Icon.Search />
-            <input placeholder="Jump to scheme, ward, address…" />
-          </div>
-          <button className="btn ghost sm"><Icon.Bell /></button>
-        </header>
-        <div className="content">
-          {openScheme ? (
-            <SchemeDetail schemeId={openScheme} onBack={() => setOpenScheme(null)} onGenerate={setGenerating} onPreview={(scheme, docKey) => setPreviewing({ scheme, docKey })} />
-          ) : (
-            <Dashboard onOpen={setOpenScheme} filter={filter} setFilter={setFilter} />
-          )}
-        </div>
-      </div>
-      {generating && <GenerateModal scheme={generating} onClose={() => setGenerating(null)} />}
-      {previewing?.docKey === "rsr" && <RSRModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
-      {previewing?.docKey === "pci" && <PCIModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
-      {previewing?.docKey === "letter" && <LetterModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
-      {tweaksOn && <Tweaks tweaks={tweaks} setTweaks={setTweaks} />}
-    </div>
-  );
-};
-
-const App = () => (
-  <SchemeProvider>
-    <AppInner />
-  </SchemeProvider>
-);
-
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+window.Dashboard = Dashboard;
