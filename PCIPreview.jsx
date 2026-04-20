@@ -1,32 +1,34 @@
 // PCIPreview.jsx — PCI/CPP document preview with named-range injection
 
 const PCI_FIELDS = [
-  { tag: 'SchemeRef',        path: 'schemeRef' },
-  { tag: 'SchemeName',       path: 'schemeName' },
-  { tag: 'Ward',             path: 'ward' },
-  { tag: 'ContractorName',   path: 'contractorName' },
-  { tag: 'ContractorRef',    path: 'contractorRef' },
-  { tag: 'StartDate',        path: 'startDate',      fmt: 'date' },
-  { tag: 'EndDate',          path: 'endDate',        fmt: 'date' },
-  { tag: 'TotalCost',        path: 'totalCost',      fmt: 'gbp' },
-  { tag: 'NetworkLength',    path: 'networkLength' },
-  { tag: 'TreatmentType',    path: 'treatmentType' },
-  { tag: 'RoadCategory',     path: 'roadCategory' },
-  { tag: 'PCIBefore',        path: 'pciBefore' },
-  { tag: 'PCIAfter',         path: 'pciAfter' },
-  { tag: 'SupervisorName',   path: 'supervisorName' },
-  { tag: 'SupervisorPhone',  path: 'supervisorPhone' },
-  { tag: 'SupervisorEmail',  path: 'supervisorEmail' },
-  { tag: 'Description',      path: 'description' },
-  { tag: 'Justification',    path: 'justification' },
-  { tag: 'BudgetCode',       path: 'budgetCode' },
-  { tag: 'FinancialYear',    path: 'financialYear' },
-  { tag: 'CPPRef',           path: 'cppRef' },
-  { tag: 'DrawingRef',       path: 'drawingRef' },
-  { tag: 'CouncilContact',   path: 'councilContact' },
-  { tag: 'CouncilEmail',     path: 'councilEmail' },
-  { tag: 'CouncilPhone',     path: 'councilPhone' },
+  { tag: 'SchemeRef',       path: 'schemeRef' },
+  { tag: 'SchemeName',      path: 'schemeName' },
+  { tag: 'Ward',            path: 'ward' },
+  { tag: 'ContractorName',  path: 'contractorName' },
+  { tag: 'ContractorRef',   path: 'contractorRef' },
+  { tag: 'StartDate',       path: 'startDate',     fmt: 'date' },
+  { tag: 'EndDate',         path: 'endDate',       fmt: 'date' },
+  { tag: 'TotalCost',       path: 'totalCost',     fmt: 'gbp' },
+  { tag: 'NetworkLength',   path: 'networkLength' },
+  { tag: 'TreatmentType',   path: 'treatmentType' },
+  { tag: 'RoadCategory',    path: 'roadCategory' },
+  { tag: 'PCIBefore',       path: 'pciBefore' },
+  { tag: 'PCIAfter',        path: 'pciAfter' },
+  { tag: 'SupervisorName',  path: 'supervisorName' },
+  { tag: 'SupervisorPhone', path: 'supervisorPhone' },
+  { tag: 'SupervisorEmail', path: 'supervisorEmail' },
+  { tag: 'Description',     path: 'description' },
+  { tag: 'Justification',   path: 'justification' },
+  { tag: 'BudgetCode',      path: 'budgetCode' },
+  { tag: 'FinancialYear',   path: 'financialYear' },
+  { tag: 'CPPRef',          path: 'cppRef' },
+  { tag: 'DrawingRef',      path: 'drawingRef' },
+  { tag: 'CouncilContact',  path: 'councilContact' },
+  { tag: 'CouncilEmail',    path: 'councilEmail' },
+  { tag: 'CouncilPhone',    path: 'councilPhone' },
 ];
+
+const PCI_TEMPLATE = 'FM701-10A_DCC_Category_2_PCI-CPP_combined_.docx';
 
 function resolveValue(scheme, path, fmt) {
   const val = path.split('.').reduce((obj, k) => (obj || {})[k], scheme);
@@ -38,13 +40,14 @@ function resolveValue(scheme, path, fmt) {
 
 async function loadDocxBuffer(url) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to load template: ' + url);
+  if (!res.ok) throw new Error('Template not found: ' + url);
   return res.arrayBuffer();
 }
 
 async function injectValues(buffer, scheme) {
-  const { default: PizZip } = await import('https://unpkg.com/pizzip@3.1.6/dist/pizzip.js');
-  const zip = new PizZip(buffer);
+  // JSZip is loaded globally from the HTML script tag
+  const zip = new window.JSZip();
+  await zip.loadAsync(buffer);
 
   const xmlFiles = [
     'word/document.xml',
@@ -55,35 +58,36 @@ async function injectValues(buffer, scheme) {
   ];
 
   for (const xmlPath of xmlFiles) {
-    if (!zip.files[xmlPath]) continue;
-    let xml = zip.files[xmlPath].asText();
+    const file = zip.file(xmlPath);
+    if (!file) continue;
+    let xml = await file.async('string');
 
     for (const field of PCI_FIELDS) {
       const value = resolveValue(scheme, field.path, field.fmt);
-      // Replace w:sdt content controls with matching alias/tag
+
+      // Replace w:sdt content controls matched by alias tag
       const sdtRe = new RegExp(
-        `(<w:sdt>(?:(?!<w:sdt>)[\\s\\S])*?<w:alias[^>]*w:val="${field.tag}"[^>]*/>[\\s\\S]*?<w:sdtContent>)([\\s\\S]*?)(<\/w:sdtContent>[\\s\\S]*?<\/w:sdt>)`,
+        `(<w:sdt>[\\s\\S]*?<w:alias[^/]*/>[\\s\\S]*?<w:tag w:val="${field.tag}"[^/]*/>[\\s\\S]*?<w:sdtContent>)([\\s\\S]*?)(<\/w:sdtContent>[\\s\\S]*?<\/w:sdt>)`,
         'g'
       );
-      xml = xml.replace(sdtRe, (_, open, _inner, close) => {
-        const replacement = `<w:r><w:t xml:space="preserve">${value}</w:t></w:r>`;
-        return open + replacement + close;
-      });
+      xml = xml.replace(sdtRe, (_, open, _inner, close) =>
+        open + `<w:r><w:t xml:space="preserve">${value}</w:t></w:r>` + close
+      );
 
-      // Also replace simple {{TAG}} placeholders
+      // Also replace {{TAG}} placeholders
       xml = xml.split(`{{${field.tag}}}`).join(value);
     }
 
     zip.file(xmlPath, xml);
   }
 
-  return zip.generate({ type: 'arraybuffer' });
+  return zip.generateAsync({ type: 'arraybuffer' });
 }
 
 const PCIDoc = ({ scheme }) => {
   const containerRef = React.useRef(null);
-  const [status, setStatus] = React.useState('idle'); // idle | loading | ready | error
-  const [errMsg, setErrMsg]  = React.useState('');
+  const [status, setStatus]   = React.useState('idle');
+  const [errMsg, setErrMsg]   = React.useState('');
 
   React.useEffect(() => {
     if (!scheme) return;
@@ -92,24 +96,18 @@ const PCIDoc = ({ scheme }) => {
 
     (async () => {
       try {
-        // Try to load the real template; fall back to a blank preview
         let buffer;
         try {
-          buffer = await loadDocxBuffer('templates/PCI_CPP_Template.docx');
+          buffer = await loadDocxBuffer(PCI_TEMPLATE);
           buffer = await injectValues(buffer, scheme);
-        } catch (_) {
-          // No template available — render a plain text summary
+        } catch (_templateErr) {
+          // No template — render a plain data summary
           if (!cancelled && containerRef.current) {
-            containerRef.current.innerHTML = `
-              <div class="pci-fallback">
-                <h2>${scheme.schemeName || scheme.schemeRef}</h2>
-                <table class="pci-table">
-                  ${PCI_FIELDS.map(f => {
-                    const v = resolveValue(scheme, f.path, f.fmt);
-                    return v ? `<tr><th>${f.tag}</th><td>${v}</td></tr>` : '';
-                  }).join('')}
-                </table>
-              </div>`;
+            const rows = PCI_FIELDS
+              .map(f => { const v = resolveValue(scheme, f.path, f.fmt); return v ? `<tr><th>${f.tag}</th><td>${v}</td></tr>` : ''; })
+              .join('');
+            containerRef.current.innerHTML =
+              `<div class="pci-fallback"><h2>${scheme.schemeName || scheme.schemeRef}</h2><table class="pci-table">${rows}</table></div>`;
             setStatus('ready');
           }
           return;
@@ -132,7 +130,7 @@ const PCIDoc = ({ scheme }) => {
     })();
 
     return () => { cancelled = true; };
-  }, [scheme]);
+  }, [scheme && scheme.id]);
 
   return (
     <div className="pci-doc-wrap">
@@ -160,7 +158,7 @@ const PCIModal = ({ schemeId, onClose }) => {
   const handleDownload = React.useCallback(async () => {
     if (!scheme) return;
     try {
-      let buffer = await loadDocxBuffer('templates/PCI_CPP_Template.docx');
+      let buffer = await loadDocxBuffer(PCI_TEMPLATE);
       buffer = await injectValues(buffer, scheme);
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url  = URL.createObjectURL(blob);
