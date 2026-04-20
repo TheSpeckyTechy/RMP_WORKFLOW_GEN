@@ -107,10 +107,86 @@ const Tweaks = ({ tweaks, setTweaks }) => (
   </div>
 );
 
+const SettingsView = ({ tweaks, setTweaks }) => {
+  const accents = [
+    { v: "Orange", c: "oklch(0.62 0.16 45)" },
+    { v: "Blue",   c: "oklch(0.52 0.14 240)" },
+    { v: "Green",  c: "oklch(0.52 0.14 150)" },
+  ];
+  return (
+    <div className="settings-view">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Settings</h1>
+          <p className="page-sub">App preferences and display options.</p>
+        </div>
+      </div>
+      <div className="settings-sections">
+        <div className="settings-section">
+          <div className="settings-section-title">User</div>
+          <div className="settings-card">
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div className="user-avatar" style={{width:44,height:44,fontSize:16,borderRadius:"50%",background:"var(--accent)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,flexShrink:0}}>JM</div>
+              <div>
+                <div style={{fontWeight:600,fontSize:14}}>Jake McAllister</div>
+                <div style={{fontSize:12,color:"var(--ink-3)"}}>Designer · Road Maintenance Partnership</div>
+                <div style={{fontSize:11,color:"var(--ink-3)",fontFamily:"var(--font-mono)",marginTop:2}}>Dundee City Council</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="settings-section">
+          <div className="settings-section-title">Display</div>
+          <div className="settings-card">
+            <div className="settings-row">
+              <div className="settings-row-label">Density</div>
+              <div className="tweak-seg">
+                {["Comfortable","Dense"].map(v => (
+                  <button key={v} className={tweaks.density===v?"active":""} onClick={()=>setTweaks({...tweaks,density:v})}>{v}</button>
+                ))}
+              </div>
+            </div>
+            <div className="settings-row">
+              <div className="settings-row-label">Aesthetic</div>
+              <div className="tweak-seg">
+                {["Technical","Soft","Mono"].map(v => (
+                  <button key={v} className={tweaks.aesthetic===v?"active":""} onClick={()=>setTweaks({...tweaks,aesthetic:v})}>{v}</button>
+                ))}
+              </div>
+            </div>
+            <div className="settings-row">
+              <div className="settings-row-label">Accent colour</div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                {accents.map(a => (
+                  <button key={a.v} onClick={()=>setTweaks({...tweaks,accent:a.v})}
+                    style={{width:28,height:28,borderRadius:"50%",background:a.c,border:tweaks.accent===a.v?"3px solid var(--ink-1)":"3px solid transparent",cursor:"pointer",flexShrink:0}}
+                    title={a.v} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="settings-section">
+          <div className="settings-section-title">About</div>
+          <div className="settings-card">
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Application</span><span className="mono">RMP Design Studio</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Version</span><span className="mono">2.0.0</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Client</span><span className="mono">Dundee City Council</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Templates</span><span className="mono">RSR · PCI/CPP · Letter · Workbook</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AppInner = () => {
   const [view, setView] = React.useState("dashboard");
   const [openScheme, setOpenScheme] = React.useState(null);
   const [filter, setFilter] = React.useState("all");
+  const [search, setSearch] = React.useState("");
   const [generating, setGenerating] = React.useState(null);
   const [previewing, setPreviewing] = React.useState(null);
   const [tweaksOn, setTweaksOn] = React.useState(false);
@@ -136,7 +212,8 @@ const AppInner = () => {
     return () => window.removeEventListener("message", handler);
   }, []);
 
-  React.useEffect(() => { if (view !== "dashboard") setFilter(view); }, [view]);
+  const STATUS_FILTER_KEYS = ["design","review","ready","works","archived"];
+  React.useEffect(() => { if (STATUS_FILTER_KEYS.includes(view)) setFilter(view); }, [view]);
 
   return (
     <div className="app">
@@ -151,14 +228,16 @@ const AppInner = () => {
               <span className="current">Schemes</span>
             )}
           </div>
-          <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" /></div>
+          <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
           <button className="btn ghost sm"><Icon.Bell /></button>
         </header>
         <div className="content">
           {openScheme ? (
             <SchemeDetail schemeId={openScheme} onBack={() => setOpenScheme(null)} onGenerate={setGenerating} onPreview={(scheme, docKey) => setPreviewing({ scheme, docKey })} />
+          ) : view === "settings" ? (
+            <SettingsView tweaks={tweaks} setTweaks={setTweaks} />
           ) : (
-            <Dashboard onOpen={setOpenScheme} filter={filter} setFilter={setFilter} />
+            <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} filter={filter} setFilter={setFilter} search={search} />
           )}
         </div>
       </div>

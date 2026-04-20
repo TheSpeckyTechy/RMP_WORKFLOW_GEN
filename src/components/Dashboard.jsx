@@ -12,9 +12,19 @@
 //             window.fmtGBP, window.STATUS_LABELS, window.WARDS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Dashboard = ({ onOpen, filter, setFilter }) => {
+const Dashboard = ({ onOpen, filter, setFilter, search }) => {
   const { schemes } = React.useContext(window.SchemeContext);
-  const list = filter === "all" ? schemes : schemes.filter(s => s.status === filter);
+  const statusFiltered = filter === "all" ? schemes : schemes.filter(s => s.status === filter);
+  const list = search
+    ? statusFiltered.filter(s => {
+        const q = search.toLowerCase();
+        return (s.project_number||"").toLowerCase().includes(q) ||
+               (s.road_name||"").toLowerCase().includes(q) ||
+               (s.ward_selected||"").toLowerCase().includes(q) ||
+               (s.scheme_extent||"").toLowerCase().includes(q) ||
+               (s.treatment_type||"").toLowerCase().includes(q);
+      })
+    : statusFiltered;
   const totals = {
     live: schemes.filter(s => s.status !== "archived").length,
     tender: schemes.filter(s => s.status !== "archived").reduce((a,s) => a + (+s.tender_total||0), 0),
@@ -45,7 +55,7 @@ const Dashboard = ({ onOpen, filter, setFilter }) => {
       </div>
       <div className="filters">
         {filters.map(f => <button key={f.k} className={"chip "+(filter===f.k?"active":"")} onClick={()=>setFilter(f.k)}>{f.l}</button>)}
-        <div style={{ marginLeft:"auto", fontSize:12, color:"var(--ink-3)", fontFamily:"var(--font-mono)" }}>{list.length} of {schemes.length}</div>
+        <div style={{ marginLeft:"auto", fontSize:12, color:"var(--ink-3)", fontFamily:"var(--font-mono)" }}>{search ? `${list.length} result${list.length!==1?"s":""} for "${search}"` : `${list.length} of ${schemes.length}`}</div>
       </div>
       <div className="table-wrap">
         <table className="schemes">
