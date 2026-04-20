@@ -1,31 +1,31 @@
 // PCIPreview.jsx — PCI/CPP document preview with named-range injection
 
 const PCI_FIELDS = [
-  { tag: 'SchemeRef',       path: 'schemeRef' },
-  { tag: 'SchemeName',      path: 'schemeName' },
-  { tag: 'Ward',            path: 'ward' },
-  { tag: 'ContractorName',  path: 'contractorName' },
-  { tag: 'ContractorRef',   path: 'contractorRef' },
-  { tag: 'StartDate',       path: 'startDate',     fmt: 'date' },
-  { tag: 'EndDate',         path: 'endDate',       fmt: 'date' },
-  { tag: 'TotalCost',       path: 'totalCost',     fmt: 'gbp' },
-  { tag: 'NetworkLength',   path: 'networkLength' },
-  { tag: 'TreatmentType',   path: 'treatmentType' },
-  { tag: 'RoadCategory',    path: 'roadCategory' },
-  { tag: 'PCIBefore',       path: 'pciBefore' },
-  { tag: 'PCIAfter',        path: 'pciAfter' },
-  { tag: 'SupervisorName',  path: 'supervisorName' },
-  { tag: 'SupervisorPhone', path: 'supervisorPhone' },
-  { tag: 'SupervisorEmail', path: 'supervisorEmail' },
-  { tag: 'Description',     path: 'description' },
-  { tag: 'Justification',   path: 'justification' },
-  { tag: 'BudgetCode',      path: 'budgetCode' },
-  { tag: 'FinancialYear',   path: 'financialYear' },
-  { tag: 'CPPRef',          path: 'cppRef' },
-  { tag: 'DrawingRef',      path: 'drawingRef' },
-  { tag: 'CouncilContact',  path: 'councilContact' },
-  { tag: 'CouncilEmail',    path: 'councilEmail' },
-  { tag: 'CouncilPhone',    path: 'councilPhone' },
+  { tag: 'SchemeRef',       path: 'project_number' },
+  { tag: 'SchemeName',      path: 'road_name' },
+  { tag: 'Ward',            path: 'ward_selected' },
+  { tag: 'ContractorName',  path: 'contractor' },
+  { tag: 'ContractorRef',   path: 'contractor_ref' },
+  { tag: 'StartDate',       path: 'date_start' },
+  { tag: 'EndDate',         path: 'date_finish' },
+  { tag: 'TotalCost',       path: 'tender_total',      fmt: 'gbp' },
+  { tag: 'NetworkLength',   path: 'network_length' },
+  { tag: 'TreatmentType',   path: 'treatment_type' },
+  { tag: 'RoadCategory',    path: 'road_category' },
+  { tag: 'PCIBefore',       path: 'pci_before' },
+  { tag: 'PCIAfter',        path: 'pci_after' },
+  { tag: 'SupervisorName',  path: 'supervisor_name' },
+  { tag: 'SupervisorPhone', path: 'supervisor_phone' },
+  { tag: 'SupervisorEmail', path: 'supervisor_email' },
+  { tag: 'Description',     path: 'pci_description' },
+  { tag: 'Justification',   path: 'pci_justification' },
+  { tag: 'BudgetCode',      path: 'budget_code' },
+  { tag: 'FinancialYear',   path: 'financial_year' },
+  { tag: 'CPPRef',          path: 'cpp_ref' },
+  { tag: 'DrawingRef',      path: 'drawing_ref' },
+  { tag: 'CouncilContact',  path: 'client_officer' },
+  { tag: 'CouncilEmail',    path: 'client_email' },
+  { tag: 'CouncilPhone',    path: 'client_phone' },
 ];
 
 const PCI_TEMPLATE = 'templates/FM701-10A_DCC_Category_2_PCI-CPP_combined_.docx';
@@ -107,7 +107,7 @@ const PCIDoc = ({ scheme }) => {
               .map(f => { const v = resolveValue(scheme, f.path, f.fmt); return v ? `<tr><th>${f.tag}</th><td>${v}</td></tr>` : ''; })
               .join('');
             containerRef.current.innerHTML =
-              `<div class="pci-fallback"><h2>${scheme.schemeName || scheme.schemeRef}</h2><table class="pci-table">${rows}</table></div>`;
+              `<div class="pci-fallback"><h2>${scheme.road_name || scheme.project_number}</h2><table class="pci-table">${rows}</table></div>`;
             setStatus('ready');
           }
           return;
@@ -164,7 +164,7 @@ const PCIModal = ({ schemeId, onClose }) => {
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href     = url;
-      a.download = `PCI_CPP_${scheme.schemeRef}.docx`;
+      a.download = `PCI_CPP_${scheme.project_number}.docx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -180,7 +180,7 @@ const PCIModal = ({ schemeId, onClose }) => {
         <div className="modal-header">
           <div>
             <h2 className="modal-title">PCI / CPP Document</h2>
-            <p className="modal-sub">{scheme.schemeName} — {scheme.schemeRef}</p>
+            <p className="modal-sub">{scheme.road_name} — {scheme.project_number}</p>
           </div>
           <div className="modal-actions">
             <button className="btn btn--secondary" onClick={handleDownload}>
