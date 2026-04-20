@@ -305,10 +305,13 @@ const WardTab = ({ schemeId }) => {
 // ─── Utilities Tab ────────────────────────────────────────────────────────────
 
 const UtilitiesTab = ({ scheme }) => {
+  const { updateScheme } = React.useContext(window.SchemeContext);
   const today = new Date().toISOString().slice(0,10);
   const addMonths = (dateStr, n) => { const d = new Date(dateStr); d.setMonth(d.getMonth()+n); return d.toISOString().slice(0,10); };
-  const [rows,setRows] = React.useState(()=>window.UTILITIES.map((u,i)=>({...u, applied: i<7 ? "2026-02-24" : ""})));
-  const toggleApplied = (i) => setRows(r => r.map((x,j) => j===i ? {...x, applied: x.applied ? "" : today} : x));
+  const applied = scheme.utility_applied || {};
+  const rows = window.UTILITIES.map(u => ({ ...u, applied: applied[u.name] || "" }));
+  const setApplied = (name, date) => updateScheme(scheme.id, { utility_applied: { ...applied, [name]: date } });
+  const toggleApplied = (i) => { const u = rows[i]; setApplied(u.name, u.applied ? "" : today); };
 
   const getStatus = (applied) => {
     if (!applied) return { label:"todo", cls:"archived" };
@@ -338,9 +341,13 @@ const UtilitiesTab = ({ scheme }) => {
       <div className="util-row util-row--tracker" style={{background:"var(--bg-sunken)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <input type="checkbox"
-            checked={rows.every(r=>!!r.applied)}
+            checked={rows.length > 0 && rows.every(r=>!!r.applied)}
             ref={el=>{ if(el) el.indeterminate = rows.some(r=>!!r.applied) && !rows.every(r=>!!r.applied); }}
-            onChange={e => e.target.checked ? setRows(r=>r.map(x=>({...x,applied:x.applied||today}))) : setRows(r=>r.map(x=>({...x,applied:""})))}
+            onChange={e => {
+              const next = {};
+              window.UTILITIES.forEach(u => { next[u.name] = e.target.checked ? (applied[u.name] || today) : ""; });
+              updateScheme(scheme.id, { utility_applied: next });
+            }}
             style={{width:15,height:15,accentColor:"var(--accent)",cursor:"pointer",flexShrink:0}} />
           <span>Utility</span>
         </div>

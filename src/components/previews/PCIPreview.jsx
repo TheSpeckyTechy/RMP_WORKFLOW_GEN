@@ -175,38 +175,40 @@ const PCIModal = ({ schemeId, onClose }) => {
   if (!scheme) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-panel modal-panel--wide" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal rsr-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
           <div>
-            <h2 className="modal-title">PCI / CPP Document</h2>
-            <p className="modal-sub">{scheme.road_name} — {scheme.project_number}</p>
+            <div style={{fontWeight:600,fontSize:15}}>PCI / CPP Document</div>
+            <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{scheme.road_name} — {scheme.project_number}</div>
           </div>
-          <div className="modal-actions">
-            <button className="btn btn--secondary" onClick={handleDownload}>
-              <window.Icon.Download size={14} /> Download .docx
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <button className="btn sm" onClick={handleDownload}>
+              <Icon.Download /> Download .docx
             </button>
-            <button className="btn btn--ghost" onClick={onClose}>
-              <window.Icon.X size={16} />
+            <button className="btn ghost sm" onClick={onClose}>
+              <Icon.X />
             </button>
           </div>
         </div>
 
-        <div className="modal-body modal-body--doc">
-          <div className="doc-sidebar">
-            <h3 className="doc-sidebar__title">Field Bindings</h3>
-            <ul className="field-list">
-              {PCI_FIELDS.map(f => (
-                <li key={f.tag} className="field-list__item">
-                  <span className="field-list__tag">{f.tag}</span>
-                  <span className="field-list__val">{resolveValue(scheme, f.path, f.fmt) || <em>—</em>}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="doc-preview-area">
+        <div className="rsr-body">
+          <div className="rsr-preview-pane">
             <PCIDoc scheme={scheme} />
+          </div>
+          <div className="rsr-side">
+            <div className="rsr-side-title">Field Bindings</div>
+            <div className="rsr-bind-list">
+              {PCI_FIELDS.map(f => {
+                const val = resolveValue(scheme, f.path, f.fmt);
+                return (
+                  <div key={f.tag} className={"rsr-bind "+(val?"":"missing")}>
+                    <div className="rsr-bind-key mono">{f.tag}</div>
+                    <div className="rsr-bind-val">{val || "—"}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
