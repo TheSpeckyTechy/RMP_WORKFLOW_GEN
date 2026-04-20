@@ -25,11 +25,12 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
   const [tab, setTab] = React.useState("workbook");
+  const workbookFieldCount = window.WORKBOOK_SCHEMA.flatMap(s=>s.fields).filter(f=>f.type!=="subheader"&&f.type!=="zone-label").length;
   const tabs = [
-    { k:"workbook", l:"Master Workbook", badge:"49" },
+    { k:"workbook", l:"Master Workbook", badge: String(workbookFieldCount) },
     { k:"treatment", l:"Treatment" },
     { k:"ward", l:"Ward & Copies" },
-    { k:"utilities", l:"Utilities", badge:"9" },
+    { k:"utilities", l:"Utilities", badge: String(window.UTILITIES.length) },
     { k:"pack", l:"Pack", badge:`${scheme.packProgress}/${scheme.packTotal}` },
   ];
   return (
@@ -44,7 +45,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
           <p className="page-sub">{scheme.scheme_extent} · <span className="mono">{(+scheme.area_m2).toLocaleString()} m²</span> · {scheme.treatment_type} · <span className={"pill "+scheme.status} style={{marginLeft:8}}>{STATUS_LABELS[scheme.status]}</span></p>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <button className="btn"><Icon.Download /> Export workbook</button>
+          <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>
         </div>
       </div>

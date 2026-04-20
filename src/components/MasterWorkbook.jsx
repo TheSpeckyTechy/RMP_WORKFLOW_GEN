@@ -140,6 +140,11 @@ const MasterWorkbook = ({ schemeId }) => {
     XLSX.writeFile(wb, filename);
   };
 
+  React.useEffect(() => {
+    window.__workbookExport = exportXlsx;
+    return () => { if (window.__workbookExport === exportXlsx) delete window.__workbookExport; };
+  });
+
   const renderField = (f) => {
     const computed = f.type === "calc" ? f.formula(scheme) : scheme[f.key];
     const value = computed ?? "";
