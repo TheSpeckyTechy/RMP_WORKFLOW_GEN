@@ -17,6 +17,38 @@ const MasterWorkbook = ({ schemeId }) => {
   const scheme = getScheme(schemeId);
   const update = (key, val) => updateScheme(schemeId, { [key]: val });
 
+  const exportXlsx = () => {
+    const XLSX = window.XLSX;
+    const sheetName = "Project Info";
+    const rows = [];
+    const namedRanges = [];
+
+    // Title + column headers
+    rows.push([`${scheme.project_number} · ${scheme.road_name} — Master Workbook`, "", ""]);
+    rows.push(["Named Range", "Label", "Value"]);
+
+    for (const section of window.WORKBOOK_SCHEMA) {
+      rows.push([section.section, "", ""]);
+      for (const f of section.fields) {
+        const value = f.type === "calc" ? f.formula(scheme) : (scheme[f.key] ?? "");
+        const rowNum = rows.length + 1; // 1-based Excel row
+        rows.push([f.key, f.label, value === null || value === undefined ? "" : value]);
+        namedRanges.push({ Name: f.key, Ref: `'${sheetName}'!$C$${rowNum}` });
+      }
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{ wch: 30 }, { wch: 42 }, { wch: 55 }];
+    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    wb.Workbook = { Names: namedRanges };
+
+    const filename = `${scheme.project_number}_${(scheme.road_name || "").replace(/\s+/g, "_")}_Master.xlsx`;
+    XLSX.writeFile(wb, filename);
+  };
+
   const renderField = (f) => {
     const computed = f.type === "calc" ? f.formula(scheme) : scheme[f.key];
     const value = computed ?? "";
@@ -74,7 +106,7 @@ const MasterWorkbook = ({ schemeId }) => {
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <span style={{fontSize:11,color:"var(--green)",fontFamily:"var(--font-mono)"}}>● synced · all docs will refresh</span>
-          <button className="btn sm"><Icon.Download /> Export .xlsx</button>
+          <button className="btn sm" onClick={exportXlsx}><Icon.Download /> Export .xlsx</button>
         </div>
       </div>
       <div className="mwb-legend">
