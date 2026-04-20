@@ -41,8 +41,77 @@ let _letterBuffer = null;
 const loadLetterBuffer = async () => {
   if (_letterBuffer) return _letterBuffer;
   const res = await fetch("templates/Residential_Letter_Template%20(1)%20(2).docx");
+  if (!res.ok) throw new Error('Letter template not found');
   _letterBuffer = await res.arrayBuffer(); return _letterBuffer;
 };
+
+const xmlEscape = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+const bodyToXml = text =>
+  xmlEscape(text).replace(/\n\n/g,'</w:t></w:r></w:p><w:p><w:r><w:t xml:space="preserve">').replace(/\n/g,'</w:t><w:br/><w:t xml:space="preserve">');
+
+async function injectLetterXml(buffer, scheme, recipient) {
+  const zip = new window.JSZip();
+  await zip.loadAsync(buffer);
+
+  const recipientTags = {
+    AddressLine4: xmlEscape(recipient?.address1 || ''),
+    POSTCODE:     xmlEscape(recipient?.postcode || ''),
+    TOWN_NAME:    xmlEscape(recipient?.town || 'DUNDEE'),
+  };
+
+  const schemeTags = {};
+  LETTER_BINDINGS.forEach(b => {
+    const name = b.tag.replace(/^<<|>>$/g, '');
+    const raw = b.derive(scheme);
+    schemeTags[name] = name === 'Letter_Body_Text' ? bodyToXml(raw) : xmlEscape(raw);
+  });
+
+  const allTags = { ...schemeTags, ...recipientTags };
+
+  const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
+  for (const xmlPath of xmlPaths) {
+    const file = zip.file(xmlPath);
+    if (!file) continue;
+    let xml = await file.async('string');
+    for (const [tag, value] of Object.entries(allTags)) {
+      xml = xml.split(`&lt;&lt;${tag}&gt;&gt;`).join(value);
+      xml = xml.split(`<<${tag}>>`).join(value);
+      xml = xml.split(`«${tag}»`).join(value);
+    }
+    zip.file(xmlPath, xml);
+  }
+
+  return zip.generateAsync({ type: 'arraybuffer' });
+}
+
+async function mailMergeLetter(scheme, recipients) {
+  if (!recipients.length) throw new Error('No recipients');
+  const templateBuffer = await loadLetterBuffer();
+  const docType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  const slug = (scheme.project_number || 'letter').replace(/\s+/g,'_');
+
+  if (recipients.length === 1) {
+    const buf = await injectLetterXml(templateBuffer, scheme, recipients[0]);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([buf], { type: docType }));
+    a.download = `Letter_${slug}_${(recipients[0].address1||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30)}.docx`;
+    a.click(); URL.revokeObjectURL(a.href);
+    return;
+  }
+
+  const outZip = new window.JSZip();
+  for (let i = 0; i < recipients.length; i++) {
+    const buf = await injectLetterXml(templateBuffer, scheme, recipients[i]);
+    const label = (recipients[i].address1||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30);
+    outZip.file(`Letter_${String(i+1).padStart(3,'0')}_${label}.docx`, buf);
+  }
+  const zipBuf = await outZip.generateAsync({ type: 'arraybuffer' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([zipBuf], { type: 'application/zip' }));
+  a.download = `MailMerge_${slug}_${recipients.length}letters.zip`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
 
 const applyLetter = (root, scheme, recipient) => {
   const recipientBindings = { AddressLine4: recipient?.address1||"", POSTCODE: recipient?.postcode||"", TOWN_NAME: recipient?.town||"DUNDEE" };
@@ -376,7 +445,15 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
   const recipients = scheme.recipients || [];
   const [selectedIdx, setSelectedIdx] = React.useState(0);
   const [showImport, setShowImport] = React.useState(false);
+  const [merging, setMerging] = React.useState(false);
   const recipient = recipients[selectedIdx];
+
+  const handleMailMerge = async () => {
+    setMerging(true);
+    try { await mailMergeLetter(scheme, recipients); }
+    catch(e) { alert('Mail merge failed: ' + e.message); }
+    finally { setMerging(false); }
+  };
   const residents = recipients.filter(r=>r.type==="resident");
   const businesses = recipients.filter(r=>r.type==="business");
 
@@ -395,7 +472,9 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
             </div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            <button className="btn sm"><Icon.Download /> Mail merge · {recipients.length} letters</button>
+            <button className="btn sm" onClick={handleMailMerge} disabled={merging||recipients.length===0}>
+              <Icon.Download /> {merging ? "Generating…" : `Mail merge · ${recipients.length} letter${recipients.length!==1?"s":""}`}
+            </button>
             <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
           </div>
         </div>

@@ -143,6 +143,8 @@ const baseScheme = (overrides) => ({
   haz_other: "Contractor to adhere with latest government guidance relating to site safety.",
   haz_additional: "Contact has been made with each business and resident along the scheme extents. All informed of access restrictions during working hours.",
   cdm_principal_designer: "N/A",
+  // Utility search tracker — maps utility name to ISO applied date string
+  utility_applied: {},
   // Meta
   status: "design",
   packProgress: 0,
@@ -174,6 +176,7 @@ window.SCHEMES = [
     network_length: 320, contractor_ref: "TC/DCC/R5008",
     drawing_ref: "R6016-DCC-ZZ-DR-C-001", cpp_ref: "CPP-R5008-2026",
     budget_code: "C2601", pci_justification: "Structural failure and surface deterioration beyond maintenance threshold. PCI survey confirms category D deficiency. Resurfacing required to restore structural integrity and ride quality.",
+    utility_applied: { "LSBUD (multi-utility)":"2026-02-24", "SGN (Gas)":"2026-02-24", "Scottish Water":"2026-02-24", "SSEN (Electricity)":"2026-02-24", "Cityfibre":"2026-02-24", "Virgin Media":"2026-02-24", "Openreach (BT)":"2026-02-24" },
     ward_num: 3, ward_selected: "Coldside",
     postcode: "DD3 7EE",
     tender_total: 129436.41, budget: 135000, cost_per_m2: 54.61,

@@ -12,9 +12,36 @@
 //             window.fmtGBP, window.STATUS_LABELS, window.WARDS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Dashboard = ({ onOpen, filter, setFilter }) => {
+const exportRegister = (list) => {
+  const XLSX = window.XLSX;
+  const headers = ["Project No.", "Road Name", "Ward", "Treatment", "Area (m²)", "Tender (£)", "Status", "Start", "Finish"];
+  const rows = list.map(s => [
+    s.project_number||"", s.road_name||"",
+    s.ward_selected||"", s.treatment_type||"",
+    +s.area_m2||0, +s.tender_total||0,
+    window.STATUS_LABELS[s.status]||s.status,
+    s.date_start||"", s.date_finish||"",
+  ]);
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws["!cols"] = [12,28,18,24,10,12,12,12,12].map(w=>({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Schemes");
+  XLSX.writeFile(wb, `RMP_Register_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+const Dashboard = ({ onOpen, filter, setFilter, search }) => {
   const { schemes } = React.useContext(window.SchemeContext);
-  const list = filter === "all" ? schemes : schemes.filter(s => s.status === filter);
+  const statusFiltered = filter === "all" ? schemes : schemes.filter(s => s.status === filter);
+  const list = search
+    ? statusFiltered.filter(s => {
+        const q = search.toLowerCase();
+        return (s.project_number||"").toLowerCase().includes(q) ||
+               (s.road_name||"").toLowerCase().includes(q) ||
+               (s.ward_selected||"").toLowerCase().includes(q) ||
+               (s.scheme_extent||"").toLowerCase().includes(q) ||
+               (s.treatment_type||"").toLowerCase().includes(q);
+      })
+    : statusFiltered;
   const totals = {
     live: schemes.filter(s => s.status !== "archived").length,
     tender: schemes.filter(s => s.status !== "archived").reduce((a,s) => a + (+s.tender_total||0), 0),
@@ -33,7 +60,7 @@ const Dashboard = ({ onOpen, filter, setFilter }) => {
           <p className="page-sub">Your RMP design workload — from survey to handover pack, in one place.</p>
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          <button className="btn"><Icon.Download /> Export register</button>
+          <button className="btn" onClick={()=>exportRegister(list)}><Icon.Download /> Export register</button>
           <button className="btn accent"><Icon.Plus /> New scheme <span className="kbd">N</span></button>
         </div>
       </div>
@@ -45,7 +72,7 @@ const Dashboard = ({ onOpen, filter, setFilter }) => {
       </div>
       <div className="filters">
         {filters.map(f => <button key={f.k} className={"chip "+(filter===f.k?"active":"")} onClick={()=>setFilter(f.k)}>{f.l}</button>)}
-        <div style={{ marginLeft:"auto", fontSize:12, color:"var(--ink-3)", fontFamily:"var(--font-mono)" }}>{list.length} of {schemes.length}</div>
+        <div style={{ marginLeft:"auto", fontSize:12, color:"var(--ink-3)", fontFamily:"var(--font-mono)" }}>{search ? `${list.length} result${list.length!==1?"s":""} for "${search}"` : `${list.length} of ${schemes.length}`}</div>
       </div>
       <div className="table-wrap">
         <table className="schemes">

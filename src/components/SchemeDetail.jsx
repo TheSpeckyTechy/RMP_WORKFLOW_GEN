@@ -25,11 +25,12 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
   const [tab, setTab] = React.useState("workbook");
+  const workbookFieldCount = window.WORKBOOK_SCHEMA.flatMap(s=>s.fields).filter(f=>f.type!=="subheader"&&f.type!=="zone-label").length;
   const tabs = [
-    { k:"workbook", l:"Master Workbook", badge:"49" },
+    { k:"workbook", l:"Master Workbook", badge: String(workbookFieldCount) },
     { k:"treatment", l:"Treatment" },
     { k:"ward", l:"Ward & Copies" },
-    { k:"utilities", l:"Utilities", badge:"9" },
+    { k:"utilities", l:"Utilities", badge: String(window.UTILITIES.length) },
     { k:"pack", l:"Pack", badge:`${scheme.packProgress}/${scheme.packTotal}` },
   ];
   return (
@@ -44,7 +45,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
           <p className="page-sub">{scheme.scheme_extent} · <span className="mono">{(+scheme.area_m2).toLocaleString()} m²</span> · {scheme.treatment_type} · <span className={"pill "+scheme.status} style={{marginLeft:8}}>{STATUS_LABELS[scheme.status]}</span></p>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <button className="btn"><Icon.Download /> Export workbook</button>
+          <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>
         </div>
       </div>
@@ -305,10 +306,13 @@ const WardTab = ({ schemeId }) => {
 // ─── Utilities Tab ────────────────────────────────────────────────────────────
 
 const UtilitiesTab = ({ scheme }) => {
+  const { updateScheme } = React.useContext(window.SchemeContext);
   const today = new Date().toISOString().slice(0,10);
   const addMonths = (dateStr, n) => { const d = new Date(dateStr); d.setMonth(d.getMonth()+n); return d.toISOString().slice(0,10); };
-  const [rows,setRows] = React.useState(()=>window.UTILITIES.map((u,i)=>({...u, applied: i<7 ? "2026-02-24" : ""})));
-  const toggleApplied = (i) => setRows(r => r.map((x,j) => j===i ? {...x, applied: x.applied ? "" : today} : x));
+  const applied = scheme.utility_applied || {};
+  const rows = window.UTILITIES.map(u => ({ ...u, applied: applied[u.name] || "" }));
+  const setApplied = (name, date) => updateScheme(scheme.id, { utility_applied: { ...applied, [name]: date } });
+  const toggleApplied = (i) => { const u = rows[i]; setApplied(u.name, u.applied ? "" : today); };
 
   const getStatus = (applied) => {
     if (!applied) return { label:"todo", cls:"archived" };
@@ -335,7 +339,21 @@ const UtilitiesTab = ({ scheme }) => {
     </div>
     <div style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--ink-3)",padding:"14px 0 8px"}}>Utility Search Tracker</div>
     <div className="form-section" style={{padding:0}}>
-      <div className="util-row util-row--tracker" style={{background:"var(--bg-sunken)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}><div>Utility</div><div>Applied</div><div>Expiry</div><div>Status</div></div>
+      <div className="util-row util-row--tracker" style={{background:"var(--bg-sunken)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <input type="checkbox"
+            checked={rows.length > 0 && rows.every(r=>!!r.applied)}
+            ref={el=>{ if(el) el.indeterminate = rows.some(r=>!!r.applied) && !rows.every(r=>!!r.applied); }}
+            onChange={e => {
+              const next = {};
+              window.UTILITIES.forEach(u => { next[u.name] = e.target.checked ? (applied[u.name] || today) : ""; });
+              updateScheme(scheme.id, { utility_applied: next });
+            }}
+            style={{width:15,height:15,accentColor:"var(--accent)",cursor:"pointer",flexShrink:0}} />
+          <span>Utility</span>
+        </div>
+        <div>Applied</div><div>Expiry</div><div>Status</div>
+      </div>
       {rows.map((r,i) => {
         const st = getStatus(r.applied);
         return (
