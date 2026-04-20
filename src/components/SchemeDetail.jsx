@@ -109,7 +109,24 @@ const TreatmentTab = ({ schemeId }) => {
   // ── Treatment zones ──────────────────────────────────────────────────────────
   const TREATMENTS = ["HRA 30/14F surf 40/60","HRA 55/10F surf 40/60","AC14 close binder 40/60","AC10 Taycoat 100/150","AC6 dense 100/150","SMA 10 surf 40/60","Micro-asphalt"];
   const zones    = (scheme.treatments && scheme.treatments.length > 0) ? scheme.treatments : [{ id:1, zone:"Main carriageway", area_m2:+scheme.area_m2||0, depth_mm:+scheme.total_depth_mm||40, treatment_type:"" }];
-  const setZones = (z) => updateScheme(schemeId, { treatments: z });
+  const setZones = (z) => {
+    const zoneUpdates = {};
+    for (let i = 0; i < 5; i++) {
+      const p = `zone_a${i + 1}`;
+      if (z[i]) {
+        zoneUpdates[`${p}_description`] = z[i].zone;
+        zoneUpdates[`${p}_area_m2`]     = z[i].area_m2;
+        zoneUpdates[`${p}_depth_mm`]    = z[i].depth_mm;
+        zoneUpdates[`${p}_treatment`]   = z[i].treatment_type;
+      } else {
+        zoneUpdates[`${p}_description`] = "";
+        zoneUpdates[`${p}_area_m2`]     = 0;
+        zoneUpdates[`${p}_depth_mm`]    = 0;
+        zoneUpdates[`${p}_treatment`]   = "";
+      }
+    }
+    updateScheme(schemeId, { treatments: z, ...zoneUpdates });
+  };
   const updZone  = (id, p) => setZones(zones.map(z => z.id === id ? { ...z, ...p } : z));
   const addZone  = () => setZones([...zones, { id:Date.now(), zone:"", area_m2:0, depth_mm:40, treatment_type:"" }]);
   const rmZone   = (id) => setZones(zones.filter(z => z.id !== id));

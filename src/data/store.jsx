@@ -80,9 +80,13 @@ const baseScheme = (overrides) => ({
   client_email: "ewan.macnaughton@dundeecity.gov.uk",
   client_phone: "01382 434000",
   contractor: "Tayside Contracts",
+  contractor_ref: "",
   contractor_pe: "",
   contractor_ch: "",
   contractor_ooh: "07767 326827",
+  supervisor_name: "",
+  supervisor_phone: "",
+  supervisor_email: "",
   // 5. TM
   tm_type: "Full road closure",
   tm_phases: 1,
@@ -94,16 +98,26 @@ const baseScheme = (overrides) => ({
   kerb_length: 0, lining_req: "No",
   // 7. Budget
   budget: 0, tender_total: 0, cost_per_m2: 0,
+  budget_code: "", cpp_ref: "", drawing_ref: "", network_length: 0,
   // 8. Ward & Correspondence
   ward_selected: "",
   ward_num: 1,
   postcode: "",
   postcode_link: "Click to open DCC lookup",
   // 9. PCI-specific (Pre-Construction Information)
+  road_category: "C",
+  pci_before: "", pci_after: "",
+  pci_justification: "",
   pci_description: "",          // free text: full scope incl. areas, depths, materials
   pci_ironwork_summary: "",     // summary line pulled into PCI hazards/scope
   pci_lining_summary: "",       // summary line for lining works
   pci_occupiers: "",            // occupier / tenant info
+  // 10. Treatment Zones (A1–A5 fixed slots for master workbook named ranges)
+  zone_a1_description: "", zone_a1_area_m2: 0, zone_a1_depth_mm: 0, zone_a1_treatment: "",
+  zone_a2_description: "", zone_a2_area_m2: 0, zone_a2_depth_mm: 0, zone_a2_treatment: "",
+  zone_a3_description: "", zone_a3_area_m2: 0, zone_a3_depth_mm: 0, zone_a3_treatment: "",
+  zone_a4_description: "", zone_a4_area_m2: 0, zone_a4_depth_mm: 0, zone_a4_treatment: "",
+  zone_a5_description: "", zone_a5_area_m2: 0, zone_a5_depth_mm: 0, zone_a5_treatment: "",
   // Extra fields for the PCI pro-forma tokens
   client_name_address: "Fiona Welch\nDundee City Council, Executive Director of City Development",
   department: "Sustainable Transport and Roads",
@@ -154,6 +168,12 @@ window.SCHEMES = [
       { id:1, zone:"40mm inlay — main carriageway", area_m2:805,  depth_mm:40,  treatment_type:"HRA 30/14F surf 40/60" },
       { id:2, zone:"100mm deep inlay — junction areas", area_m2:1565, depth_mm:100, treatment_type:"HRA 30/14F surf 40/60" },
     ],
+    zone_a1_description: "40mm inlay — main carriageway", zone_a1_area_m2: 805,  zone_a1_depth_mm: 40,  zone_a1_treatment: "HRA 30/14F surf 40/60",
+    zone_a2_description: "100mm deep inlay — junction areas", zone_a2_area_m2: 1565, zone_a2_depth_mm: 100, zone_a2_treatment: "HRA 30/14F surf 40/60",
+    road_category: "B", pci_before: "35", pci_after: "75",
+    network_length: 320, contractor_ref: "TC/DCC/R5008",
+    drawing_ref: "R6016-DCC-ZZ-DR-C-001", cpp_ref: "CPP-R5008-2026",
+    budget_code: "C2601", pci_justification: "Structural failure and surface deterioration beyond maintenance threshold. PCI survey confirms category D deficiency. Resurfacing required to restore structural integrity and ride quality.",
     ward_num: 3, ward_selected: "Coldside",
     postcode: "DD3 7EE",
     tender_total: 129436.41, budget: 135000, cost_per_m2: 54.61,
@@ -366,9 +386,13 @@ window.WORKBOOK_SCHEMA = [
     { key: "client_email", label: "Client Officer Email", type: "email" },
     { key: "client_phone", label: "Client Officer Phone", type: "text", mono: true },
     { key: "contractor", label: "Contractor", type: "text" },
+    { key: "contractor_ref", label: "Contractor Reference", type: "text", mono: true },
     { key: "contractor_pe", label: "Contractor Project Engineer", type: "text" },
     { key: "contractor_ch", label: "Contractor Chargehand", type: "text" },
     { key: "contractor_ooh", label: "Contractor Out-of-Hours", type: "text", mono: true },
+    { key: "supervisor_name", label: "Site Supervisor Name", type: "text" },
+    { key: "supervisor_phone", label: "Site Supervisor Phone", type: "text", mono: true },
+    { key: "supervisor_email", label: "Site Supervisor Email", type: "email" },
   ]},
   { section: "5. Traffic Management", fields: [
     { key: "tm_type", label: "TM Type", type: "select", options: [
@@ -393,6 +417,10 @@ window.WORKBOOK_SCHEMA = [
     { key: "budget", label: "Budget Allocation (£)", type: "number", mono: true },
     { key: "tender_total", label: "Tender Total (£)", type: "number", mono: true },
     { key: "cost_per_m2", label: "Cost per m² (£)", type: "calc", mono: true, formula: s => s.area_m2 ? (+s.tender_total / +s.area_m2).toFixed(2) : 0 },
+    { key: "network_length", label: "Network Length (m)", type: "number", mono: true },
+    { key: "budget_code", label: "Budget Code", type: "text", mono: true },
+    { key: "cpp_ref", label: "CPP Reference", type: "text", mono: true },
+    { key: "drawing_ref", label: "Drawing Reference", type: "text", mono: true },
   ]},
   { section: "8. Ward & Correspondence", fields: [
     { key: "ward_selected", label: "Ward", type: "ward" },
@@ -400,6 +428,10 @@ window.WORKBOOK_SCHEMA = [
     { key: "postcode_link", label: "Postcode Lookup Link", type: "link" },
   ]},
   { section: "9. PCI / CPP Content", fields: [
+    { key: "road_category", label: "Road Category", type: "select", options: ["A", "B", "C", "D", "U"] },
+    { key: "pci_before", label: "PCI Score — Before Works", type: "number", mono: true },
+    { key: "pci_after", label: "PCI Score — After Works (target)", type: "number", mono: true },
+    { key: "pci_justification", label: "Scheme Justification", type: "textarea" },
     { key: "client_name_address", label: "Client Name & Address", type: "textarea" },
     { key: "department", label: "Department / Division", type: "text" },
     { key: "designer_head_of", label: "Designer — on behalf of (Head of)", type: "text" },
@@ -428,5 +460,27 @@ window.WORKBOOK_SCHEMA = [
     { key: "haz_environment", label: "Environmental Policies", type: "textarea" },
     { key: "haz_other", label: "Other Dangers on Site", type: "textarea" },
     { key: "haz_additional", label: "Additional Information / Nearby Activities", type: "textarea" },
+  ]},
+  { section: "10. Treatment Zones", fields: [
+    { key: "zone_a1_description", label: "Zone A1 — Description", type: "text" },
+    { key: "zone_a1_area_m2",     label: "Zone A1 — Area (m²)",   type: "number", mono: true },
+    { key: "zone_a1_depth_mm",    label: "Zone A1 — Depth (mm)",  type: "number", mono: true },
+    { key: "zone_a1_treatment",   label: "Zone A1 — Treatment",   type: "text" },
+    { key: "zone_a2_description", label: "Zone A2 — Description", type: "text" },
+    { key: "zone_a2_area_m2",     label: "Zone A2 — Area (m²)",   type: "number", mono: true },
+    { key: "zone_a2_depth_mm",    label: "Zone A2 — Depth (mm)",  type: "number", mono: true },
+    { key: "zone_a2_treatment",   label: "Zone A2 — Treatment",   type: "text" },
+    { key: "zone_a3_description", label: "Zone A3 — Description", type: "text" },
+    { key: "zone_a3_area_m2",     label: "Zone A3 — Area (m²)",   type: "number", mono: true },
+    { key: "zone_a3_depth_mm",    label: "Zone A3 — Depth (mm)",  type: "number", mono: true },
+    { key: "zone_a3_treatment",   label: "Zone A3 — Treatment",   type: "text" },
+    { key: "zone_a4_description", label: "Zone A4 — Description", type: "text" },
+    { key: "zone_a4_area_m2",     label: "Zone A4 — Area (m²)",   type: "number", mono: true },
+    { key: "zone_a4_depth_mm",    label: "Zone A4 — Depth (mm)",  type: "number", mono: true },
+    { key: "zone_a4_treatment",   label: "Zone A4 — Treatment",   type: "text" },
+    { key: "zone_a5_description", label: "Zone A5 — Description", type: "text" },
+    { key: "zone_a5_area_m2",     label: "Zone A5 — Area (m²)",   type: "number", mono: true },
+    { key: "zone_a5_depth_mm",    label: "Zone A5 — Depth (mm)",  type: "number", mono: true },
+    { key: "zone_a5_treatment",   label: "Zone A5 — Treatment",   type: "text" },
   ]},
 ];
