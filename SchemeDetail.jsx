@@ -1,3 +1,26 @@
+// ─── SchemeDetail.jsx ────────────────────────────────────────────────────────
+// Per-scheme tabbed detail page with five tabs:
+//
+//   Master Workbook  — all 49 named ranges (MasterWorkbook component)
+//   Treatment        — traffic-category-based treatment recommendation engine
+//   Ward & Copies    — ward picker + auto-generated councillor copy list
+//   Utilities        — 9-utility search tracker with date toggling
+//   Pack             — handover pack progress with live document previews
+//
+// Components exported:
+//   SchemeDetail   — tab shell + page header + flag banner
+//   TreatmentTab   — treatment selection with recommendation logic
+//   WardTab        — ward picker + copy list builder
+//   UtilitiesTab   — utility search status tracker
+//   DocPreview     — thumbnail for each pack document type
+//   PackTab        — full pack grid with preview / generate buttons
+//
+// Exports (via window): SchemeDetail
+// Depends on: React, window.SchemeContext, window.MasterWorkbook,
+//             window.Icon, window.WARDS, window.UTILITIES,
+//             window.PACK_DOCS, window.STATUS_LABELS, window.fmtDate
+// ─────────────────────────────────────────────────────────────────────────────
+
 const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
@@ -43,6 +66,8 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
   );
 };
 
+// ─── Treatment Tab ────────────────────────────────────────────────────────────
+
 const TreatmentTab = ({ schemeId }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
@@ -67,6 +92,8 @@ const TreatmentTab = ({ schemeId }) => {
     </div>
   );
 };
+
+// ─── Ward Tab ─────────────────────────────────────────────────────────────────
 
 const WardTab = ({ schemeId }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
@@ -99,6 +126,8 @@ const WardTab = ({ schemeId }) => {
   );
 };
 
+// ─── Utilities Tab ────────────────────────────────────────────────────────────
+
 const UtilitiesTab = ({ scheme }) => {
   const [rows,setRows]=React.useState(()=>window.UTILITIES.map((u,i)=>({...u,requested:i<7?"2026-02-24":"",received:i<5?"2026-03-02":"",filed:i<5?"2026-03-03":""})));
   const toggle=(i,field)=>setRows(r=>r.map((x,j)=>j===i?{...x,[field]:x[field]?"":"2026-04-20"}:x));
@@ -108,15 +137,17 @@ const UtilitiesTab = ({ scheme }) => {
       {rows.map((r,i)=>{ const done=r.requested&&r.received&&r.filed; return (
         <div key={i} className="util-row">
           <div><div className="util-name">{r.name}</div><div className="util-portal">{r.portal}</div></div>
-          <div className={"util-date "+(r.requested?"":"empty")} onClick={()=>toggle(i,"requested")} style={{cursor:"pointer"}}>{r.requested?fmtDate(r.requested):"\u2014 click \u2014"}</div>
-          <div className={"util-date "+(r.received?"":"empty")} onClick={()=>toggle(i,"received")} style={{cursor:"pointer"}}>{r.received?fmtDate(r.received):"\u2014"}</div>
-          <div className={"util-date "+(r.filed?"":"empty")} onClick={()=>toggle(i,"filed")} style={{cursor:"pointer"}}>{r.filed?fmtDate(r.filed):"\u2014"}</div>
+          <div className={"util-date "+(r.requested?"":"empty")} onClick={()=>toggle(i,"requested")} style={{cursor:"pointer"}}>{r.requested?fmtDate(r.requested):"— click —"}</div>
+          <div className={"util-date "+(r.received?"":"empty")} onClick={()=>toggle(i,"received")} style={{cursor:"pointer"}}>{r.received?fmtDate(r.received):"—"}</div>
+          <div className={"util-date "+(r.filed?"":"empty")} onClick={()=>toggle(i,"filed")} style={{cursor:"pointer"}}>{r.filed?fmtDate(r.filed):"—"}</div>
           <div><span className={"pill "+(done?"ready":r.requested?"review":"archived")}>{done?"done":r.requested?"waiting":"todo"}</span></div>
         </div>
       );})}
     </div>
   );
 };
+
+// ─── Doc Preview (thumbnail per document type) ────────────────────────────────
 
 const DocPreview = ({ docKey, scheme }) => {
   if(docKey==="front") return <div><div style={{fontWeight:700,fontSize:6,marginBottom:2}}>DUNDEE CITY COUNCIL</div><div style={{fontSize:5,marginBottom:4,color:"#666"}}>Road Maintenance Partnership</div><div style={{fontWeight:700,fontSize:7,margin:"6px 0"}}>{scheme.road_name}</div><div style={{fontSize:5,color:"#666"}}>Project {scheme.project_number} · {scheme.financial_year}</div><div style={{height:30,border:"1px dashed #ccc",margin:"6px 0"}}></div><div style={{fontSize:5}}>Area: {scheme.area_m2} m²<br/>Tender: £{(+scheme.tender_total||0).toLocaleString()}<br/>Start: {scheme.date_start}</div></div>;
@@ -126,6 +157,8 @@ const DocPreview = ({ docKey, scheme }) => {
   if(docKey==="boq") return <div><div style={{fontWeight:700,fontSize:6}}>BILL OF QUANTITIES</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{["Series 100","Series 500","Series 900","Series 1000","Series 3000"].map((s,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0"}}><span>{s}</span><span>£{(Math.random()*20000+5000).toFixed(0)}</span></div>)}</div>;
   return <div style={{color:"#aaa",fontSize:5,textAlign:"center",paddingTop:20}}>[{docKey.toUpperCase()}]<br/>Manual upload required</div>;
 };
+
+// ─── Pack Tab ─────────────────────────────────────────────────────────────────
 
 const PackTab = ({ scheme, onGenerate, onPreview }) => (
   <div>
