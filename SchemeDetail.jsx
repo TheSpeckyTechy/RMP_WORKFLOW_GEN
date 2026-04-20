@@ -1,154 +1,154 @@
-// Road Space Request form preview — mirrors the real Word template 1:1
-// Every field marked with class "bound" shows the value coming from the Master Workbook
-
-const daysBetween = (dmyA, dmyB) => {
-  const p = (s) => { const [d,m,y] = (s||"").split("/"); return new Date(+y, +m - 1, +d); };
-  const a = p(dmyA), b = p(dmyB);
-  if (isNaN(a) || isNaN(b)) return "___";
-  const diff = Math.round((b - a) / 86400000);
-  // approximate working days (÷7 × 5)
-  return Math.max(1, Math.round(diff * 5 / 7));
-};
-
-const RoadSpaceRequestDoc = ({ scheme }) => {
-  const Bound = ({ k, children, fallback }) => {
-    const v = scheme[k];
-    const show = v !== undefined && v !== "" ? (children || v) : (fallback || `[${k}]`);
-    return <span className="bound" data-field={k}>{show}</span>;
-  };
-
-  return (
-    <div className="rsr-doc">
-      <div className="rsr-page">
-        <div className="rsr-header">
-          <div className="rsr-title-bar">
-            <div className="rsr-title">TEMPORARY ROAD CLOSURES</div>
-            <div className="rsr-sub">Information Sheet — to be submitted to Network Management</div>
-          </div>
-        </div>
-
-        <div className="rsr-section-title">1. Applicant Details</div>
-        <table className="rsr-table">
-          <tbody>
-            <tr><td className="rsr-th">Division</td><td>Road Maintenance Partnership</td></tr>
-            <tr><td className="rsr-th">Name of Applicant<br/><em>(if not the Contractor)</em></td><td><Bound k="prepared_by" /></td></tr>
-            <tr><td className="rsr-th">Applicant Contact Email</td><td><Bound k="designer_email" /></td></tr>
-            <tr><td className="rsr-th">Applicant Contact Phone</td><td><Bound k="designer_phone" /></td></tr>
-            <tr><td className="rsr-th">Name &amp; Address of Contractor</td><td><Bound k="contractor" /><br/>Contracts House, 1 Soutar Street, Dundee DD3 8SS</td></tr>
-            <tr><td className="rsr-th">Contact Person (Contractor)</td><td><Bound k="contractor_pe" /></td></tr>
-            <tr><td className="rsr-th">Contractor Out-of-Hours</td><td><Bound k="contractor_ooh" /></td></tr>
-          </tbody>
-        </table>
-
-        <div className="rsr-section-title">2. Closure Details</div>
-        <table className="rsr-table">
-          <tbody>
-            <tr><td className="rsr-th">Name of Road</td><td><Bound k="road_name" /></td></tr>
-            <tr><td className="rsr-th">Project Number</td><td><Bound k="project_number" /></td></tr>
-            <tr><td className="rsr-th">Ward</td><td><Bound k="ward_selected" /></td></tr>
-            <tr><td className="rsr-th">Grid Reference</td><td><Bound k="grid_ref" /></td></tr>
-            <tr><td className="rsr-th">Exact Location / Length of Road to be Closed</td><td><Bound k="scheme_extent" /><br/>Total length of closure: approximately ___ m</td></tr>
-            <tr><td className="rsr-th">Reason for Closure</td><td><Bound k="treatment_type" /> — planned maintenance resurfacing</td></tr>
-            <tr><td className="rsr-th">Alternative Routes for Vehicles</td><td style={{ color: "#666", fontStyle: "italic" }}>Describe vehicle diversion route here, or reference the official diversion drawing below. State whether works are delivered in single phase or multiple.</td></tr>
-            <tr><td className="rsr-th">Alternative Routes for Pedestrians</td><td>Pedestrian access will be maintained where possible. <em>NB: Pedestrian Routes Un-Affected unless otherwise stated.</em></td></tr>
-            <tr><td className="rsr-th">Starting Date</td><td><Bound k="date_start" /></td></tr>
-            <tr><td className="rsr-th">Finish Date</td><td><Bound k="date_finish" /></td></tr>
-            <tr><td className="rsr-th">Duration of Closure</td><td>{daysBetween(scheme.date_start, scheme.date_finish)} working days — ends <Bound k="date_finish" /></td></tr>
-            <tr><td className="rsr-th">Working Hours</td><td><Bound k="tm_hours" /></td></tr>
-          </tbody>
-        </table>
-
-        <div className="rsr-section-title">3. Supporting Images</div>
-        <div style={{ fontSize: 11, color: "#555", fontStyle: "italic", marginBottom: 8 }}>
-          Paste site location image, diversion drawing, and any phasing extracts into the placeholders below.
-        </div>
-        <div className="rsr-image-grid">
-          <div className="rsr-image">
-            <div className="rsr-image-label">IMAGE 1 — SITE LOCATION</div>
-            <div className="rsr-image-body">Paste site location map / extract here</div>
-          </div>
-          <div className="rsr-image">
-            <div className="rsr-image-label">IMAGE 2 — DIVERSION DRAWING</div>
-            <div className="rsr-image-body">Paste official diversion route drawing here<br/>(from TM contractor e.g. {scheme.tm_diversion_by || "Sunbelt"})</div>
-          </div>
-        </div>
-
-        <div className="rsr-section-title">4. Sign-Off</div>
-        <table className="rsr-table">
-          <tbody>
-            <tr><td className="rsr-th">Signed:</td><td><Bound k="prepared_by" /></td></tr>
-            <tr><td className="rsr-th">Date:</td><td><Bound k="date_prepared" /></td></tr>
-          </tbody>
-        </table>
-
-        <div className="rsr-notes">
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Notes</div>
-          • Official diversion plan to be passed to Network team once produced by the TM contractor.<br/>
-          • Emergency service vehicular access will be maintained for the duration of works.<br/>
-          • Residents and businesses notified via the separate Residents &amp; Businesses Letter.
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const RSRModal = ({ scheme, onClose }) => {
-  const bindings = [
-    "prepared_by", "designer_email", "designer_phone", "contractor", "contractor_pe",
-    "contractor_ooh", "road_name", "project_number", "ward_selected", "grid_ref",
-    "scheme_extent", "treatment_type", "date_start", "date_finish", "tm_hours", "date_prepared"
+const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
+  const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
+  const scheme = getScheme(schemeId);
+  const [tab, setTab] = React.useState("workbook");
+  const tabs = [
+    { k:"workbook", l:"Master Workbook", badge:"49" },
+    { k:"treatment", l:"Treatment" },
+    { k:"ward", l:"Ward & Copies" },
+    { k:"utilities", l:"Utilities", badge:"9" },
+    { k:"pack", l:"Pack", badge:`${scheme.packProgress}/${scheme.packTotal}` },
   ];
-  const missing = bindings.filter(k => !scheme[k] && scheme[k] !== 0);
-
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal rsr-modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-head">
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 15 }}>Road Space Request Form · Preview</div>
-            <div style={{ fontSize: 12, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
-              {scheme.project_number} · {scheme.road_name} · {bindings.length - missing.length}/{bindings.length} fields bound
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <button className="btn sm"><Icon.Download /> Download .docx</button>
-            <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
-          </div>
+    <>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,fontSize:12,color:"var(--ink-3)"}}>
+        <span className="mono" onClick={onBack} style={{cursor:"pointer"}}>← All schemes</span>
+        <span>/</span><span className="mono">{scheme.id}</span>
+      </div>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">{scheme.road_name}</h1>
+          <p className="page-sub">{scheme.scheme_extent} · <span className="mono">{(+scheme.area_m2).toLocaleString()} m²</span> · {scheme.treatment_type} · <span className={"pill "+scheme.status} style={{marginLeft:8}}>{STATUS_LABELS[scheme.status]}</span></p>
         </div>
-        <div className="rsr-body">
-          <div className="rsr-preview-pane">
-            <RoadSpaceRequestDoc scheme={scheme} />
-          </div>
-          <div className="rsr-side">
-            <div className="rsr-side-title">Field bindings</div>
-            <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 10, lineHeight: 1.5 }}>
-              Each yellow field in the preview is a Word Content Control bound to a named range in the master workbook. Hover to highlight.
-            </div>
-            <div className="rsr-bind-list">
-              {bindings.map(b => {
-                const val = scheme[b];
-                const filled = val !== undefined && val !== "" && val !== null;
-                return (
-                  <div key={b} className={"rsr-bind " + (filled ? "" : "missing")}
-                       onMouseEnter={() => document.querySelectorAll(`[data-field="${b}"]`).forEach(el => el.classList.add("hover"))}
-                       onMouseLeave={() => document.querySelectorAll(`[data-field="${b}"]`).forEach(el => el.classList.remove("hover"))}>
-                    <div className="rsr-bind-key mono">{b}</div>
-                    <div className="rsr-bind-val">{filled ? String(val) : "—"}</div>
-                  </div>
-                );
-              })}
-            </div>
-            {missing.length > 0 && (
-              <div style={{ fontSize: 11, color: "var(--amber)", marginTop: 10, padding: 8, background: "var(--amber-wash)", borderRadius: 4 }}>
-                <Icon.Alert /> {missing.length} field{missing.length > 1 ? "s" : ""} empty — fill on Master Workbook tab
-              </div>
-            )}
-          </div>
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn"><Icon.Download /> Export workbook</button>
+          <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>
         </div>
+      </div>
+      {scheme.flags&&scheme.flags.length>0&&(
+        <div style={{background:"var(--amber-wash)",border:"1px solid var(--amber)",padding:"10px 14px",borderRadius:"var(--radius-sm)",marginBottom:20,display:"flex",gap:10,alignItems:"flex-start",fontSize:13}}>
+          <span style={{color:"var(--amber)",paddingTop:2}}><Icon.Alert /></span>
+          <div><strong>Inconsistencies detected</strong><ul style={{margin:"4px 0 0",paddingLeft:16}}>{scheme.flags.map((f,i)=><li key={i} style={{color:"var(--ink-2)"}}>{f}</li>)}</ul></div>
+        </div>
+      )}
+      <div className="tabs">
+        {tabs.map(t=><div key={t.k} className={"tab "+(tab===t.k?"active":"")} onClick={()=>setTab(t.k)}>{t.l}{t.badge&&<span className="badge">{t.badge}</span>}</div>)}
+      </div>
+      {tab==="workbook"&&<MasterWorkbook schemeId={schemeId} />}
+      {tab==="treatment"&&<TreatmentTab schemeId={schemeId} />}
+      {tab==="ward"&&<WardTab schemeId={schemeId} />}
+      {tab==="utilities"&&<UtilitiesTab scheme={scheme} />}
+      {tab==="pack"&&<PackTab scheme={scheme} onGenerate={onGenerate} onPreview={onPreview} />}
+    </>
+  );
+};
+
+const TreatmentTab = ({ schemeId }) => {
+  const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
+  const scheme = getScheme(schemeId);
+  const rec = React.useMemo(() => {
+    const t=scheme.traffic_category, d=+scheme.total_depth_mm||40;
+    if(t==="Low") return {t:"AC10 Taycoat 100/150",d:"40mm SC only",notes:"Budget-appropriate for low-traffic footways."};
+    if(t==="Medium") return {t:"AC14 close binder 40/60",d:"40mm inlay",notes:"Standard medium-duty treatment."};
+    if(t==="Medium-High") return {t:"HRA 30/14F surf 40/60",d:d>=100?"100mm deep inlay":"40mm inlay",notes:"HRA surface recommended."};
+    return {t:"HRA 55/10F surf + 50/20 bin",d:"100mm deep inlay minimum",notes:"High-traffic route. Full construction depth rebuild recommended."};
+  },[scheme.traffic_category,scheme.total_depth_mm]);
+  return (
+    <div style={{maxWidth:720}}>
+      <div className="form-section">
+        <div className="section-head"><div className="section-title"><span className="section-num">TR</span> Treatment selection logic</div></div>
+        <div className="field-row">
+          <div className="field"><label>Traffic category</label><select value={scheme.traffic_category} onChange={e=>updateScheme(schemeId,{traffic_category:e.target.value})}><option>Low</option><option>Medium</option><option>Medium-High</option><option>High</option></select></div>
+          <div className="field"><label>Total depth (mm)</label><input className="mono" type="number" value={scheme.total_depth_mm} onChange={e=>updateScheme(schemeId,{total_depth_mm:+e.target.value})} /></div>
+        </div>
+        <div className="treatment-rec"><span className="label">Recommended treatment</span><div style={{fontSize:15,fontWeight:600,marginBottom:4}}>{rec.t}</div><div style={{fontFamily:"var(--font-mono)",fontSize:12,color:"var(--slate)",marginBottom:8}}>{rec.d}</div><div style={{fontSize:12,color:"var(--ink-2)"}}>{rec.notes}</div></div>
+        <div style={{marginTop:14,display:"flex",gap:8}}><button className="btn sm">Override</button><button className="btn sm primary" onClick={()=>updateScheme(schemeId,{treatment_type:rec.t})}>Accept &amp; apply</button></div>
       </div>
     </div>
   );
 };
 
-window.RoadSpaceRequestDoc = RoadSpaceRequestDoc;
-window.RSRModal = RSRModal;
+const WardTab = ({ schemeId }) => {
+  const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
+  const scheme = getScheme(schemeId);
+  const setWardNum = (num) => { const w=window.WARDS.find(x=>x.num===num); updateScheme(schemeId,{ward_num:num,ward_selected:w.name}); };
+  const ward = window.WARDS.find(w=>w.num===scheme.ward_num);
+  const copyList = React.useMemo(() => {
+    const entries=[],seen=new Set();
+    const convener=window.WARDS.flatMap(w=>w.councillors).find(c=>c.role==="Convener of City Development");
+    const deputeConv=window.WARDS.flatMap(w=>w.councillors).find(c=>c.role==="Depute Convener of City Development");
+    const lordProvost=window.WARDS.flatMap(w=>w.councillors).find(c=>c.isLordProvost);
+    if(convener){entries.push({role:"Convener of City Development",name:"Councillor "+convener.name});seen.add(convener.name);}
+    if(deputeConv){entries.push({role:"Depute Convener of City Development",name:"Councillor "+deputeConv.name});seen.add(deputeConv.name);}
+    if(lordProvost){entries.push({role:"Lord Provost",name:lordProvost.name});seen.add(lordProvost.name);}
+    ward.councillors.forEach(c=>{if(seen.has(c.name))return;entries.push({ward:true,role:c.title,name:c.name});seen.add(c.name);});
+    ["Executive Director of City Development","Head of Public Relations","RMP Manager","Depute RMP Manager","Team Leader Customer Services"].forEach(r=>entries.push({role:r,nameless:true}));
+    return entries;
+  },[scheme.ward_num]);
+  return (
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24}}>
+      <div className="form-section">
+        <div className="section-head"><div className="section-title"><span className="section-num">W</span> Ward selection</div></div>
+        <div className="ward-picker">{window.WARDS.map(w=><button key={w.num} className={"ward-btn "+(w.num===scheme.ward_num?"active":"")} onClick={()=>setWardNum(w.num)}><span className="ward-num">W{w.num.toString().padStart(2,"0")}</span><span className="ward-name">{w.name}</span></button>)}</div>
+      </div>
+      <div className="form-section">
+        <div className="section-head"><div className="section-title"><span className="section-num">CC</span> Letter copy list</div><span className="mono" style={{fontSize:11,color:"var(--green)"}}>● live</span></div>
+        <div className="copy-list">{copyList.map((e,i)=>(<div key={i} className={"entry "+(e.ward?"ward-entry":"")}>{e.nameless?<span className="role">{e.role}</span>:e.ward?<span className="name">{e.role==="Bailie"?"Bailie":"Councillor"} {e.name}</span>:e.role==="Lord Provost"?<span><span className="role">Lord Provost</span> <span className="name">{e.name}</span></span>:<span><span className="role">{e.role}</span> – <span className="name">{e.name}</span></span>}</div>))}</div>
+      </div>
+    </div>
+  );
+};
+
+const UtilitiesTab = ({ scheme }) => {
+  const [rows,setRows]=React.useState(()=>window.UTILITIES.map((u,i)=>({...u,requested:i<7?"2026-02-24":"",received:i<5?"2026-03-02":"",filed:i<5?"2026-03-03":""})));
+  const toggle=(i,field)=>setRows(r=>r.map((x,j)=>j===i?{...x,[field]:x[field]?"":"2026-04-20"}:x));
+  return (
+    <div className="form-section" style={{padding:0}}>
+      <div className="util-row" style={{background:"var(--bg-sunken)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}><div>Utility</div><div>Requested</div><div>Received</div><div>Filed</div><div>Status</div></div>
+      {rows.map((r,i)=>{ const done=r.requested&&r.received&&r.filed; return (
+        <div key={i} className="util-row">
+          <div><div className="util-name">{r.name}</div><div className="util-portal">{r.portal}</div></div>
+          <div className={"util-date "+(r.requested?"":"empty")} onClick={()=>toggle(i,"requested")} style={{cursor:"pointer"}}>{r.requested?fmtDate(r.requested):"\u2014 click \u2014"}</div>
+          <div className={"util-date "+(r.received?"":"empty")} onClick={()=>toggle(i,"received")} style={{cursor:"pointer"}}>{r.received?fmtDate(r.received):"\u2014"}</div>
+          <div className={"util-date "+(r.filed?"":"empty")} onClick={()=>toggle(i,"filed")} style={{cursor:"pointer"}}>{r.filed?fmtDate(r.filed):"\u2014"}</div>
+          <div><span className={"pill "+(done?"ready":r.requested?"review":"archived")}>{done?"done":r.requested?"waiting":"todo"}</span></div>
+        </div>
+      );})}
+    </div>
+  );
+};
+
+const DocPreview = ({ docKey, scheme }) => {
+  if(docKey==="front") return <div><div style={{fontWeight:700,fontSize:6,marginBottom:2}}>DUNDEE CITY COUNCIL</div><div style={{fontSize:5,marginBottom:4,color:"#666"}}>Road Maintenance Partnership</div><div style={{fontWeight:700,fontSize:7,margin:"6px 0"}}>{scheme.road_name}</div><div style={{fontSize:5,color:"#666"}}>Project {scheme.project_number} · {scheme.financial_year}</div><div style={{height:30,border:"1px dashed #ccc",margin:"6px 0"}}></div><div style={{fontSize:5}}>Area: {scheme.area_m2} m²<br/>Tender: £{(+scheme.tender_total||0).toLocaleString()}<br/>Start: {scheme.date_start}</div></div>;
+  if(docKey==="rsr") return <div><div style={{background:"#1f4e79",color:"white",fontSize:5,padding:"2px 3px",fontWeight:700,textAlign:"center"}}>TEMPORARY ROAD CLOSURES</div><div style={{fontSize:4,marginTop:2,marginBottom:3,textAlign:"center",fontStyle:"italic",color:"#555"}}>Info sheet — Network Management</div><div style={{fontSize:4,color:"#1f4e79",fontWeight:700,marginTop:3}}>1. Applicant Details</div><div style={{fontSize:4}}>Applicant: {scheme.prepared_by}<br/>Road: {scheme.road_name}<br/>Ref: {scheme.project_number}</div></div>;
+  if(docKey==="pci") return <div><div style={{fontWeight:700,fontSize:6}}>PCI / CPP · FM710-10A</div><div style={{fontSize:5,marginTop:4}}>Pre-Construction Information</div><div style={{height:2,background:"#eee",margin:"4px 0"}}></div><div style={{fontSize:5}}>Site: {scheme.road_name}<br/>Ref: {scheme.project_number}</div></div>;
+  if(docKey==="letter") return <div><div style={{fontSize:5}}>Dear Resident,</div><div style={{fontSize:5,marginTop:3}}>Works on {scheme.road_name} from {scheme.date_start}...</div><div style={{fontSize:4,marginTop:6,color:"#666"}}>Copies to ward councillors ({scheme.ward_selected})</div></div>;
+  if(docKey==="boq") return <div><div style={{fontWeight:700,fontSize:6}}>BILL OF QUANTITIES</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{["Series 100","Series 500","Series 900","Series 1000","Series 3000"].map((s,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0"}}><span>{s}</span><span>£{(Math.random()*20000+5000).toFixed(0)}</span></div>)}</div>;
+  return <div style={{color:"#aaa",fontSize:5,textAlign:"center",paddingTop:20}}>[{docKey.toUpperCase()}]<br/>Manual upload required</div>;
+};
+
+const PackTab = ({ scheme, onGenerate, onPreview }) => (
+  <div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+      <div><div style={{fontSize:15,fontWeight:600}}>Handover pack · {scheme.project_number} · {scheme.road_name}</div><div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{scheme.packProgress} of {scheme.packTotal} items ready</div></div>
+      <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
+    </div>
+    <div className="pack-grid">
+      {window.PACK_DOCS.map((d,i)=>{
+        const done=i<5, isWorking=d.working;
+        return (
+          <div key={d.key} className="doc-card">
+            <div className="doc-preview"><div className="sheet"><DocPreview docKey={d.key} scheme={scheme} /></div>{isWorking&&<div style={{position:"absolute",top:10,right:10,background:"var(--accent)",color:"white",fontFamily:"var(--font-mono)",fontSize:9,padding:"3px 6px",borderRadius:2,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Live</div>}</div>
+            <div className="doc-info"><div className="doc-name">{d.name}</div><div className="doc-meta"><span>{d.type}</span><span>{d.auto?"Auto":"Manual upload"}</span></div></div>
+            <div className="doc-status"><span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span><button className="btn sm ghost" style={{marginLeft:"auto"}} onClick={()=>isWorking&&onPreview(scheme,d.key)}>Preview {isWorking&&<Icon.Arrow />}</button></div>
+          </div>
+        );
+      })}
+    </div>
+    <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
+      <strong>Connected templates:</strong> Road Space Request Form, PCI / CPP, and Resident Letter are live — click Preview on any card.
+    </div>
+  </div>
+);
+
+window.SchemeDetail = SchemeDetail;
