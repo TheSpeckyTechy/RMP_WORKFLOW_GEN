@@ -20,32 +20,77 @@ const MasterWorkbook = ({ schemeId }) => {
   const exportXlsx = () => {
     const XLSX = window.XLSX;
     const sheetName = "Project Info";
-    const rows = [];
+    const rows  = [];
+    const meta  = []; // row type: 'title' | 'header' | 'section' | 'calc' | 'data'
     const namedRanges = [];
 
-    // Title + column headers
-    rows.push([`${scheme.project_number} · ${scheme.road_name} — Master Workbook`, "", ""]);
-    rows.push(["Named Range", "Label", "Value"]);
+    rows.push([`${scheme.project_number} · ${scheme.road_name} — Master Workbook`, "", ""]); meta.push("title");
+    rows.push(["Named Range", "Label", "Value"]); meta.push("header");
 
     for (const section of window.WORKBOOK_SCHEMA) {
-      rows.push([section.section, "", ""]);
+      rows.push([section.section, "", ""]); meta.push("section");
       for (const f of section.fields) {
         const value = f.type === "calc" ? f.formula(scheme) : (scheme[f.key] ?? "");
-        const rowNum = rows.length + 1; // 1-based Excel row
-        rows.push([f.key, f.label, value === null || value === undefined ? "" : value]);
+        const rowNum = rows.length + 1;
+        rows.push([f.key, f.label, value == null ? "" : value]);
+        meta.push(f.type === "calc" ? "calc" : "data");
         namedRanges.push({ Name: f.key, Ref: `'${sheetName}'!$C$${rowNum}` });
       }
     }
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 30 }, { wch: 42 }, { wch: 55 }];
-    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+    const enc = (r, c) => XLSX.utils.encode_cell({ r, c });
+
+    const S = {
+      title:   [
+        { fill: { patternType:"solid", fgColor:{rgb:"1A1D23"} }, font:{bold:true,  sz:13, color:{rgb:"E4E6EA"}}, alignment:{vertical:"center"} },
+        { fill: { patternType:"solid", fgColor:{rgb:"1A1D23"} }, font:{sz:13, color:{rgb:"1A1D23"}} },
+        { fill: { patternType:"solid", fgColor:{rgb:"1A1D23"} }, font:{sz:13, color:{rgb:"1A1D23"}} },
+      ],
+      header:  [
+        { fill: { patternType:"solid", fgColor:{rgb:"F2F2F2"} }, font:{bold:true, sz:10, color:{rgb:"555555"}}, border:{bottom:{style:"medium",color:{rgb:"BBBBBB"}}}, alignment:{horizontal:"left"} },
+        { fill: { patternType:"solid", fgColor:{rgb:"F2F2F2"} }, font:{bold:true, sz:10, color:{rgb:"555555"}}, border:{bottom:{style:"medium",color:{rgb:"BBBBBB"}}}, alignment:{horizontal:"left"} },
+        { fill: { patternType:"solid", fgColor:{rgb:"F2F2F2"} }, font:{bold:true, sz:10, color:{rgb:"555555"}}, border:{bottom:{style:"medium",color:{rgb:"BBBBBB"}}}, alignment:{horizontal:"left"} },
+      ],
+      section: [
+        { fill: { patternType:"solid", fgColor:{rgb:"E4E8ED"} }, font:{bold:true, sz:11, color:{rgb:"1A1D23"}}, border:{top:{style:"thin",color:{rgb:"C0C5CC"}}} },
+        { fill: { patternType:"solid", fgColor:{rgb:"E4E8ED"} }, font:{sz:11, color:{rgb:"E4E8ED"}},            border:{top:{style:"thin",color:{rgb:"C0C5CC"}}} },
+        { fill: { patternType:"solid", fgColor:{rgb:"E4E8ED"} }, font:{sz:11, color:{rgb:"E4E8ED"}},            border:{top:{style:"thin",color:{rgb:"C0C5CC"}}} },
+      ],
+      calc:    [
+        { fill: { patternType:"solid", fgColor:{rgb:"F0FDF4"} }, font:{sz:11, color:{rgb:"9CA3AF"}, italic:true} },
+        { fill: { patternType:"solid", fgColor:{rgb:"F0FDF4"} }, font:{sz:11, color:{rgb:"444444"}} },
+        { fill: { patternType:"solid", fgColor:{rgb:"F0FDF4"} }, font:{bold:true, sz:11, color:{rgb:"15803D"}} },
+      ],
+      data:    [
+        { font:{sz:11, color:{rgb:"999999"}} },
+        { font:{sz:11, color:{rgb:"333333"}} },
+        { font:{sz:11, color:{rgb:"111111"}} },
+      ],
+    };
+
+    const heights = { title:28, header:18, section:18, calc:15, data:15 };
+    const wsRows = [];
+
+    rows.forEach((_, r) => {
+      const type = meta[r];
+      wsRows.push({ hpt: heights[type] || 15 });
+      for (let c = 0; c < 3; c++) {
+        const addr = enc(r, c);
+        if (!ws[addr]) ws[addr] = { v: "", t: "s" };
+        ws[addr].s = S[type]?.[c] || {};
+      }
+    });
+
+    ws["!cols"]   = [{ wch: 28 }, { wch: 40 }, { wch: 55 }];
+    ws["!merges"] = [{ s:{r:0,c:0}, e:{r:0,c:2} }];
+    ws["!rows"]   = wsRows;
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     wb.Workbook = { Names: namedRanges };
 
-    const filename = `${scheme.project_number}_${(scheme.road_name || "").replace(/\s+/g, "_")}_Master.xlsx`;
+    const filename = `${scheme.project_number}_${(scheme.road_name||"").replace(/\s+/g,"_")}_Master.xlsx`;
     XLSX.writeFile(wb, filename);
   };
 
