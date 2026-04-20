@@ -171,9 +171,33 @@ const AppInner = () => {
   );
 };
 
+const INACTIVITY_MS = 5 * 60 * 1000;
+
 const App = () => {
-  const [authed, setAuthed] = React.useState(sessionStorage.getItem("rmp_authed") === "1");
-  if (!authed) return <PasswordGate onAuth={() => setAuthed(true)} />;
+  const [authed, setAuthed]     = React.useState(sessionStorage.getItem("rmp_authed") === "1");
+  const [lockReason, setLockReason] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!authed) return;
+    let timer;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        sessionStorage.removeItem("rmp_authed");
+        setLockReason("inactivity");
+        setAuthed(false);
+      }, INACTIVITY_MS);
+    };
+    const events = ["mousemove", "keydown", "mousedown", "touchstart", "scroll"];
+    events.forEach(ev => window.addEventListener(ev, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach(ev => window.removeEventListener(ev, reset));
+    };
+  }, [authed]);
+
+  if (!authed) return <PasswordGate onAuth={() => { setLockReason(null); setAuthed(true); }} reason={lockReason} />;
   return (
     <SchemeProvider>
       <AppInner />

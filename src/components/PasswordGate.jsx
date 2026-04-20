@@ -9,11 +9,10 @@
 //   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('your-new-password'));
 //   console.log(Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join(''));
 //
-// Default password: rmp-studio
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PasswordGate = ({ onAuth }) => {
-  const STORED_HASH = "fb3e750c31e3d928d00fa1b0fb99d060412fe53d85ce538eda90079be061b461";
+const PasswordGate = ({ onAuth, reason }) => {
+  const STORED_HASH = "e287b5a86aa6025061b480619da1bba5f3b7672cbff0cc384359f6ba5a0dc712";
 
   const [value, setValue]   = React.useState("");
   const [error, setError]   = React.useState(false);
@@ -50,7 +49,10 @@ const PasswordGate = ({ onAuth }) => {
           <div className="gate-logo-text">Design Studio</div>
         </div>
         <div className="gate-body">
-          <p className="gate-hint">Enter the access password to continue.</p>
+          {reason === "inactivity"
+            ? <p className="gate-hint gate-hint-warn">Session locked after 5 minutes of inactivity.</p>
+            : <p className="gate-hint">Enter the access password to continue.</p>
+          }
           <div className={"gate-field" + (error ? " gate-field-err" : "")}>
             <input
               type="password"
