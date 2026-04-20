@@ -151,6 +151,7 @@ const baseScheme = (overrides) => ({
   packTotal: 14,
   lastUpdated: "today",
   flags: [],
+  docs_generated: {},
   ...overrides,
 });
 

@@ -108,6 +108,7 @@ const Tweaks = ({ tweaks, setTweaks }) => (
 );
 
 const SettingsView = ({ tweaks, setTweaks }) => {
+  const { resetAllSchemes } = React.useContext(window.SchemeContext);
   const accents = [
     { v: "Orange", c: "oklch(0.62 0.16 45)" },
     { v: "Blue",   c: "oklch(0.52 0.14 240)" },
@@ -174,6 +175,21 @@ const SettingsView = ({ tweaks, setTweaks }) => {
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Version</span><span className="mono">2.0.0</span></div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Client</span><span className="mono">Dundee City Council</span></div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Templates</span><span className="mono">RSR · PCI/CPP · Letter · Workbook</span></div>
+            </div>
+          </div>
+        </div>
+        <div className="settings-section">
+          <div className="settings-section-title">Data</div>
+          <div className="settings-card">
+            <div className="settings-row">
+              <div>
+                <div className="settings-row-label">Reset scheme data</div>
+                <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>Clears all saved edits and reloads the original seed data. Cannot be undone.</div>
+              </div>
+              <button className="btn sm" style={{borderColor:"var(--red)",color:"var(--red)",flexShrink:0}}
+                onClick={()=>{ if(confirm("Reset all scheme data to defaults? This cannot be undone.")) resetAllSchemes(); }}>
+                Reset data
+              </button>
             </div>
           </div>
         </div>

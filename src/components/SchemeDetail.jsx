@@ -31,7 +31,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
     { k:"treatment", l:"Treatment" },
     { k:"ward", l:"Ward & Copies" },
     { k:"utilities", l:"Utilities", badge: String(window.UTILITIES.length) },
-    { k:"pack", l:"Pack", badge:`${scheme.packProgress}/${scheme.packTotal}` },
+    { k:"pack", l:"Pack", badge:`${window.PACK_DOCS.filter(d=>(scheme.docs_generated||{})[d.key]).length}/${window.PACK_DOCS.length}` },
   ];
   return (
     <>
@@ -42,7 +42,19 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
       <div className="page-head">
         <div>
           <h1 className="page-title">{scheme.road_name}</h1>
-          <p className="page-sub">{scheme.scheme_extent} · <span className="mono">{(+scheme.area_m2).toLocaleString()} m²</span> · {scheme.treatment_type} · <span className={"pill "+scheme.status} style={{marginLeft:8}}>{STATUS_LABELS[scheme.status]}</span></p>
+          <p className="page-sub" style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+            <span>{scheme.scheme_extent}</span>
+            <span>·</span><span className="mono">{(+scheme.area_m2).toLocaleString()} m²</span>
+            <span>·</span><span>{scheme.treatment_type}</span>
+            <span>·</span>
+            <select
+              value={scheme.status}
+              onChange={e=>updateScheme(schemeId,{status:e.target.value})}
+              className={"pill "+scheme.status}
+              style={{border:"none",background:"inherit",color:"inherit",fontWeight:500,fontSize:11,cursor:"pointer",padding:"2px 6px",borderRadius:12,appearance:"none",WebkitAppearance:"none"}}>
+              {Object.entries(STATUS_LABELS).map(([k,l])=><option key={k} value={k}>{l}</option>)}
+            </select>
+          </p>
         </div>
         <div style={{display:"flex",gap:8}}>
           <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
@@ -390,28 +402,59 @@ const DocPreview = ({ docKey, scheme }) => {
 
 // ─── Pack Tab ─────────────────────────────────────────────────────────────────
 
-const PackTab = ({ scheme, onGenerate, onPreview }) => (
-  <div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:15,fontWeight:600}}>Handover pack · {scheme.project_number} · {scheme.road_name}</div><div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{scheme.packProgress} of {scheme.packTotal} items ready</div></div>
-      <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
+const PackTab = ({ scheme, onGenerate, onPreview }) => {
+  const { updateScheme } = React.useContext(window.SchemeContext);
+  const docsGen = scheme.docs_generated || {};
+  const packReady = window.PACK_DOCS.filter(d => docsGen[d.key]).length;
+  const packTotal = window.PACK_DOCS.length;
+
+  const toggleManual = (key) => {
+    updateScheme(scheme.id, { docs_generated: { ...docsGen, [key]: !docsGen[key] } });
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:600}}>Handover pack · {scheme.project_number} · {scheme.road_name}</div>
+          <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{packReady} of {packTotal} items ready</div>
+        </div>
+        <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
+      </div>
+      <div className="pack-grid">
+        {window.PACK_DOCS.map((d) => {
+          const done = !!docsGen[d.key];
+          const isWorking = !!d.working;
+          return (
+            <div key={d.key} className="doc-card">
+              <div className="doc-preview">
+                <div className="sheet"><DocPreview docKey={d.key} scheme={scheme} /></div>
+                {isWorking && <div style={{position:"absolute",top:10,right:10,background:"var(--accent)",color:"white",fontFamily:"var(--font-mono)",fontSize:9,padding:"3px 6px",borderRadius:2,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Live</div>}
+              </div>
+              <div className="doc-info">
+                <div className="doc-name">{d.name}</div>
+                <div className="doc-meta"><span>{d.type}</span><span>{d.auto?"Auto":"Manual"}</span></div>
+              </div>
+              <div className="doc-status">
+                <span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span>
+                {isWorking ? (
+                  <button className="btn sm ghost" style={{marginLeft:"auto"}} onClick={()=>onPreview(scheme,d.key)}>Preview <Icon.Arrow /></button>
+                ) : (
+                  <label style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,fontSize:11,cursor:"pointer",userSelect:"none",color:"var(--ink-3)"}}>
+                    <input type="checkbox" checked={done} onChange={()=>toggleManual(d.key)} style={{width:"auto"}} />
+                    Received
+                  </label>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
+        <strong>Connected templates:</strong> RSR, PCI / CPP, and Resident Letter are live — click Preview, then download to mark as ready. Manual docs (drawings, TM, utilities) can be marked received via the checkbox.
+      </div>
     </div>
-    <div className="pack-grid">
-      {window.PACK_DOCS.map((d,i)=>{
-        const done=i<5, isWorking=d.working;
-        return (
-          <div key={d.key} className="doc-card">
-            <div className="doc-preview"><div className="sheet"><DocPreview docKey={d.key} scheme={scheme} /></div>{isWorking&&<div style={{position:"absolute",top:10,right:10,background:"var(--accent)",color:"white",fontFamily:"var(--font-mono)",fontSize:9,padding:"3px 6px",borderRadius:2,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Live</div>}</div>
-            <div className="doc-info"><div className="doc-name">{d.name}</div><div className="doc-meta"><span>{d.type}</span><span>{d.auto?"Auto":"Manual upload"}</span></div></div>
-            <div className="doc-status"><span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span><button className="btn sm ghost" style={{marginLeft:"auto"}} onClick={()=>isWorking&&onPreview(scheme,d.key)}>Preview {isWorking&&<Icon.Arrow />}</button></div>
-          </div>
-        );
-      })}
-    </div>
-    <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
-      <strong>Connected templates:</strong> Road Space Request Form, PCI / CPP, and Resident Letter are live — click Preview on any card.
-    </div>
-  </div>
-);
+  );
+};
 
 window.SchemeDetail = SchemeDetail;

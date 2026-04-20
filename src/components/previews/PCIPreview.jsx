@@ -152,7 +152,7 @@ const PCIDoc = ({ scheme }) => {
 };
 
 const PCIModal = ({ schemeId, onClose }) => {
-  const { getScheme } = React.useContext(window.SchemeContext);
+  const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
 
   const handleDownload = React.useCallback(async () => {
@@ -167,6 +167,7 @@ const PCIModal = ({ schemeId, onClose }) => {
       a.download = `PCI_CPP_${scheme.project_number}.docx`;
       a.click();
       URL.revokeObjectURL(url);
+      updateScheme(schemeId, { docs_generated: { ...(scheme.docs_generated||{}), pci: true } });
     } catch (err) {
       alert('Download failed: ' + err.message);
     }
