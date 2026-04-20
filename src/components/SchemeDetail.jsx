@@ -95,12 +95,12 @@ const TreatmentTab = ({ schemeId }) => {
 
   const getRec = (depthMm) => {
     const d = +depthMm || 40;
-    if (score <= 3)  return { category:"Low",         material:"Micro-asphalt",           depthNote:"20–25mm overlay",                       notes:"Very light duty. Surface dressing appropriate for low-stress areas." };
-    if (score <= 7)  return { category:"Low",         material:"AC10 Taycoat 100/150",     depthNote:"40mm SC only",                          notes:"Low traffic route. Budget-appropriate surface course." };
-    if (score <= 11) return { category:"Medium",      material:"AC14 close binder 40/60", depthNote:"40mm inlay",                            notes:"Standard medium-duty carriageway treatment." };
-    if (score <= 16) return { category:"Medium-High", material:"HRA 30/14F surf 40/60",   depthNote:d>=100?"100mm deep inlay":"40mm inlay",  notes:"HRA surface recommended. Consider full inlay at junctions." };
-    if (score <= 20) return { category:"High",        material:"SMA 10 surf 40/60",        depthNote:d>=100?"100mm deep inlay":"60mm inlay",  notes:"Stone Mastic Asphalt for high-wear routes with significant bus traffic." };
-    return                  { category:"High",        material:"HRA 55/10F surf 40/60",    depthNote:"100mm deep inlay minimum",              notes:"Heavy-duty route. Full-depth reconstruction may be required at junctions." };
+    if (score <= 3)  return { category:"Low",         material:"Micro-asphalt",           depthNote:"15–20mm overlay",                      notes:"A cold-applied emulsion-based surface treatment that restores waterproofing and surface texture. Adds no structural capacity — appropriate only where the existing pavement is structurally sound and the primary defect is surface oxidation or minor fretting." };
+    if (score <= 7)  return { category:"Low",         material:"AC10 Taycoat 100/150",    depthNote:"40mm SC only",                         notes:"Thin asphalt concrete with 10mm aggregate and a soft 100/150 pen binder. The softer binder grade improves low-temperature flexibility and reduces thermal cracking risk. Limited deformation resistance — appropriate where PSV loading is low and the existing base is structurally sound." };
+    if (score <= 11) return { category:"Medium",      material:"AC14 close binder 40/60", depthNote:"40mm inlay",                           notes:"Close-graded asphalt concrete with 14mm aggregate and 40/60 pen binder. The denser aggregate packing and stiffer binder provide improved rutting resistance under moderate axle loads compared to softer mixes. Suitable where the existing base is intact and surface-only intervention is appropriate." };
+    if (score <= 16) return { category:"Medium-High", material:"HRA 30/14F surf 40/60",   depthNote:d>=100?"100mm deep inlay":"40mm inlay", notes:"Gap-graded Hot Rolled Asphalt with 30% coarse aggregate by mass in a high-bitumen mortar matrix. The mortar-rich structure provides excellent durability and waterproofing. Pre-coated chippings rolled into the surface deliver the required PSV and macrotexture. 40/60 pen binder gives adequate stiffness for the Scottish climate — industry standard for medium-high traffic carriageways." };
+    if (score <= 20) return { category:"High",        material:"HRA 55/10F surf 40/60",   depthNote:"100mm deep inlay minimum",             notes:"High-aggregate-content HRA (55% coarse aggregate) with a stronger stone skeleton that resists permanent deformation under repeated heavy axle loading. The increased aggregate content stiffens the mix, making it suited to heavily trafficked routes and junction approaches where braking and turning forces are highest. Full-depth inlay required to address structural fatigue in the lower layers." };
+    return                  { category:"High",        material:"HRA 55/10F surf 40/60",   depthNote:"100mm deep inlay minimum — consider full reconstruction", notes:"HRA 55/10F with full structural investigation recommended. The combination of heavy loading and significant surface deterioration (cracking, rutting) indicates the pavement structure is likely fatigued beyond surface-only treatment. Core samples and FWD deflection testing should be considered before finalising the design." };
   };
 
   const scoreColor = score <= 7 ? "var(--green)" : score <= 16 ? "var(--accent)" : "var(--red)";
@@ -227,7 +227,7 @@ const TreatmentTab = ({ schemeId }) => {
                     <span className="label">Recommended treatment</span>
                     <div style={{ fontSize:14, fontWeight:700, marginBottom:3 }}>{rec.material}</div>
                     <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--slate)", marginBottom:5 }}>{rec.depthNote}</div>
-                    <div style={{ fontSize:11, color:"var(--ink-2)" }}>{rec.notes}</div>
+                    <div style={{ fontSize:11, color:"var(--ink-2)", lineHeight:1.6, borderTop:"1px solid var(--accent)", paddingTop:8, marginTop:6 }}>{rec.notes}</div>
                   </div>
                   <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
                     <select value={zone.treatment_type} onChange={e => updZone(zone.id, {treatment_type:e.target.value})} style={{ flex:1, minWidth:180 }}>
