@@ -20,20 +20,21 @@ const MasterWorkbook = ({ schemeId }) => {
   const exportXlsx = () => {
     const XLSX = window.XLSX;
     const sheetName = "Project Info";
-    const rows  = [];
-    const meta  = []; // row type: 'title' | 'header' | 'section' | 'calc' | 'data'
-    const namedRanges = [];
+    const rows = [], meta = [], namedRanges = [];
 
-    rows.push([`${scheme.project_number} · ${scheme.road_name} — Master Workbook`, "", ""]); meta.push("title");
-    rows.push(["Named Range", "Label", "Value"]); meta.push("header");
+    rows.push([`${scheme.project_number} · ${scheme.road_name} — Master Workbook`, "", ""]);
+    meta.push({ type: "title" });
+    rows.push(["Named Range", "Label", "Value"]);
+    meta.push({ type: "header" });
 
     for (const section of window.WORKBOOK_SCHEMA) {
-      rows.push([section.section, "", ""]); meta.push("section");
+      rows.push([section.section, "", ""]);
+      meta.push({ type: "section" });
       for (const f of section.fields) {
         const value = f.type === "calc" ? f.formula(scheme) : (scheme[f.key] ?? "");
         const rowNum = rows.length + 1;
         rows.push([f.key, f.label, value == null ? "" : value]);
-        meta.push(f.type === "calc" ? "calc" : "data");
+        meta.push({ type: f.type === "calc" ? "calc" : "data", fieldType: f.type });
         namedRanges.push({ Name: f.key, Ref: `'${sheetName}'!$C$${rowNum}` });
       }
     }
@@ -41,50 +42,74 @@ const MasterWorkbook = ({ schemeId }) => {
     const ws = XLSX.utils.aoa_to_sheet(rows);
     const enc = (r, c) => XLSX.utils.encode_cell({ r, c });
 
-    const S = {
-      title:   [
-        { fill: { patternType:"solid", fgColor:{rgb:"1A1D23"} }, font:{bold:true,  sz:13, color:{rgb:"E4E6EA"}}, alignment:{vertical:"center"} },
-        { fill: { patternType:"solid", fgColor:{rgb:"1A1D23"} }, font:{sz:13, color:{rgb:"1A1D23"}} },
-        { fill: { patternType:"solid", fgColor:{rgb:"1A1D23"} }, font:{sz:13, color:{rgb:"1A1D23"}} },
-      ],
-      header:  [
-        { fill: { patternType:"solid", fgColor:{rgb:"F2F2F2"} }, font:{bold:true, sz:10, color:{rgb:"555555"}}, border:{bottom:{style:"medium",color:{rgb:"BBBBBB"}}}, alignment:{horizontal:"left"} },
-        { fill: { patternType:"solid", fgColor:{rgb:"F2F2F2"} }, font:{bold:true, sz:10, color:{rgb:"555555"}}, border:{bottom:{style:"medium",color:{rgb:"BBBBBB"}}}, alignment:{horizontal:"left"} },
-        { fill: { patternType:"solid", fgColor:{rgb:"F2F2F2"} }, font:{bold:true, sz:10, color:{rgb:"555555"}}, border:{bottom:{style:"medium",color:{rgb:"BBBBBB"}}}, alignment:{horizontal:"left"} },
-      ],
-      section: [
-        { fill: { patternType:"solid", fgColor:{rgb:"E4E8ED"} }, font:{bold:true, sz:11, color:{rgb:"1A1D23"}}, border:{top:{style:"thin",color:{rgb:"C0C5CC"}}} },
-        { fill: { patternType:"solid", fgColor:{rgb:"E4E8ED"} }, font:{sz:11, color:{rgb:"E4E8ED"}},            border:{top:{style:"thin",color:{rgb:"C0C5CC"}}} },
-        { fill: { patternType:"solid", fgColor:{rgb:"E4E8ED"} }, font:{sz:11, color:{rgb:"E4E8ED"}},            border:{top:{style:"thin",color:{rgb:"C0C5CC"}}} },
-      ],
-      calc:    [
-        { fill: { patternType:"solid", fgColor:{rgb:"F0FDF4"} }, font:{sz:11, color:{rgb:"9CA3AF"}, italic:true} },
-        { fill: { patternType:"solid", fgColor:{rgb:"F0FDF4"} }, font:{sz:11, color:{rgb:"444444"}} },
-        { fill: { patternType:"solid", fgColor:{rgb:"F0FDF4"} }, font:{bold:true, sz:11, color:{rgb:"15803D"}} },
-      ],
-      data:    [
-        { font:{sz:11, color:{rgb:"999999"}} },
-        { font:{sz:11, color:{rgb:"333333"}} },
-        { font:{sz:11, color:{rgb:"111111"}} },
-      ],
+    const cellBorder = {
+      top:    { style: "thin", color: { rgb: "E8EAED" } },
+      bottom: { style: "thin", color: { rgb: "E8EAED" } },
+      left:   { style: "thin", color: { rgb: "E8EAED" } },
+      right:  { style: "thin", color: { rgb: "E8EAED" } },
     };
 
-    const heights = { title:28, header:18, section:18, calc:15, data:15 };
     const wsRows = [];
 
     rows.forEach((_, r) => {
-      const type = meta[r];
-      wsRows.push({ hpt: heights[type] || 15 });
+      const { type, fieldType } = meta[r];
+      const isTextarea = fieldType === "textarea";
+
+      let hpt, cellStyles;
+
+      if (type === "title") {
+        hpt = 34;
+        cellStyles = [
+          { fill:{patternType:"solid",fgColor:{rgb:"1A1D23"}}, font:{bold:true,sz:14,color:{rgb:"E4E6EA"}}, alignment:{vertical:"center"} },
+          { fill:{patternType:"solid",fgColor:{rgb:"1A1D23"}}, font:{sz:14,color:{rgb:"1A1D23"}} },
+          { fill:{patternType:"solid",fgColor:{rgb:"1A1D23"}}, font:{sz:14,color:{rgb:"1A1D23"}} },
+        ];
+      } else if (type === "header") {
+        hpt = 22;
+        cellStyles = [
+          { fill:{patternType:"solid",fgColor:{rgb:"252930"}}, font:{bold:true,sz:9,color:{rgb:"6B7280"}}, alignment:{horizontal:"left",vertical:"center"} },
+          { fill:{patternType:"solid",fgColor:{rgb:"252930"}}, font:{bold:true,sz:9,color:{rgb:"6B7280"}}, alignment:{horizontal:"left",vertical:"center"} },
+          { fill:{patternType:"solid",fgColor:{rgb:"252930"}}, font:{bold:true,sz:9,color:{rgb:"6B7280"}}, alignment:{horizontal:"left",vertical:"center"} },
+        ];
+      } else if (type === "section") {
+        hpt = 20;
+        const secBorder = { ...cellBorder, left:{ style:"medium", color:{ rgb:"D97706" } } };
+        cellStyles = [
+          { fill:{patternType:"solid",fgColor:{rgb:"FAFAFA"}}, font:{bold:true,sz:11,color:{rgb:"1A1D23"}}, border: secBorder },
+          { fill:{patternType:"solid",fgColor:{rgb:"FAFAFA"}}, font:{sz:11,color:{rgb:"FAFAFA"}},           border: cellBorder },
+          { fill:{patternType:"solid",fgColor:{rgb:"FAFAFA"}}, font:{sz:11,color:{rgb:"FAFAFA"}},           border: cellBorder },
+        ];
+      } else if (type === "calc") {
+        hpt = 17;
+        cellStyles = [
+          { fill:{patternType:"solid",fgColor:{rgb:"F0FDF4"}}, font:{sz:11,color:{rgb:"9CA3AF"},italic:true}, border: cellBorder },
+          { fill:{patternType:"solid",fgColor:{rgb:"F0FDF4"}}, font:{sz:11,color:{rgb:"374151"}},             border: cellBorder },
+          { fill:{patternType:"solid",fgColor:{rgb:"F0FDF4"}}, font:{bold:true,sz:11,color:{rgb:"15803D"}},   border: cellBorder, alignment:{horizontal:"right"} },
+        ];
+      } else {
+        hpt = isTextarea ? 65 : 17;
+        const valAlign = isTextarea
+          ? { wrapText:true, vertical:"top" }
+          : { vertical:"center" };
+        cellStyles = [
+          { font:{sz:11,color:{rgb:"9CA3AF"}},             border: cellBorder, alignment:{vertical:"center"} },
+          { font:{sz:11,color:{rgb:"374151"}},             border: cellBorder, alignment:{vertical:"center"} },
+          { font:{sz:11,color:{rgb:"111111"}},             border: cellBorder, alignment: valAlign },
+        ];
+      }
+
+      wsRows.push({ hpt });
       for (let c = 0; c < 3; c++) {
         const addr = enc(r, c);
         if (!ws[addr]) ws[addr] = { v: "", t: "s" };
-        ws[addr].s = S[type]?.[c] || {};
+        ws[addr].s = cellStyles[c];
       }
     });
 
-    ws["!cols"]   = [{ wch: 28 }, { wch: 40 }, { wch: 55 }];
-    ws["!merges"] = [{ s:{r:0,c:0}, e:{r:0,c:2} }];
-    ws["!rows"]   = wsRows;
+    ws["!cols"]      = [{ wch: 26 }, { wch: 38 }, { wch: 62 }];
+    ws["!merges"]    = [{ s:{r:0,c:0}, e:{r:0,c:2} }];
+    ws["!rows"]      = wsRows;
+    ws["!tabColor"]  = { rgb: "D97706" };
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
