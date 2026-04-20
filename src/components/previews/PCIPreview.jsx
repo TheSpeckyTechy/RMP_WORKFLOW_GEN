@@ -28,7 +28,7 @@ const PCI_FIELDS = [
   { tag: 'CouncilPhone',    path: 'councilPhone' },
 ];
 
-const PCI_TEMPLATE = 'FM701-10A_DCC_Category_2_PCI-CPP_combined_.docx';
+const PCI_TEMPLATE = 'templates/FM701-10A_DCC_Category_2_PCI-CPP_combined_.docx';
 
 function resolveValue(scheme, path, fmt) {
   const val = path.split('.').reduce((obj, k) => (obj || {})[k], scheme);
