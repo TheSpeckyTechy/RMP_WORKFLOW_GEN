@@ -40,7 +40,7 @@ const LETTER_BINDINGS = [
 let _letterBuffer = null;
 const loadLetterBuffer = async () => {
   if (_letterBuffer) return _letterBuffer;
-  const res = await fetch("templates/Residential_Letter_Template%20(1).docx");
+  const res = await fetch("templates/Letter_Template.docx");
   if (!res.ok) throw new Error(`Template not found (${res.status})`);
   _letterBuffer = await res.arrayBuffer(); return _letterBuffer;
 };
