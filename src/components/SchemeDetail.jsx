@@ -99,8 +99,8 @@ const TreatmentTab = ({ schemeId }) => {
     if (score <= 7)  return { category:"Low",         material:"AC10 Taycoat 100/150",     depthNote:"40mm SC only",                          notes:"Low traffic route. Budget-appropriate surface course." };
     if (score <= 11) return { category:"Medium",      material:"AC14 close binder 40/60", depthNote:"40mm inlay",                            notes:"Standard medium-duty carriageway treatment." };
     if (score <= 16) return { category:"Medium-High", material:"HRA 30/14F surf 40/60",   depthNote:d>=100?"100mm deep inlay":"40mm inlay",  notes:"HRA surface recommended. Consider full inlay at junctions." };
-    if (score <= 20) return { category:"High",        material:"SMA 10 surf 40/60",        depthNote:d>=100?"100mm deep inlay":"60mm inlay",  notes:"Stone Mastic Asphalt for high-wear routes with significant bus traffic." };
-    return                  { category:"High",        material:"HRA 55/10F surf 40/60",    depthNote:"100mm deep inlay minimum",              notes:"Heavy-duty route. Full-depth reconstruction may be required at junctions." };
+    if (score <= 20) return { category:"High",        material:"HRA 55/10F surf 40/60",   depthNote:"100mm deep inlay minimum",              notes:"High-traffic route. Full construction depth recommended. Consider SMA 10 if PSV loading is the dominant factor." };
+    return                  { category:"High",        material:"HRA 55/10F surf 40/60",   depthNote:"100mm deep inlay minimum",              notes:"Heavily loaded route with significant surface deterioration. Full-depth rebuild required." };
   };
 
   const scoreColor = score <= 7 ? "var(--green)" : score <= 16 ? "var(--accent)" : "var(--red)";
