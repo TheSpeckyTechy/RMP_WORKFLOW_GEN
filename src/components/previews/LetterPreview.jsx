@@ -37,92 +37,61 @@ const LETTER_BINDINGS = [
   { tag: "<<Ward_Councillor_3>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[2]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
 ];
 
-const derive = (tag, scheme) => {
-  const b = LETTER_BINDINGS.find(x => x.tag === tag);
-  return b ? b.derive(scheme) : "";
+let _letterBuffer = null;
+const loadLetterBuffer = async () => {
+  if (_letterBuffer) return _letterBuffer;
+  const res = await fetch("templates/Residential_Letter_Template%20(1).docx");
+  if (!res.ok) throw new Error(`Template not found (${res.status})`);
+  _letterBuffer = await res.arrayBuffer(); return _letterBuffer;
+};
+
+const applyLetter = (root, scheme, recipient) => {
+  const recipientBindings = { AddressLine4: recipient?.address1||"", POSTCODE: recipient?.postcode||"", TOWN_NAME: recipient?.town||"DUNDEE" };
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const nodes = []; let n;
+  while ((n=walker.nextNode())) { if (/<<[A-Za-z0-9_]+>>|«[A-Za-z0-9_]+»/.test(n.nodeValue)) nodes.push(n); }
+  const byTag = {}; LETTER_BINDINGS.forEach(b => { byTag[b.tag] = b; });
+  nodes.forEach(node => {
+    const parts = node.nodeValue.split(/(<<[A-Za-z0-9_]+>>|«[A-Za-z0-9_]+»)/);
+    const frag = document.createDocumentFragment();
+    parts.forEach(p => {
+      if (!p) return;
+      const mA=/^<<([A-Za-z0-9_]+)>>$/.exec(p), mG=/^«([A-Za-z0-9_]+)»$/.exec(p), m=mA||mG;
+      if (m) {
+        const name=m[1]; let val,filled;
+        if (mG&&recipientBindings.hasOwnProperty(name)) { val=recipientBindings[name]; filled=val!==" "&&val!==undefined; }
+        else { const b=byTag[mA?p:`<<${name}>>`]; val=b?b.derive(scheme):""; filled=val!==undefined&&val!=""; }
+        const span=document.createElement("span"); span.className="pci-bound"+(filled?"":" pci-missing"); span.dataset.key=name;
+        String(filled?val:p).split("\n").forEach((line,i)=>{ if(i>0){span.appendChild(document.createElement("br"));span.appendChild(document.createElement("br"));} span.appendChild(document.createTextNode(line)); });
+        frag.appendChild(span);
+      } else frag.appendChild(document.createTextNode(p));
+    });
+    node.parentNode.replaceChild(frag, node);
+  });
 };
 
 const LetterDoc = ({ scheme, recipient }) => {
-  const date     = derive("<<Letter_Date>>", scheme);
-  const ourRef   = derive("<<Our_Ref>>", scheme);
-  const subject  = derive("<<Letter_Subject>>", scheme);
-  const body     = derive("<<Letter_Body_Text>>", scheme);
-  const cc1      = derive("<<Ward_Councillor_1>>", scheme);
-  const cc2      = derive("<<Ward_Councillor_2>>", scheme);
-  const cc3      = derive("<<Ward_Councillor_3>>", scheme);
-  const copies   = [cc1, cc2, cc3].filter(Boolean);
-
-  const addrLine  = recipient?.address1 || "";
-  const postcode  = recipient?.postcode  || "";
-  const town      = recipient?.town      || "DUNDEE";
-
-  const cell = (label, value, mono) => (
-    <tr>
-      <td style={{width:140,padding:"4px 8px",fontWeight:600,fontSize:11,color:"#555",verticalAlign:"top",whiteSpace:"nowrap"}}>{label}</td>
-      <td style={{padding:"4px 8px",fontSize:11,fontFamily:mono?"var(--font-mono)":"inherit"}}>{value||<span style={{color:"#bbb"}}>—</span>}</td>
-    </tr>
-  );
-
+  const ref = React.useRef(null);
+  const [status, setStatus] = React.useState("loading");
+  React.useEffect(() => {
+    let cancelled=false;
+    (async()=>{
+      try {
+        const buf=await loadLetterBuffer();
+        if(cancelled||!ref.current)return;
+        ref.current.innerHTML="";
+        await window.docx.renderAsync(buf,ref.current,null,{className:"docx",inWrapper:true,ignoreWidth:false,ignoreHeight:false,ignoreFonts:false,breakPages:true,experimental:false,trimXmlDeclaration:true,useBase64URL:true});
+        if(cancelled)return;
+        applyLetter(ref.current,scheme,recipient); setStatus("ready");
+      } catch(e){ console.error(e); setStatus("error:"+e.message); }
+    })();
+    return ()=>{cancelled=true;};
+  }, [recipient?.address1, recipient?.name]);
   return (
-    <div style={{maxWidth:680,margin:"0 auto",background:"white",boxShadow:"0 2px 12px rgba(0,0,0,0.1)",fontFamily:"Georgia, 'Times New Roman', serif"}}>
-      {/* Letterhead */}
-      <div style={{background:"#1f4e79",color:"white",padding:"18px 32px",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
-        <div>
-          <div style={{fontWeight:700,fontSize:14,letterSpacing:"0.04em",fontFamily:"var(--font-sans)"}}>DUNDEE CITY COUNCIL</div>
-          <div style={{fontSize:11,opacity:0.8,marginTop:2,fontFamily:"var(--font-sans)"}}>Road Maintenance Partnership</div>
-        </div>
-        <div style={{fontSize:10,opacity:0.75,textAlign:"right",fontFamily:"var(--font-mono)"}}>
-          Our ref: {ourRef||"—"}
-        </div>
-      </div>
-
-      <div style={{padding:"28px 32px"}}>
-        {/* Date */}
-        <div style={{marginBottom:20,fontSize:12}}>{date}</div>
-
-        {/* Recipient address */}
-        <div style={{marginBottom:20,fontSize:12,lineHeight:1.7}}>
-          {addrLine&&<div style={{fontWeight:600}}>{addrLine}</div>}
-          {town&&<div>{town}</div>}
-          {postcode&&<div style={{fontFamily:"var(--font-mono)",fontSize:11}}>{postcode}</div>}
-          {!addrLine&&!postcode&&<div style={{color:"#aaa",fontStyle:"italic"}}>No recipient selected</div>}
-        </div>
-
-        {/* Salutation */}
-        <div style={{marginBottom:14,fontSize:12}}>Dear Resident,</div>
-
-        {/* Subject */}
-        <div style={{fontWeight:700,fontSize:12,marginBottom:14,textDecoration:"underline",textUnderlineOffset:3}}>
-          {subject||<span style={{color:"#aaa",fontStyle:"italic"}}>Subject not set</span>}
-        </div>
-
-        {/* Body */}
-        <div style={{fontSize:12,lineHeight:1.8,marginBottom:28}}>
-          {body ? body.split("\n\n").map((para,i)=>(
-            <p key={i} style={{marginBottom:12}}>{para}</p>
-          )) : <span style={{color:"#aaa",fontStyle:"italic"}}>Body text will appear here</span>}
-        </div>
-
-        {/* Sign-off */}
-        <div style={{fontSize:12,marginBottom:6}}>Yours faithfully,</div>
-        <div style={{height:40,borderBottom:"1px solid #ccc",width:180,marginBottom:6}}></div>
-        <div style={{fontSize:11,color:"#555"}}>Road Maintenance Partnership</div>
-        <div style={{fontSize:11,color:"#555"}}>Dundee City Council</div>
-
-        {/* CC list */}
-        {copies.length>0&&(
-          <div style={{marginTop:28,paddingTop:14,borderTop:"1px solid #eee"}}>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.08em",color:"#888",marginBottom:6,fontFamily:"var(--font-sans)"}}>
-              COPIES TO:
-            </div>
-            {copies.map((c,i)=>(
-              <div key={i} style={{fontSize:11,color:"#555",marginBottom:2}}>
-                {i===0?"Convener of City Development":i===1?"Depute Convener":""}{i<2?" – ":""}{c}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="pci-doc-host">
+      {status==="loading"&&<div className="pci-loading">Rendering letter…</div>}
+      {status.startsWith("error")&&<div className="pci-loading err">Could not render: {status.slice(6)}</div>}
+      <div ref={ref} className="pci-docx-mount" />
     </div>
   );
 };
