@@ -29,7 +29,7 @@ const exportRegister = (list) => {
   XLSX.writeFile(wb, `RMP_Register_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
 
-const Dashboard = ({ onOpen, filter, setFilter, search }) => {
+const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
   const { schemes } = React.useContext(window.SchemeContext);
   const statusFiltered = filter === "all" ? schemes : schemes.filter(s => s.status === filter);
   const list = search
@@ -61,7 +61,7 @@ const Dashboard = ({ onOpen, filter, setFilter, search }) => {
         </div>
         <div style={{ display:"flex", gap:8 }}>
           <button className="btn" onClick={()=>exportRegister(list)}><Icon.Download /> Export register</button>
-          <button className="btn accent"><Icon.Plus /> New scheme <span className="kbd">N</span></button>
+          <button className="btn accent" onClick={onNew}><Icon.Plus /> New scheme <span className="kbd">N</span></button>
         </div>
       </div>
       <div className="stats">

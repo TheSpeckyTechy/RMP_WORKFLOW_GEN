@@ -22,8 +22,12 @@ const SchemeProvider = ({ children }) => {
     setSchemes(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
   };
 
+  const addScheme = (scheme) => {
+    setSchemes(prev => [scheme, ...prev]);
+  };
+
   return (
-    <window.SchemeContext.Provider value={{ schemes, getScheme, updateScheme }}>
+    <window.SchemeContext.Provider value={{ schemes, getScheme, updateScheme, addScheme }}>
       {children}
     </window.SchemeContext.Provider>
   );

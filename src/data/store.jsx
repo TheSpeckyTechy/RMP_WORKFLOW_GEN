@@ -154,6 +154,8 @@ const baseScheme = (overrides) => ({
   ...overrides,
 });
 
+window.baseScheme = baseScheme;
+
 window.SCHEMES = [
   baseScheme({
     id: "R5008",
