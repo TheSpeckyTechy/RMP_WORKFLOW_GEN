@@ -1,3 +1,17 @@
+// ─── Dashboard.jsx ─────────────────────────────────────────────────────────
+// Main overview page: stats strip, status filter chips, schemes data table.
+// Reads all schemes from SchemeContext — no direct data imports.
+//
+// Props:
+//   onOpen     (fn)     — called with schemeId when a table row is clicked
+//   filter     (string) — active status filter key
+//   setFilter  (fn)     — updates the active filter
+//
+// Exports (via window): Dashboard
+// Depends on: React, window.SchemeContext, window.Icon,
+//             window.fmtGBP, window.STATUS_LABELS, window.WARDS
+// ─────────────────────────────────────────────────────────────────────────────
+
 const Dashboard = ({ onOpen, filter, setFilter }) => {
   const { schemes } = React.useContext(window.SchemeContext);
   const list = filter === "all" ? schemes : schemes.filter(s => s.status === filter);
@@ -60,4 +74,5 @@ const Dashboard = ({ onOpen, filter, setFilter }) => {
     </>
   );
 };
+
 window.Dashboard = Dashboard;

@@ -1,3 +1,17 @@
+// ─── MasterWorkbook.jsx ──────────────────────────────────────────────────────
+// Editable spreadsheet-style view of a scheme's Master Workbook.
+// Renders all 9 sections of WORKBOOK_SCHEMA (49 named ranges) as a live form.
+// Every edit calls updateScheme() so changes propagate to all downstream docs
+// (RSR, PCI/CPP, Resident Letter) without any copy-paste.
+//
+// Props:
+//   schemeId (string) — the scheme to display and edit
+//
+// Exports (via window): MasterWorkbook
+// Depends on: React, window.SchemeContext, window.WORKBOOK_SCHEMA,
+//             window.WARDS, window.Icon
+// ─────────────────────────────────────────────────────────────────────────────
+
 const MasterWorkbook = ({ schemeId }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
@@ -87,4 +101,5 @@ const MasterWorkbook = ({ schemeId }) => {
     </div>
   );
 };
+
 window.MasterWorkbook = MasterWorkbook;
