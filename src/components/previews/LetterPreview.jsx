@@ -5,7 +5,7 @@
 // Each scheme has its own recipients list; selecting one re-renders the letter
 // for that address. The download button triggers a mail-merge for all.
 //
-// Template file: Residential_Letter_Template (1) (2).docx (repo root)
+// Template file: templates/Residential_Letter_Template (1) (2).docx
 //   ↑ replace this file with the correct letter .docx if it currently holds
 //     the RSR form — see README for template file map.
 //
@@ -37,7 +37,7 @@ let _letterBuffer = null;
 const loadLetterBuffer = async () => {
   if (_letterBuffer) return _letterBuffer;
   // Template lives at repo root — URL-encode the spaces in the filename
-  const res = await fetch("Residential_Letter_Template%20(1)%20(2).docx");
+  const res = await fetch("templates/Residential_Letter_Template%20(1)%20(2).docx");
   _letterBuffer = await res.arrayBuffer(); return _letterBuffer;
 };
 
