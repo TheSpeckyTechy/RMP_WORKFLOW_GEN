@@ -335,6 +335,14 @@ window.PACK_DOCS = [
   { key: "utilities", name: "Utility Searches Pack", type: "PDF", auto: false },
 ];
 
+window.PORTAL_LINKS = [
+  { name: "LSBUD",              desc: "Multi-utility search before you dig", url: "https://lsbud.co.uk/#/",                                             domain: "lsbud.co.uk" },
+  { name: "Digdat",             desc: "Utility asset data portal",           url: "https://utilities.digdat.co.uk/Account/Login.aspx",                  domain: "utilities.digdat.co.uk" },
+  { name: "CityFibre",          desc: "Fibre plant map viewer",              url: "https://plant.cityfibre.com/emaps/#/map/56.467233,-3.028910,16z",    domain: "plant.cityfibre.com" },
+  { name: "Openreach",          desc: "Maps on Demand",                      url: "https://www.openreach.co.uk/mapsondemand/index.html",                domain: "openreach.co.uk" },
+  { name: "Grid Ref Finder",    desc: "OS Grid Reference lookup",            url: "https://gridreferencefinder.com/",                                   domain: "gridreferencefinder.com" },
+];
+
 window.UTILITIES = [
   { name: "LSBUD (multi-utility)", portal: "linesearchbeforeudig.co.uk" },
   { name: "SGN (Gas)", portal: "sgn.co.uk/safety" },

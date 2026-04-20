@@ -308,6 +308,20 @@ const UtilitiesTab = ({ scheme }) => {
   const [rows,setRows]=React.useState(()=>window.UTILITIES.map((u,i)=>({...u,requested:i<7?"2026-02-24":"",received:i<5?"2026-03-02":"",filed:i<5?"2026-03-03":""})));
   const toggle=(i,field)=>setRows(r=>r.map((x,j)=>j===i?{...x,[field]:x[field]?"":"2026-04-20"}:x));
   return (
+    <div>
+    <div className="portal-links">
+      {window.PORTAL_LINKS.map(p => (
+        <a key={p.name} href={p.url} target="_blank" rel="noopener noreferrer" className="portal-card">
+          <img className="portal-logo" src={`https://www.google.com/s2/favicons?domain=${p.domain}&sz=48`} alt={p.name} />
+          <div className="portal-info">
+            <div className="portal-name">{p.name}</div>
+            <div className="portal-desc">{p.desc}</div>
+          </div>
+          <div className="portal-arrow">↗</div>
+        </a>
+      ))}
+    </div>
+    <div style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--ink-3)",padding:"14px 0 8px"}}>Utility Search Tracker</div>
     <div className="form-section" style={{padding:0}}>
       <div className="util-row" style={{background:"var(--bg-sunken)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}><div>Utility</div><div>Requested</div><div>Received</div><div>Filed</div><div>Status</div></div>
       {rows.map((r,i)=>{ const done=r.requested&&r.received&&r.filed; return (
@@ -319,6 +333,7 @@ const UtilitiesTab = ({ scheme }) => {
           <div><span className={"pill "+(done?"ready":r.requested?"review":"archived")}>{done?"done":r.requested?"waiting":"todo"}</span></div>
         </div>
       );})}
+    </div>
     </div>
   );
 };
