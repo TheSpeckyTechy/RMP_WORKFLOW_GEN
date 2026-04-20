@@ -335,7 +335,17 @@ const UtilitiesTab = ({ scheme }) => {
     </div>
     <div style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--ink-3)",padding:"14px 0 8px"}}>Utility Search Tracker</div>
     <div className="form-section" style={{padding:0}}>
-      <div className="util-row util-row--tracker" style={{background:"var(--bg-sunken)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}><div>Utility</div><div>Applied</div><div>Expiry</div><div>Status</div></div>
+      <div className="util-row util-row--tracker" style={{background:"var(--bg-sunken)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <input type="checkbox"
+            checked={rows.every(r=>!!r.applied)}
+            ref={el=>{ if(el) el.indeterminate = rows.some(r=>!!r.applied) && !rows.every(r=>!!r.applied); }}
+            onChange={e => e.target.checked ? setRows(r=>r.map(x=>({...x,applied:x.applied||today}))) : setRows(r=>r.map(x=>({...x,applied:""})))}
+            style={{width:15,height:15,accentColor:"var(--accent)",cursor:"pointer",flexShrink:0}} />
+          <span>Utility</span>
+        </div>
+        <div>Applied</div><div>Expiry</div><div>Status</div>
+      </div>
       {rows.map((r,i) => {
         const st = getStatus(r.applied);
         return (
