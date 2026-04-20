@@ -63,7 +63,7 @@ const baseScheme = (overrides) => ({
   total_depth_mm: 0,
   traffic_category: "Medium",
   binder_grade: "40/60",
-  matrix: { traffic:"Moderate", bus_stops:"None", junctions:"None", turning:"None", parking:"No" },
+  matrix: { traffic:"Moderate", bus_stops:"None", junctions:"None", turning:"None", parking:"No", condition:"Good", cracking:"None", rutting:"None" },
   treatments: [],
   // 3. Key Dates
   date_prepared: "",
@@ -149,7 +149,7 @@ window.SCHEMES = [
     treatment_type: "HRA 30/14F surf 40/60",
     surface_depth_mm: 40, binder_depth_mm: 50, subbase_depth_mm: 10, total_depth_mm: 100,
     traffic_category: "Medium-High",
-    matrix: { traffic:"Heavy", bus_stops:"1–2", junctions:"Minor", turning:"Occasional", parking:"No" },
+    matrix: { traffic:"Heavy", bus_stops:"1–2", junctions:"Minor", turning:"Occasional", parking:"No", condition:"Poor", cracking:"Block", rutting:"5–15mm" },
     treatments: [
       { id:1, zone:"40mm inlay — main carriageway", area_m2:805,  depth_mm:40,  treatment_type:"HRA 30/14F surf 40/60" },
       { id:2, zone:"100mm deep inlay — junction areas", area_m2:1565, depth_mm:100, treatment_type:"HRA 30/14F surf 40/60" },
