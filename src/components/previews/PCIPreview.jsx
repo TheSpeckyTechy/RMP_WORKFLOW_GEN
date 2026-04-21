@@ -135,6 +135,7 @@ const PCIDoc = ({ scheme }) => {
           await window.docx.renderAsync(buffer, containerRef.current, null, {
             className: 'docx-preview',
             inWrapper: false,
+            useBase64URL: true,
           });
         } else {
           containerRef.current.innerHTML = '<p class="pci-err">docx-preview library not loaded.</p>';
@@ -175,7 +176,7 @@ async function downloadPCIPdf(scheme) {
     let buffer = await loadDocxBuffer(PCI_TEMPLATE);
     buffer = await injectValues(buffer, scheme);
     if (window.docx && window.docx.renderAsync) {
-      await window.docx.renderAsync(buffer, container, null, { className: 'docx-preview', inWrapper: false });
+      await window.docx.renderAsync(buffer, container, null, { className: 'docx-preview', inWrapper: false, useBase64URL: true });
     }
     await window.htmlToPdf(container, `PCI_CPP_${scheme.project_number}.pdf`);
   } finally {
