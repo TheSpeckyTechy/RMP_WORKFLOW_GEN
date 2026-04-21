@@ -33,15 +33,16 @@ const initSchemes = () => {
 };
 
 // ── Supabase helpers ─────────────────────────────────────────────────────────
-const sbUpsertFn = async (id, data, onStatus) => {
+const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
   onStatus('syncing');
   const { error } = await sb.from('schemes').upsert({ id, data, updated_at: new Date().toISOString() });
-  onStatus(error ? 'error' : 'synced');
+  if (error) { onStatus('error'); } else { onStatus('synced'); onSuccess?.(); }
 };
 
 const SchemeProvider = ({ children }) => {
   const [schemes, setSchemes]     = React.useState(initSchemes);
   const [syncStatus, setSyncStatus] = React.useState('loading');
+  const [lastSynced, setLastSynced] = React.useState(null);
   const latestSchemes = React.useRef(schemes);
 
   React.useEffect(() => { latestSchemes.current = schemes; }, [schemes]);
@@ -60,6 +61,7 @@ const SchemeProvider = ({ children }) => {
         });
       }
       setSyncStatus('synced');
+      setLastSynced(new Date());
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -71,7 +73,7 @@ const SchemeProvider = ({ children }) => {
     const merged = { ...current, ...updates };
     lsSet(id, merged);
     setSchemes(prev => prev.map(s => s.id === id ? merged : s));
-    sbUpsertFn(id, merged, setSyncStatus);
+    sbUpsertFn(id, merged, setSyncStatus, () => setLastSynced(new Date()));
   };
 
   const addScheme = (scheme) => {
@@ -82,7 +84,7 @@ const SchemeProvider = ({ children }) => {
       if (!current.includes(scheme.id)) lsSetIds([scheme.id, ...current]);
     }
     setSchemes(prev => [scheme, ...prev]);
-    sbUpsertFn(scheme.id, scheme, setSyncStatus);
+    sbUpsertFn(scheme.id, scheme, setSyncStatus, () => setLastSynced(new Date()));
   };
 
   const deleteScheme = (id) => {
@@ -103,7 +105,7 @@ const SchemeProvider = ({ children }) => {
   };
 
   return (
-    <window.SchemeContext.Provider value={{ schemes, getScheme, updateScheme, addScheme, deleteScheme, resetAllSchemes, syncStatus }}>
+    <window.SchemeContext.Provider value={{ schemes, getScheme, updateScheme, addScheme, deleteScheme, resetAllSchemes, syncStatus, lastSynced }}>
       {children}
     </window.SchemeContext.Provider>
   );

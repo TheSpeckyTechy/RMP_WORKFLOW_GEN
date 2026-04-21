@@ -29,23 +29,32 @@
 const GenerateModal = ({ scheme, onClose }) => {
   const [step, setStep] = React.useState(0);
   const [done, setDone] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
+  const [exported, setExported] = React.useState(false);
   const steps = [
     { l: "Reading Master Workbook", meta: "45 named ranges" },
     { l: "Validating inputs", meta: "0 errors" },
     { l: "Looking up ward councillors", meta: `W${scheme.ward_num}` },
-    { l: "Populating Front Sheet", meta: "DOCX" },
     { l: "Populating PCI / CPP", meta: "DOCX" },
     { l: "Populating Road Space Request Form", meta: "DOCX" },
-    { l: "Populating Resident Letter", meta: "DOCX" },
-    { l: "Building BoQ summary", meta: "XLSX" },
-    { l: "Collating utility searches", meta: "PDF" },
-    { l: "Saving to OneDrive · Projects (AI)", meta: "Complete" },
+    { l: "Building Master Workbook export", meta: "XLSX" },
   ];
   React.useEffect(() => {
     if (step >= steps.length) { setDone(true); return; }
-    const t = setTimeout(() => setStep(s => s + 1), step === 0 ? 400 : 280);
+    const t = setTimeout(() => setStep(s => s + 1), step === 0 ? 400 : 320);
     return () => clearTimeout(t);
   }, [step]);
+  React.useEffect(() => {
+    if (!done) return;
+    setExporting(true);
+    (async () => {
+      try { if (window.__downloadRSR) await window.__downloadRSR(scheme); } catch {}
+      try { if (window.__downloadPCI) await window.__downloadPCI(scheme); } catch {}
+      try { if (window.__workbookExport) window.__workbookExport(); } catch {}
+      setExporting(false);
+      setExported(true);
+    })();
+  }, [done]);
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -66,10 +75,16 @@ const GenerateModal = ({ scheme, onClose }) => {
               </div>
             ))}
           </div>
-          {done && (
+          {done && !exported && (
+            <div style={{ padding: "16px 18px", background: "var(--accent-wash)", borderRadius: "var(--radius-sm)", marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--amber)", display: "inline-block", animation: "pulse 1s ease-in-out infinite", flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: "var(--ink-2)" }}>Downloading documents…</span>
+            </div>
+          )}
+          {exported && (
             <div style={{ padding: "16px 18px", background: "var(--green-wash)", border: "1px solid var(--green)", borderRadius: "var(--radius-sm)", marginTop: 8 }}>
-              <div style={{ fontWeight: 600, color: "var(--green)", marginBottom: 4, fontSize: 14 }}>✓ Ready to download</div>
-              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>Open the <strong>Pack</strong> tab on this scheme to download each document individually.</div>
+              <div style={{ fontWeight: 600, color: "var(--green)", marginBottom: 4, fontSize: 14 }}>✓ 3 documents downloaded</div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>RSR, PCI/CPP, and Master Workbook saved to your downloads folder. Open the <strong>Pack</strong> tab to generate resident letters.</div>
             </div>
           )}
         </div>
@@ -125,8 +140,24 @@ const Tweaks = ({ tweaks, setTweaks }) => (
   </div>
 );
 
+const relativeTime = (date) => {
+  if (!date) return null;
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 10)  return 'just now';
+  if (secs < 60)  return `${secs}s ago`;
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+};
+
 const SettingsView = ({ tweaks, setTweaks }) => {
-  const { resetAllSchemes, syncStatus } = React.useContext(window.SchemeContext);
+  const { resetAllSchemes, syncStatus, lastSynced } = React.useContext(window.SchemeContext);
+  const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+  React.useEffect(() => {
+    if (!lastSynced || syncStatus !== 'synced') return;
+    const t = setInterval(forceUpdate, 30000);
+    return () => clearInterval(t);
+  }, [lastSynced, syncStatus]);
   const accents = [
     { v: "Orange", c: "oklch(0.62 0.16 45)" },
     { v: "Blue",   c: "oklch(0.52 0.14 240)" },
@@ -193,7 +224,7 @@ const SettingsView = ({ tweaks, setTweaks }) => {
               <div>
                 <div style={{fontSize:13,fontWeight:500}}>Supabase · Workload</div>
                 <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>
-                  {syncStatus==='synced' && 'All changes synced · West EU (Ireland)'}
+                  {syncStatus==='synced' && `All changes synced · West EU (Ireland)${lastSynced ? ' · ' + relativeTime(lastSynced) : ''}`}
                   {syncStatus==='syncing' && 'Syncing…'}
                   {syncStatus==='loading' && 'Connecting…'}
                   {syncStatus==='error' && <span style={{color:"var(--red)"}}>Sync error — check console</span>}

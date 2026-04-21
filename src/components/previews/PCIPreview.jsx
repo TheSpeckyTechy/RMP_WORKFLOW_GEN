@@ -218,5 +218,20 @@ const PCIModal = ({ schemeId, onClose }) => {
   );
 };
 
+window.__downloadPCI = async (scheme) => {
+  try {
+    let buffer = await loadDocxBuffer(PCI_TEMPLATE);
+    buffer = await injectValues(buffer, scheme);
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `PCI_CPP_${scheme.project_number}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number } }));
+  } catch (e) { console.warn('PCI download failed', e); }
+};
+
 window.PCIDoc   = PCIDoc;
 window.PCIModal = PCIModal;
