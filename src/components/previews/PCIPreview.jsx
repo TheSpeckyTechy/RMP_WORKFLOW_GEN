@@ -36,6 +36,8 @@ const PCI_FIELDS = [
 
 const PCI_TEMPLATE = 'templates/Road_Space_Request_Form_TEMPLATE.docx';
 
+const xmlEscape = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
 function resolveValue(scheme, path) {
   const val = path.split('.').reduce((obj, k) => (obj || {})[k], scheme);
   if (val === undefined || val === null || val === '') return '';
@@ -91,7 +93,7 @@ async function injectValues(buffer, scheme) {
     if (!file) continue;
     let xml = await file.async('string');
     for (const [tag, value] of Object.entries(fields)) {
-      xml = xml.split(`{{${tag}}}`).join(value);
+      xml = xml.split(`{{${tag}}}`).join(xmlEscape(value));
     }
     zip.file(xmlPath, xml);
   }

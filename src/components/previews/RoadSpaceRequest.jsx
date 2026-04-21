@@ -120,7 +120,8 @@ async function downloadRSR(scheme) {
     const f = zip.file(p); if (!f) continue;
     let xml = await f.async('string');
     for (const [k,v] of Object.entries(fields)) {
-      xml = xml.split(`{{${k}}}`).join(v);
+      const safe = String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      xml = xml.split(`{{${k}}}`).join(safe);
     }
     zip.file(p, xml);
   }

@@ -40,7 +40,7 @@ const LETTER_BINDINGS = [
 let _letterBuffer = null;
 const loadLetterBuffer = async () => {
   if (_letterBuffer) return _letterBuffer;
-  const res = await fetch("templates/Residential_Letter_Template%20(1)%20(2).docx");
+  const res = await fetch("templates/Residential_Letter_Template%20(1).docx");
   if (!res.ok) throw new Error('Letter template not found');
   _letterBuffer = await res.arrayBuffer(); return _letterBuffer;
 };
@@ -55,11 +55,6 @@ async function injectLetterXml(buffer, scheme, recipient) {
   await zip.loadAsync(buffer);
 
   const ext = scheme.scheme_extent ? ` (${scheme.scheme_extent})` : '';
-  const addrBlock = [
-    recipient?.address1 || '',
-    recipient?.town || 'DUNDEE',
-    recipient?.postcode || '',
-  ].filter(Boolean).join('\n');
 
   const bodyText = (() => {
     const start = scheme.date_start || '[start date]';
@@ -71,44 +66,35 @@ async function injectLetterXml(buffer, scheme, recipient) {
     return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${extPhrase}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place during working hours (${tmH}). Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
   })();
 
-  const tags = {
-    PROJECT_TITLE:           `RESURFACING WORKS — ${(scheme.road_name||'').toUpperCase()}${ext.toUpperCase()}`,
-    PROJECT_NUMBER:          scheme.project_number || '',
-    PROJECT_ADDRESS:         `${scheme.road_name || ''}${ext}`,
-    CLIENT_NAME_ADDRESS:     addrBlock,
-    DESCRIPTION_OF_WORK:     bodyText,
-    START_DATE:              scheme.date_start || '',
-    FINISH_DATE:             scheme.date_finish || '',
-    DESIGNER_NAME:           scheme.prepared_by || '',
-    DESIGNER_HEAD_OF:        scheme.designer_head_of || '',
-    DESIGNER_TELEPHONE:      scheme.designer_phone || '',
-    DESIGNER_EMAIL:          scheme.designer_email || '',
-    CLIENT_OFFICER:          scheme.client_officer || '',
-    CLIENT_TELEPHONE:        scheme.client_phone || '',
-    CLIENT_EMAIL:            scheme.client_email || '',
-    DEPARTMENT:              scheme.department || '',
-    CONTRACTOR_NAME:         scheme.contractor || '',
-    CONTRACTOR_ADDRESS:      scheme.contractor_address || '',
-    CONTRACTOR_CONTACT:      scheme.contractor_pe || '',
-    CONTRACTOR_TELEPHONE:    scheme.contractor_ooh || '',
-    CONTRACTOR_EMAIL:        scheme.contractor_email || '',
-    OUT_OF_HOURS_CONTACT:    scheme.contractor_ooh || '',
-    CONTRACTOR_OUT_OF_HOURS: scheme.contractor_ooh || '',
-    SECURITY_ARRANGEMENTS:   scheme.pci_site_security || '',
-    OCCUPIER_TENANT_DETAILS: scheme.pci_occupiers || '',
-    CDM_PRINCIPAL_DESIGNER:  scheme.cdm_principal_designer || '',
-    CDM_HEAD_OF:             scheme.cdm_head_of || '',
-    CLIENT_REF_WORK_ORDER:   scheme.client_ref_work_order || '',
+  const getCouncillor = (idx) => {
+    const w = window.WARDS.find(x => x.num === scheme.ward_num);
+    if (!w) return '';
+    const c = w.councillors[idx];
+    return c ? `${c.title} ${c.name} (Ward ${w.num} ${w.name})` : '';
   };
+
+  // <<TAG>> placeholders are XML-encoded as &lt;&lt;TAG&gt;&gt; in document.xml
+  // «TAG» MERGEFIELD visible text uses guillemet characters (U+00AB / U+00BB)
+  const replacements = [
+    ['&lt;&lt;Our_Ref&gt;&gt;',          xmlEscape(scheme.project_number || '')],
+    ['&lt;&lt;Letter_Date&gt;&gt;',       xmlEscape(new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'}))],
+    ['&lt;&lt;Letter_Subject&gt;&gt;',    xmlEscape(`RESURFACING WORKS — ${(scheme.road_name||'').toUpperCase()}${ext.toUpperCase()}`)],
+    ['&lt;&lt;Letter_Body_Text&gt;&gt;',  bodyToXml(bodyText)],
+    ['&lt;&lt;Ward_Councillor_1&gt;&gt;', xmlEscape(getCouncillor(0))],
+    ['&lt;&lt;Ward_Councillor_2&gt;&gt;', xmlEscape(getCouncillor(1))],
+    ['&lt;&lt;Ward_Councillor_3&gt;&gt;', xmlEscape(getCouncillor(2))],
+    ['«AddressLine4»',          xmlEscape(recipient?.address1 || '')],
+    ['«POSTCODE»',              xmlEscape(recipient?.postcode || '')],
+    ['«TOWN_NAME»',             xmlEscape(recipient?.town || 'DUNDEE')],
+  ];
 
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
   for (const xmlPath of xmlPaths) {
     const file = zip.file(xmlPath);
     if (!file) continue;
     let xml = await file.async('string');
-    for (const [tag, value] of Object.entries(tags)) {
-      const safe = bodyToXml(value);
-      xml = xml.split(`{{${tag}}}`).join(safe);
+    for (const [placeholder, value] of replacements) {
+      xml = xml.split(placeholder).join(value);
     }
     zip.file(xmlPath, xml);
   }
