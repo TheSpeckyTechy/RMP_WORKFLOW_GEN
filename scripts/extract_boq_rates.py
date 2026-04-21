@@ -65,6 +65,23 @@ SERIES_DEFAULT_THRESHOLDS = {
     6400: [],             # percentages — bands carry the different adders
 }
 
+# Per-item threshold overrides triggered by unit of measure. Applied if the
+# item's unit matches; otherwise the series default is used. Units are
+# normalised (lowercase, ² and ³ ASCII-ified) before lookup.
+UNIT_OVERRIDES = {
+    # series: { normalised_unit: thresholds }
+    700:  {"m3": [50, 500], "m": []},            # m³ sub-base / m ancillary
+    1100: {"m2": [500, 5000], "m3": [50, 500]},  # footway m² vs kerb m
+}
+
+
+def normalise_unit(u):
+    if u is None:
+        return ""
+    s = str(u).strip().lower()
+    s = s.replace("²", "2").replace("³", "3")
+    return s
+
 # Legacy tag → full-catalogue item id. Drives the boq_rates.js shim so that
 # every existing window.boqItem('tag') / window.boqPickRate(...) call keeps
 # working after the catalogue swap.
@@ -253,6 +270,20 @@ def parse_design_sheet(ws):
     return {"thresholds": thresholds, "items": items}
 
 
+def apply_unit_overrides(catalogue):
+    """Inject item-level bandThresholds where unit triggers an override."""
+    for key, series in catalogue.items():
+        sn = int(key[1:])
+        overrides = UNIT_OVERRIDES.get(sn)
+        if not overrides:
+            continue
+        for it in series["items"]:
+            t = overrides.get(normalise_unit(it.get("unit")))
+            if t is not None:
+                # `None` means "use series default"; empty list means flat-rate
+                it["bandThresholds"] = t
+
+
 def build_catalogue(repo_root):
     catalogue = {}
     seen_ids = {}
@@ -406,6 +437,7 @@ def emit_js(catalogue, out_path):
 def main():
     repo_root = Path(__file__).resolve().parent.parent
     catalogue = build_catalogue(repo_root)
+    apply_unit_overrides(catalogue)
 
     total = sum(len(s["items"]) for s in catalogue.values())
     print(f"\nTotal items: {total}")
