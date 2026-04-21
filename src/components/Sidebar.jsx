@@ -9,8 +9,8 @@
 // Depends on: React, window.Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
-const Sidebar = ({ view, onView }) => (
-  <aside className="sidebar">
+const Sidebar = ({ view, onView, open, onClose }) => (
+  <aside className={"sidebar" + (open ? " sidebar--open" : "")}>
     <div className="sidebar-logo">
       <div className="sidebar-logo-mark">RMP</div>
       <div className="sidebar-logo-text">Design Studio</div>

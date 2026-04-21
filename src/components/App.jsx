@@ -343,6 +343,7 @@ const NewSchemeModal = ({ onClose, onCreate }) => {
 
 const AppInner = () => {
   const { addScheme, syncStatus } = React.useContext(window.SchemeContext);
+  const [menuOpen, setMenuOpen] = React.useState(false);
   const [view, setView] = React.useState("dashboard");
   const [openScheme, setOpenScheme] = React.useState(null);
   const [filter, setFilter] = React.useState("all");
@@ -389,9 +390,11 @@ const AppInner = () => {
 
   return (
     <div className="app">
-      <Sidebar view={view} onView={(v) => { setView(v); setOpenScheme(null); }} />
+      {menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
+      <Sidebar view={view} onView={(v) => { setView(v); setOpenScheme(null); setMenuOpen(false); }} open={menuOpen} />
       <div className="main">
         <header className="topbar">
+          <button className="btn ghost sm menu-toggle" onClick={() => setMenuOpen(o => !o)} style={{padding:"4px 8px",fontSize:18,lineHeight:1}}>☰</button>
           <div className="crumbs">
             <span>Workspace</span><span className="sep">/</span>
             {openScheme ? (

@@ -76,7 +76,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
       </div>
       <div className="table-wrap">
         <table className="schemes">
-          <thead><tr><th style={{width:100}}>Ref</th><th>Scheme</th><th style={{width:120}}>Ward</th><th style={{width:170}}>Treatment</th><th style={{width:100}}>Area</th><th style={{width:120}}>Tender</th><th style={{width:160}}>Pack</th><th style={{width:120}}>Status</th><th style={{width:30}}></th></tr></thead>
+          <thead><tr><th>Ref</th><th>Scheme</th><th>Ward</th><th>Treatment</th><th>Area</th><th>Tender</th><th>Pack</th><th>Status</th><th style={{width:30}}></th></tr></thead>
           <tbody>
             {list.map(s => {
               const ward = window.WARDS.find(w => w.num === s.ward_num);
