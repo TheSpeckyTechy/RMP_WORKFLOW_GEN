@@ -138,6 +138,7 @@ const MasterWorkbook = ({ schemeId }) => {
 
     const filename = `${scheme.project_number}_${(scheme.road_name||"").replace(/\s+/g,"_")}_Master.xlsx`;
     XLSX.writeFile(wb, filename);
+    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `Workbook — ${scheme.road_name}`, ref: scheme.project_number } }));
   };
 
   React.useEffect(() => {

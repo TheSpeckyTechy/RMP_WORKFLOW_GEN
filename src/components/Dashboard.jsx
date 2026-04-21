@@ -12,6 +12,12 @@
 //             window.fmtGBP, window.STATUS_LABELS, window.WARDS
 // ─────────────────────────────────────────────────────────────────────────────
 
+const COMPLETENESS_FIELDS = ['scheme_extent','grid_ref','date_start','date_finish','contractor','treatment_type','prepared_by'];
+const schemeScore = (s) => {
+  const filled = COMPLETENESS_FIELDS.filter(k => s[k] && String(s[k]).trim() !== '').length;
+  return Math.round((filled / COMPLETENESS_FIELDS.length) * 100);
+};
+
 const exportRegister = (list) => {
   const XLSX = window.XLSX;
   const headers = ["Project No.", "Road Name", "Ward", "Treatment", "Area (m²)", "Tender (£)", "Status", "Start", "Finish"];
@@ -76,11 +82,13 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
       </div>
       <div className="table-wrap">
         <table className="schemes">
-          <thead><tr><th>Ref</th><th>Scheme</th><th>Ward</th><th>Treatment</th><th>Area</th><th>Tender</th><th>Pack</th><th>Status</th><th style={{width:30}}></th></tr></thead>
+          <thead><tr><th>Ref</th><th>Scheme</th><th>Ward</th><th>Treatment</th><th>Area</th><th>Tender</th><th>Pack</th><th>Complete</th><th>Status</th><th style={{width:30}}></th></tr></thead>
           <tbody>
             {list.map(s => {
               const ward = window.WARDS.find(w => w.num === s.ward_num);
               const pct = (s.packProgress / s.packTotal) * 100;
+              const score = schemeScore(s);
+              const scoreColor = score === 100 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red,#c0392b)';
               return (
                 <tr key={s.id} onClick={() => onOpen(s.id)}>
                   <td><span className="row-ref mono">{s.project_number}</span>{s.flags&&s.flags.length>0&&<span style={{marginLeft:6,color:"var(--amber)",display:"inline-flex",verticalAlign:"middle"}}><Icon.Alert /></span>}</td>
@@ -90,6 +98,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
                   <td className="mono" style={{fontSize:12}}>{(+s.area_m2).toLocaleString()} m²</td>
                   <td className="mono" style={{fontSize:12}}>{fmtGBP(+s.tender_total||0)}</td>
                   <td><div className="pack-bar"><div className="pack-bar-track"><div className={"pack-bar-fill "+(pct===100?"full":"")} style={{width:pct+"%"}}></div></div><div className="pack-bar-count">{s.packProgress}/{s.packTotal}</div></div></td>
+                  <td><span className="mono" style={{fontSize:12,fontWeight:600,color:scoreColor}}>{score}%</span></td>
                   <td><span className={"pill "+s.status}>{STATUS_LABELS[s.status]}</span></td>
                   <td style={{color:"var(--ink-3)"}}><Icon.Arrow /></td>
                 </tr>

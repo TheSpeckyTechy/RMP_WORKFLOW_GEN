@@ -184,5 +184,12 @@ const RSRModal = ({ scheme, onClose }) => {
   );
 };
 
+window.__downloadRSR = async (scheme) => {
+  try {
+    await downloadRSR(scheme);
+    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR — ${scheme.road_name}`, ref: scheme.project_number } }));
+  } catch (e) { console.warn('RSR download failed', e); }
+};
+
 window.RoadSpaceRequestDoc = RoadSpaceRequestDoc;
 window.RSRModal = RSRModal;
