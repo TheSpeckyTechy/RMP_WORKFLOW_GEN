@@ -37,12 +37,10 @@ const LETTER_BINDINGS = [
   { tag: "<<Ward_Councillor_3>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[2]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
 ];
 
-let _letterBuffer = null;
 const loadLetterBuffer = async () => {
-  if (_letterBuffer) return _letterBuffer;
-  const res = await fetch("templates/Residential_Letter_Template%20(1).docx");
+  const res = await fetch("templates/Residential_Letter_Template%20(1).docx", { cache: 'no-cache' });
   if (!res.ok) throw new Error('Letter template not found');
-  _letterBuffer = await res.arrayBuffer(); return _letterBuffer;
+  return res.arrayBuffer();
 };
 
 const xmlEscape = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

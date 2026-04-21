@@ -80,7 +80,7 @@ const RoadSpaceRequestDoc = ({ scheme }) => {
 const RSR_TEMPLATE = 'templates/Road_Space_Request_Form_TEMPLATE.docx';
 
 async function downloadRSR(scheme) {
-  const res = await fetch(RSR_TEMPLATE);
+  const res = await fetch(RSR_TEMPLATE, { cache: 'no-cache' });
   if (!res.ok) throw new Error('RSR template not found');
   const buffer = await res.arrayBuffer();
   const zip = new window.JSZip();
