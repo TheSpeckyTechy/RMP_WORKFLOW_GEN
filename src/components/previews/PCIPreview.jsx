@@ -1,41 +1,78 @@
-// PCIPreview.jsx — PCI/CPP document preview with named-range injection
+// PCIPreview.jsx — PCI/CPP document preview with template injection
+//
+// The template file is Road_Space_Request_Form_TEMPLATE.docx which contains
+// the FM701-10A Pre Construction Information & Construction Phase Plan form
+// with {{UPPERCASE_TAG}} placeholders matching the field names below.
 
+// Field list used for the bindings side panel only
 const PCI_FIELDS = [
-  { tag: 'SchemeRef',       path: 'project_number' },
-  { tag: 'SchemeName',      path: 'road_name' },
-  { tag: 'Ward',            path: 'ward_selected' },
-  { tag: 'ContractorName',  path: 'contractor' },
-  { tag: 'ContractorRef',   path: 'contractor_ref' },
-  { tag: 'StartDate',       path: 'date_start' },
-  { tag: 'EndDate',         path: 'date_finish' },
-  { tag: 'TotalCost',       path: 'tender_total',      fmt: 'gbp' },
-  { tag: 'NetworkLength',   path: 'network_length' },
-  { tag: 'TreatmentType',   path: 'treatment_type' },
-  { tag: 'RoadCategory',    path: 'road_category' },
-  { tag: 'PCIBefore',       path: 'pci_before' },
-  { tag: 'PCIAfter',        path: 'pci_after' },
-  { tag: 'SupervisorName',  path: 'supervisor_name' },
-  { tag: 'SupervisorPhone', path: 'supervisor_phone' },
-  { tag: 'SupervisorEmail', path: 'supervisor_email' },
-  { tag: 'Description',     path: 'pci_description' },
-  { tag: 'Justification',   path: 'pci_justification' },
-  { tag: 'BudgetCode',      path: 'budget_code' },
-  { tag: 'FinancialYear',   path: 'financial_year' },
-  { tag: 'CPPRef',          path: 'cpp_ref' },
-  { tag: 'DrawingRef',      path: 'drawing_ref' },
-  { tag: 'CouncilContact',  path: 'client_officer' },
-  { tag: 'CouncilEmail',    path: 'client_email' },
-  { tag: 'CouncilPhone',    path: 'client_phone' },
+  { tag: 'PROJECT_TITLE',           path: 'road_name' },
+  { tag: 'PROJECT_NUMBER',          path: 'project_number' },
+  { tag: 'START_DATE',              path: 'date_start' },
+  { tag: 'FINISH_DATE',             path: 'date_finish' },
+  { tag: 'DESIGNER_NAME',           path: 'prepared_by' },
+  { tag: 'DESIGNER_HEAD_OF',        path: 'designer_head_of' },
+  { tag: 'DESIGNER_TELEPHONE',      path: 'designer_phone' },
+  { tag: 'DESIGNER_EMAIL',          path: 'designer_email' },
+  { tag: 'CLIENT_NAME_ADDRESS',     path: 'client_name_address' },
+  { tag: 'CLIENT_OFFICER',          path: 'client_officer' },
+  { tag: 'CLIENT_TELEPHONE',        path: 'client_phone' },
+  { tag: 'CLIENT_EMAIL',            path: 'client_email' },
+  { tag: 'DEPARTMENT',              path: 'department' },
+  { tag: 'CDM_PRINCIPAL_DESIGNER',  path: 'cdm_principal_designer' },
+  { tag: 'CDM_HEAD_OF',             path: 'cdm_head_of' },
+  { tag: 'CLIENT_REF_WORK_ORDER',   path: 'client_ref_work_order' },
+  { tag: 'CONTRACTOR_NAME',         path: 'contractor' },
+  { tag: 'CONTRACTOR_ADDRESS',      path: 'contractor_address' },
+  { tag: 'CONTRACTOR_CONTACT',      path: 'contractor_pe' },
+  { tag: 'CONTRACTOR_TELEPHONE',    path: 'contractor_ooh' },
+  { tag: 'CONTRACTOR_EMAIL',        path: 'contractor_email' },
+  { tag: 'CONTRACTOR_OUT_OF_HOURS', path: 'contractor_ooh' },
+  { tag: 'OUT_OF_HOURS_CONTACT',    path: 'contractor_ooh' },
+  { tag: 'DESCRIPTION_OF_WORK',     path: 'pci_description' },
+  { tag: 'OCCUPIER_TENANT_DETAILS', path: 'pci_occupiers' },
+  { tag: 'SECURITY_ARRANGEMENTS',   path: 'pci_site_security' },
 ];
 
-const PCI_TEMPLATE = 'templates/FM701-10A_DCC_Category_2_PCI-CPP_combined_.docx';
+const PCI_TEMPLATE = 'templates/Road_Space_Request_Form_TEMPLATE.docx';
 
-function resolveValue(scheme, path, fmt) {
+function resolveValue(scheme, path) {
   const val = path.split('.').reduce((obj, k) => (obj || {})[k], scheme);
   if (val === undefined || val === null || val === '') return '';
-  if (fmt === 'date') return window.fmtDate ? window.fmtDate(val) : val;
-  if (fmt === 'gbp')  return window.fmtGBP  ? window.fmtGBP(val)  : val;
   return String(val);
+}
+
+function buildPCIFields(scheme) {
+  const ext = scheme.scheme_extent ? `: ${scheme.scheme_extent}` : '';
+  return {
+    PROJECT_TITLE:           `${scheme.road_name || ''}${ext}`,
+    PROJECT_NUMBER:          scheme.project_number || '',
+    PROJECT_ADDRESS:         `${scheme.road_name || ''}${ext}`,
+    START_DATE:              scheme.date_start || '',
+    FINISH_DATE:             scheme.date_finish || '',
+    DESIGNER_NAME:           scheme.prepared_by || '',
+    DESIGNER_HEAD_OF:        scheme.designer_head_of || '',
+    DESIGNER_TELEPHONE:      scheme.designer_phone || '',
+    DESIGNER_EMAIL:          scheme.designer_email || '',
+    CLIENT_NAME_ADDRESS:     scheme.client_name_address || '',
+    CLIENT_OFFICER:          scheme.client_officer || '',
+    CLIENT_TELEPHONE:        scheme.client_phone || '',
+    CLIENT_EMAIL:            scheme.client_email || '',
+    DEPARTMENT:              scheme.department || '',
+    CDM_PRINCIPAL_DESIGNER:  scheme.cdm_principal_designer || '',
+    CDM_HEAD_OF:             scheme.cdm_head_of || '',
+    CLIENT_REF_WORK_ORDER:   scheme.client_ref_work_order || '',
+    CONTRACTOR_NAME:         scheme.contractor || '',
+    CONTRACTOR_ADDRESS:      scheme.contractor_address || '',
+    CONTRACTOR_CONTACT:      scheme.contractor_pe || '',
+    CONTRACTOR_TELEPHONE:    scheme.contractor_ooh || '',
+    CONTRACTOR_EMAIL:        scheme.contractor_email || '',
+    CONTRACTOR_OUT_OF_HOURS: scheme.contractor_ooh || '',
+    OUT_OF_HOURS_CONTACT:    scheme.contractor_ooh || '',
+    DESCRIPTION_OF_WORK:     scheme.pci_description || '',
+    OCCUPIER_TENANT_DETAILS: scheme.pci_occupiers || '',
+    SECURITY_ARRANGEMENTS:   scheme.pci_site_security || '',
+  };
 }
 
 async function loadDocxBuffer(url) {
@@ -45,42 +82,19 @@ async function loadDocxBuffer(url) {
 }
 
 async function injectValues(buffer, scheme) {
-  // JSZip is loaded globally from the HTML script tag
   const zip = new window.JSZip();
   await zip.loadAsync(buffer);
-
-  const xmlFiles = [
-    'word/document.xml',
-    'word/header1.xml',
-    'word/header2.xml',
-    'word/footer1.xml',
-    'word/footer2.xml',
-  ];
-
-  for (const xmlPath of xmlFiles) {
+  const fields = buildPCIFields(scheme);
+  const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
+  for (const xmlPath of xmlPaths) {
     const file = zip.file(xmlPath);
     if (!file) continue;
     let xml = await file.async('string');
-
-    for (const field of PCI_FIELDS) {
-      const value = resolveValue(scheme, field.path, field.fmt);
-
-      // Replace w:sdt content controls matched by alias tag
-      const sdtRe = new RegExp(
-        `(<w:sdt>[\\s\\S]*?<w:alias[^/]*/>[\\s\\S]*?<w:tag w:val="${field.tag}"[^/]*/>[\\s\\S]*?<w:sdtContent>)([\\s\\S]*?)(<\/w:sdtContent>[\\s\\S]*?<\/w:sdt>)`,
-        'g'
-      );
-      xml = xml.replace(sdtRe, (_, open, _inner, close) =>
-        open + `<w:r><w:t xml:space="preserve">${value}</w:t></w:r>` + close
-      );
-
-      // Also replace {{TAG}} placeholders
-      xml = xml.split(`{{${field.tag}}}`).join(value);
+    for (const [tag, value] of Object.entries(fields)) {
+      xml = xml.split(`{{${tag}}}`).join(value);
     }
-
     zip.file(xmlPath, xml);
   }
-
   return zip.generateAsync({ type: 'arraybuffer' });
 }
 
@@ -104,7 +118,7 @@ const PCIDoc = ({ scheme }) => {
           // No template — render a plain data summary
           if (!cancelled && containerRef.current) {
             const rows = PCI_FIELDS
-              .map(f => { const v = resolveValue(scheme, f.path, f.fmt); return v ? `<tr><th>${f.tag}</th><td>${v}</td></tr>` : ''; })
+              .map(f => { const v = resolveValue(scheme, f.path); return v ? `<tr><th>${f.tag}</th><td>${v}</td></tr>` : ''; })
               .join('');
             containerRef.current.innerHTML =
               `<div class="pci-fallback"><h2>${scheme.road_name || scheme.project_number}</h2><table class="pci-table">${rows}</table></div>`;
@@ -202,7 +216,7 @@ const PCIModal = ({ schemeId, onClose }) => {
             <div className="rsr-side-title">Field Bindings</div>
             <div className="rsr-bind-list">
               {PCI_FIELDS.map(f => {
-                const val = resolveValue(scheme, f.path, f.fmt);
+                const val = resolveValue(scheme, f.path);
                 return (
                   <div key={f.tag} className={"rsr-bind "+(val?"":"missing")}>
                     <div className="rsr-bind-key mono">{f.tag}</div>
