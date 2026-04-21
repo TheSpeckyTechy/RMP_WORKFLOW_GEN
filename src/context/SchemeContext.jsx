@@ -1,149 +1,77 @@
 // ─── SchemeContext.jsx ────────────────────────────────────────────────────────
-// React context that gives every component access to the full schemes array
-// while keeping each project's data fully isolated.
+// React context providing scheme data to all components.
 //
-// Persistence: localStorage write-through (fast local cache) + optional
-// GitHub Contents API sync (schemes.json in a private repo).
+// Persistence: localStorage (instant local cache) + Supabase (cross-device sync).
+// Every write goes to localStorage immediately and upserts to Supabase async.
+// On mount the latest data is fetched from Supabase and merged into state.
 //
 // Exports (via window): SchemeContext, SchemeProvider
-// Depends on: React, window.SCHEMES (from store.jsx)
+// Depends on: React, window.supabase (Supabase JS v2 UMD), window.SCHEMES
 // ─────────────────────────────────────────────────────────────────────────────
 
 window.SchemeContext = React.createContext(null);
 
+const SUPABASE_URL  = 'https://humgbvwpxkhgfznnvhrn.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_0mH4xC8eTp_HZaMmzBb8tQ_zMqXgm1o';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── localStorage helpers ─────────────────────────────────────────────────────
 const LS_PREFIX = 'rmp_scheme_';
 const LS_IDS    = 'rmp_scheme_ids';
 
-// ── GitHub Contents API helpers ──────────────────────────────────────────────
-const GH_PAT_KEY  = 'rmp_gh_pat';
-const GH_REPO_KEY = 'rmp_gh_repo';
-const GH_SHA_KEY  = 'rmp_gh_sha';
-const GH_FILE     = 'schemes.json';
-
-const ghLsGet = (key) => { try { return localStorage.getItem(key) || ''; } catch { return ''; } };
-const ghLsSet = (key, val) => { try { localStorage.setItem(key, val); } catch {} };
-
-async function ghFetch(pat, repo) {
-  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${GH_FILE}`, {
-    headers: { Authorization: `token ${pat}`, Accept: 'application/vnd.github.v3+json' },
-  });
-  if (res.status === 404) return { schemes: null, sha: null };
-  if (!res.ok) throw new Error(`GitHub ${res.status}: ${res.statusText}`);
-  const data = await res.json();
-  const schemes = JSON.parse(atob(data.content.replace(/\n/g, '')));
-  return { schemes, sha: data.sha };
-}
-
-async function ghPush(pat, repo, schemes, sha) {
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify(schemes, null, 2))));
-  const body = { message: 'rmp: sync schemes', content, ...(sha ? { sha } : {}) };
-  const res = await fetch(`https://api.github.com/repos/${repo}/contents/${GH_FILE}`, {
-    method: 'PUT',
-    headers: { Authorization: `token ${pat}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`GitHub push ${res.status}: ${res.statusText}`);
-  const data = await res.json();
-  return data.content.sha;
-}
-
-const lsGet = (id) => {
-  try { const v = localStorage.getItem(LS_PREFIX + id); return v ? JSON.parse(v) : null; }
-  catch { return null; }
-};
-const lsSet = (id, scheme) => {
-  try { localStorage.setItem(LS_PREFIX + id, JSON.stringify(scheme)); } catch {}
-};
-const lsGetIds = () => {
-  try { const v = localStorage.getItem(LS_IDS); return v ? JSON.parse(v) : []; }
-  catch { return []; }
-};
-const lsSetIds = (ids) => {
-  try { localStorage.setItem(LS_IDS, JSON.stringify(ids)); } catch {}
-};
+const lsGet    = (id)  => { try { const v = localStorage.getItem(LS_PREFIX + id); return v ? JSON.parse(v) : null; } catch { return null; } };
+const lsSet    = (id, s) => { try { localStorage.setItem(LS_PREFIX + id, JSON.stringify(s)); } catch {} };
+const lsGetIds = ()    => { try { const v = localStorage.getItem(LS_IDS); return v ? JSON.parse(v) : []; } catch { return []; } };
+const lsSetIds = (ids) => { try { localStorage.setItem(LS_IDS, JSON.stringify(ids)); } catch {} };
 
 const initSchemes = () => {
-  // Start from the default seed data, merging any saved overrides
-  const base = window.SCHEMES.map(s => {
-    const saved = lsGet(s.id);
-    return saved ? { ...s, ...saved } : s;
-  });
-
-  // Append any user-created schemes not in the seed (stored in rmp_scheme_ids)
+  const base = window.SCHEMES.map(s => { const saved = lsGet(s.id); return saved ? { ...s, ...saved } : s; });
   const defaultIds = new Set(window.SCHEMES.map(s => s.id));
-  const extraIds = lsGetIds().filter(id => !defaultIds.has(id));
-  const extras = extraIds.map(id => lsGet(id)).filter(Boolean);
-
+  const extras = lsGetIds().filter(id => !defaultIds.has(id)).map(id => lsGet(id)).filter(Boolean);
   return [...extras, ...base];
 };
 
+// ── Supabase helpers ─────────────────────────────────────────────────────────
+const sbUpsertFn = async (id, data, onStatus) => {
+  onStatus('syncing');
+  const { error } = await sb.from('schemes').upsert({ id, data, updated_at: new Date().toISOString() });
+  onStatus(error ? 'error' : 'synced');
+};
+
 const SchemeProvider = ({ children }) => {
-  const [schemes, setSchemes] = React.useState(initSchemes);
-  const [syncStatus, setSyncStatus] = React.useState(
-    () => ghLsGet(GH_PAT_KEY) ? 'loading' : 'off'
-  );
+  const [schemes, setSchemes]     = React.useState(initSchemes);
+  const [syncStatus, setSyncStatus] = React.useState('loading');
+  const latestSchemes = React.useRef(schemes);
 
-  const pushTimer       = React.useRef(null);
-  const latestSchemes   = React.useRef(schemes);
-  const currentSha      = React.useRef(ghLsGet(GH_SHA_KEY));
-  const hasMounted      = React.useRef(false);
-  const skipNextGHPush  = React.useRef(false);
+  React.useEffect(() => { latestSchemes.current = schemes; }, [schemes]);
 
-  // On mount: load from GitHub if configured
+  // On mount: fetch from Supabase and merge into state
   React.useEffect(() => {
-    const pat  = ghLsGet(GH_PAT_KEY);
-    const repo = ghLsGet(GH_REPO_KEY);
-    if (!pat || !repo) { hasMounted.current = true; return; }
-
-    ghFetch(pat, repo).then(({ schemes: remote, sha }) => {
-      if (remote) {
-        skipNextGHPush.current = true;
-        setSchemes(remote);
-        remote.forEach(s => lsSet(s.id, s));
-        currentSha.current = sha;
-        ghLsSet(GH_SHA_KEY, sha);
+    sb.from('schemes').select('id, data').then(({ data: rows, error }) => {
+      if (error) { setSyncStatus('error'); return; }
+      if (rows && rows.length > 0) {
+        const remoteMap = Object.fromEntries(rows.map(r => [r.id, r.data]));
+        setSchemes(prev => {
+          const localIds = new Set(prev.map(s => s.id));
+          const updated  = prev.map(s => remoteMap[s.id] ? { ...s, ...remoteMap[s.id] } : s);
+          const extras   = rows.filter(r => !localIds.has(r.id) && r.data).map(r => r.data);
+          return extras.length ? [...extras, ...updated] : updated;
+        });
       }
       setSyncStatus('synced');
-    }).catch(() => {
-      setSyncStatus('error');
-    }).finally(() => {
-      hasMounted.current = true;
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Debounced push to GitHub on every scheme change
-  React.useEffect(() => {
-    latestSchemes.current = schemes;
-    if (!hasMounted.current) return;
-    if (skipNextGHPush.current) { skipNextGHPush.current = false; return; }
-
-    const pat  = ghLsGet(GH_PAT_KEY);
-    const repo = ghLsGet(GH_REPO_KEY);
-    if (!pat || !repo) return;
-
-    setSyncStatus('syncing');
-    clearTimeout(pushTimer.current);
-    pushTimer.current = setTimeout(async () => {
-      try {
-        const newSha = await ghPush(pat, repo, latestSchemes.current, currentSha.current);
-        currentSha.current = newSha;
-        ghLsSet(GH_SHA_KEY, newSha);
-        setSyncStatus('synced');
-      } catch {
-        setSyncStatus('error');
-      }
-    }, 2000);
-  }, [schemes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getScheme = (id) => schemes.find(s => s.id === id);
 
   const updateScheme = (id, updates) => {
-    setSchemes(prev => prev.map(s => {
-      if (s.id !== id) return s;
-      const merged = { ...s, ...updates };
-      lsSet(id, merged);
-      return merged;
-    }));
+    const current = latestSchemes.current.find(s => s.id === id);
+    if (!current) return;
+    const merged = { ...current, ...updates };
+    lsSet(id, merged);
+    setSchemes(prev => prev.map(s => s.id === id ? merged : s));
+    sbUpsertFn(id, merged, setSyncStatus);
   };
 
   const addScheme = (scheme) => {
@@ -154,65 +82,28 @@ const SchemeProvider = ({ children }) => {
       if (!current.includes(scheme.id)) lsSetIds([scheme.id, ...current]);
     }
     setSchemes(prev => [scheme, ...prev]);
+    sbUpsertFn(scheme.id, scheme, setSyncStatus);
   };
 
   const deleteScheme = (id) => {
     try { localStorage.removeItem(LS_PREFIX + id); } catch {}
-    const extraIds = lsGetIds().filter(i => i !== id);
-    lsSetIds(extraIds);
+    lsSetIds(lsGetIds().filter(i => i !== id));
     setSchemes(prev => prev.filter(s => s.id !== id));
+    setSyncStatus('syncing');
+    sb.from('schemes').delete().eq('id', id)
+      .then(({ error }) => setSyncStatus(error ? 'error' : 'synced'));
   };
 
   const resetAllSchemes = () => {
     try {
-      const keys = Object.keys(localStorage).filter(k => k.startsWith(LS_PREFIX));
-      keys.forEach(k => localStorage.removeItem(k));
+      Object.keys(localStorage).filter(k => k.startsWith(LS_PREFIX)).forEach(k => localStorage.removeItem(k));
       localStorage.removeItem(LS_IDS);
     } catch {}
     window.location.reload();
   };
 
-  const connectGitHub = async (pat, repo) => {
-    ghLsSet(GH_PAT_KEY, pat);
-    ghLsSet(GH_REPO_KEY, repo);
-    setSyncStatus('loading');
-    try {
-      const { schemes: remote, sha } = await ghFetch(pat, repo);
-      if (remote) {
-        skipNextGHPush.current = true;
-        setSchemes(remote);
-        remote.forEach(s => lsSet(s.id, s));
-        currentSha.current = sha;
-        ghLsSet(GH_SHA_KEY, sha);
-      } else {
-        // File doesn't exist yet — push current schemes to create it
-        const newSha = await ghPush(pat, repo, latestSchemes.current, null);
-        currentSha.current = newSha;
-        ghLsSet(GH_SHA_KEY, newSha);
-      }
-      setSyncStatus('synced');
-    } catch (err) {
-      setSyncStatus('error');
-      throw err;
-    }
-  };
-
-  const disconnectGitHub = () => {
-    try {
-      localStorage.removeItem(GH_PAT_KEY);
-      localStorage.removeItem(GH_REPO_KEY);
-      localStorage.removeItem(GH_SHA_KEY);
-    } catch {}
-    currentSha.current = '';
-    clearTimeout(pushTimer.current);
-    setSyncStatus('off');
-  };
-
   return (
-    <window.SchemeContext.Provider value={{
-      schemes, getScheme, updateScheme, addScheme, deleteScheme, resetAllSchemes,
-      syncStatus, connectGitHub, disconnectGitHub,
-    }}>
+    <window.SchemeContext.Provider value={{ schemes, getScheme, updateScheme, addScheme, deleteScheme, resetAllSchemes, syncStatus }}>
       {children}
     </window.SchemeContext.Provider>
   );
