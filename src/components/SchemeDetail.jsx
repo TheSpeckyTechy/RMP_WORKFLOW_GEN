@@ -31,6 +31,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
     { k:"treatment", l:"Treatment" },
     { k:"ward", l:"Ward & Copies" },
     { k:"utilities", l:"Utilities", badge: String(window.UTILITIES.length) },
+    { k:"boq", l:"Bill of Quantities" },
     { k:"pack", l:"Pack", badge:`${window.PACK_DOCS.filter(d=>(scheme.docs_generated||{})[d.key]).length}/${window.PACK_DOCS.length}` },
   ];
   return (
@@ -75,7 +76,8 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
       {tab==="treatment"&&<TreatmentTab schemeId={schemeId} />}
       {tab==="ward"&&<WardTab schemeId={schemeId} />}
       {tab==="utilities"&&<UtilitiesTab scheme={scheme} />}
-      {tab==="pack"&&<PackTab scheme={scheme} onGenerate={onGenerate} onPreview={onPreview} />}
+      {tab==="boq"&&<BoQTab schemeId={schemeId} />}
+      {tab==="pack"&&<PackTab scheme={scheme} onGenerate={onGenerate} onPreview={onPreview} onTabSwitch={setTab} />}
     </>
   );
 };
@@ -403,7 +405,7 @@ const DocPreview = ({ docKey, scheme }) => {
 
 // ─── Pack Tab ─────────────────────────────────────────────────────────────────
 
-const PackTab = ({ scheme, onGenerate, onPreview }) => {
+const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
   const { updateScheme } = React.useContext(window.SchemeContext);
   const docsGen = scheme.docs_generated || {};
   const packReady = window.PACK_DOCS.filter(d => docsGen[d.key]).length;
@@ -439,7 +441,9 @@ const PackTab = ({ scheme, onGenerate, onPreview }) => {
               <div className="doc-status">
                 <span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span>
                 {isWorking ? (
-                  <button className="btn sm ghost" style={{marginLeft:"auto"}} onClick={()=>onPreview(scheme,d.key)}>Preview <Icon.Arrow /></button>
+                  <button className="btn sm ghost" style={{marginLeft:"auto"}} onClick={()=>d.key==='boq'?onTabSwitch('boq'):onPreview(scheme,d.key)}>
+                    {d.key==='boq'?'Open BoQ':'Preview'} <Icon.Arrow />
+                  </button>
                 ) : (
                   <label style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,fontSize:11,cursor:"pointer",userSelect:"none",color:"var(--ink-3)"}}>
                     <input type="checkbox" checked={done} onChange={()=>toggleManual(d.key)} style={{width:"auto"}} />
