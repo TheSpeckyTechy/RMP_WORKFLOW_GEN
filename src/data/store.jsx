@@ -45,6 +45,54 @@ window.WARDS = [
   ]},
 ];
 
+// Default shape for the new BoQ generator (Stage 3). Lives on window so
+// SchemeContext can back-fill legacy schemes loaded from localStorage / Supabase
+// that predate this field.
+window.defaultBoq = () => ({
+  quick_inputs: {
+    carriageway_area:   0,
+    footway_area:       0,
+    surface_tag:        'surf_hra3014_40_14',
+    binder_tag:         'bin_hra5020_60',
+    include_binder:     false,
+    base_tag:           'base_ac32d_100',
+    include_base:       false,
+    subbase_depth:      150,
+    include_subbase:    false,
+    milling_depth:      40,
+    include_milling:    true,
+    include_tack:       true,
+    tm_type:            'full_closure',
+    duration_days:      5,
+    include_diversion:  false,
+    kerb_length:        0,
+    kerb_type:          'kerb_k1_laid',
+    fw_surface_tag:     'fw_ac6_30',
+    include_fw_subbase: false,
+    include_markings:   false,
+    markings_area:      0,
+    include_line_marks: false,
+    line_marks_m:       0,
+    iw_sw_cway:  0, iw_sse_cway: 0, iw_bt_cway: 0,
+    iw_sw_fw:    0, iw_sse_fw:   0, iw_bt_fw:   0,
+  },
+  custom_lines: [],      // [{uid,id,desc,qty,unit,bandOverride?,series,auto?,notes?}]
+  settings: {
+    useBERR:     false,
+    berrIndex:   1.000,
+    berrDate:    'May 2022',
+    vatRate:     0.20,
+    showPWP:     true,
+    areaBandOverride: null,
+    percentAdditions: {
+      ohp:         { enabled: true,  pct: 0.125, label: 'Overheads & Profit' },
+      contingency: { enabled: true,  pct: 0.05,  label: 'Contingency' },
+      ois:         { enabled: false, pct: 0.025, label: 'Off-site Items' },
+    },
+  },
+  touched: false,   // flipped to true once the designer has interacted
+});
+
 // Full scheme record — uses the exact named-range keys from the workbook
 const baseScheme = (overrides) => ({
   // 1. Scheme Identity
@@ -145,6 +193,10 @@ const baseScheme = (overrides) => ({
   cdm_principal_designer: "N/A",
   // Utility search tracker — maps utility name to ISO applied date string
   utility_applied: {},
+  // Bill of Quantities — new structured model (Stage 3+). See defaultBoq()
+  // above for shape. SchemeContext back-fills this for schemes loaded from
+  // pre-v2 storage.
+  boq: window.defaultBoq(),
   // Meta
   status: "design",
   packProgress: 0,
