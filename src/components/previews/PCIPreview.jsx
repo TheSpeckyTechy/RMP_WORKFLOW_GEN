@@ -165,27 +165,50 @@ const PCIDoc = ({ scheme }) => {
   );
 };
 
+async function downloadPCIPdf(scheme) {
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
+  document.body.appendChild(container);
+  try {
+    let buffer = await loadDocxBuffer(PCI_TEMPLATE);
+    buffer = await injectValues(buffer, scheme);
+    if (window.docx && window.docx.renderAsync) {
+      await window.docx.renderAsync(buffer, container, null, { className: 'docx-preview', inWrapper: false });
+    }
+    await window.htmlToPdf(container, `PCI_CPP_${scheme.project_number}.pdf`);
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+
 const PCIModal = ({ schemeId, onClose }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
+  const [downloading, setDownloading] = React.useState(null);
 
-  const handleDownload = React.useCallback(async () => {
+  const handleDownload = React.useCallback(async (fmt) => {
     if (!scheme) return;
+    setDownloading(fmt);
     try {
-      let buffer = await loadDocxBuffer(PCI_TEMPLATE);
-      buffer = await injectValues(buffer, scheme);
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `PCI_CPP_${scheme.project_number}.docx`;
-      a.click();
-      URL.revokeObjectURL(url);
-      updateScheme(schemeId, { docs_generated: { ...(scheme.docs_generated||{}), pci: true } });
-      window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number } }));
+      if (fmt === 'pdf') {
+        await downloadPCIPdf(scheme);
+        window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP PDF — ${scheme.road_name}`, ref: scheme.project_number } }));
+      } else {
+        let buffer = await loadDocxBuffer(PCI_TEMPLATE);
+        buffer = await injectValues(buffer, scheme);
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `PCI_CPP_${scheme.project_number}.docx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        updateScheme(schemeId, { docs_generated: { ...(scheme.docs_generated||{}), pci: true } });
+        window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number } }));
+      }
     } catch (err) {
       alert('Download failed: ' + err.message);
-    }
+    } finally { setDownloading(null); }
   }, [scheme]);
 
   if (!scheme) return null;
@@ -199,8 +222,11 @@ const PCIModal = ({ schemeId, onClose }) => {
             <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{scheme.road_name} — {scheme.project_number}</div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            <button className="btn sm" onClick={handleDownload}>
-              <Icon.Download /> Download .docx
+            <button className="btn sm" onClick={()=>handleDownload('docx')} disabled={!!downloading}>
+              <Icon.Download /> {downloading==='docx'?'Generating…':'Download .docx'}
+            </button>
+            <button className="btn sm" onClick={()=>handleDownload('pdf')} disabled={!!downloading}>
+              <Icon.Download /> {downloading==='pdf'?'Generating…':'Download .pdf'}
             </button>
             <button className="btn ghost sm" onClick={onClose}>
               <Icon.X />
@@ -245,6 +271,13 @@ window.__downloadPCI = async (scheme) => {
     URL.revokeObjectURL(url);
     window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number } }));
   } catch (e) { console.warn('PCI download failed', e); }
+};
+
+window.__downloadPCIPdf = async (scheme) => {
+  try {
+    await downloadPCIPdf(scheme);
+    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP PDF — ${scheme.road_name}`, ref: scheme.project_number } }));
+  } catch (e) { console.warn('PCI PDF download failed', e); }
 };
 
 window.PCIDoc   = PCIDoc;

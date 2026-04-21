@@ -131,20 +131,43 @@ async function downloadRSR(scheme) {
   a.click(); URL.revokeObjectURL(a.href);
 }
 
+async function downloadRSRPdf(scheme) {
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
+  document.body.appendChild(container);
+  try {
+    const root = ReactDOM.createRoot(container);
+    root.render(React.createElement(RoadSpaceRequestDoc, { scheme }));
+    await new Promise(r => setTimeout(r, 400));
+    await window.htmlToPdf(
+      container.firstChild || container,
+      `RSR_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.pdf`
+    );
+    root.unmount();
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+
 const RSRModal = ({ scheme, onClose }) => {
   const { updateScheme } = React.useContext(window.SchemeContext);
   const bindings = ["prepared_by","designer_email","designer_phone","contractor","contractor_pe","contractor_ooh","road_name","project_number","ward_selected","grid_ref","scheme_extent","treatment_type","date_start","date_finish","tm_hours","date_prepared"];
   const missing = bindings.filter(k => !scheme[k] && scheme[k] !== 0);
-  const [downloading, setDownloading] = React.useState(false);
-  const handleDownload = async () => {
-    setDownloading(true);
+  const [downloading, setDownloading] = React.useState(null);
+  const handleDownload = async (fmt) => {
+    setDownloading(fmt);
     try {
-      await downloadRSR(scheme);
-      updateScheme(scheme.id, { docs_generated: { ...(scheme.docs_generated||{}), rsr: true } });
-      window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR — ${scheme.road_name}`, ref: scheme.project_number } }));
+      if (fmt === 'pdf') {
+        await downloadRSRPdf(scheme);
+        window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR PDF — ${scheme.road_name}`, ref: scheme.project_number } }));
+      } else {
+        await downloadRSR(scheme);
+        updateScheme(scheme.id, { docs_generated: { ...(scheme.docs_generated||{}), rsr: true } });
+        window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR — ${scheme.road_name}`, ref: scheme.project_number } }));
+      }
     }
     catch(e) { alert('Download failed: ' + e.message); }
-    finally { setDownloading(false); }
+    finally { setDownloading(null); }
   };
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -155,7 +178,8 @@ const RSRModal = ({ scheme, onClose }) => {
             <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{scheme.project_number} · {scheme.road_name} · {bindings.length-missing.length}/{bindings.length} fields bound</div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            <button className="btn sm" onClick={handleDownload} disabled={downloading}><Icon.Download /> {downloading?"Generating…":"Download .docx"}</button>
+            <button className="btn sm" onClick={()=>handleDownload('docx')} disabled={!!downloading}><Icon.Download /> {downloading==='docx'?"Generating…":"Download .docx"}</button>
+            <button className="btn sm" onClick={()=>handleDownload('pdf')} disabled={!!downloading}><Icon.Download /> {downloading==='pdf'?"Generating…":"Download .pdf"}</button>
             <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
           </div>
         </div>
@@ -189,6 +213,13 @@ window.__downloadRSR = async (scheme) => {
     await downloadRSR(scheme);
     window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR — ${scheme.road_name}`, ref: scheme.project_number } }));
   } catch (e) { console.warn('RSR download failed', e); }
+};
+
+window.__downloadRSRPdf = async (scheme) => {
+  try {
+    await downloadRSRPdf(scheme);
+    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR PDF — ${scheme.road_name}`, ref: scheme.project_number } }));
+  } catch (e) { console.warn('RSR PDF download failed', e); }
 };
 
 window.RoadSpaceRequestDoc = RoadSpaceRequestDoc;

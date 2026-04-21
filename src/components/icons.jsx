@@ -35,4 +35,23 @@ const fmtGBP = (n) => "£" + Number(n).toLocaleString("en-GB", { maximumFraction
 const fmtDate = (iso) => { const d = new Date(iso); return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }); };
 const STATUS_LABELS = { design: "In Design", review: "In Review", ready: "Ready to Issue", works: "On Site", archived: "Archived" };
 
-Object.assign(window, { Icon, fmtGBP, fmtDate, STATUS_LABELS });
+const htmlToPdf = async (element, filename) => {
+  if (!window.html2canvas || !window.jspdf) throw new Error('PDF libraries not loaded');
+  const { jsPDF } = window.jspdf;
+  const canvas = await window.html2canvas(element, {
+    scale: 2, backgroundColor: '#ffffff', useCORS: true, allowTaint: true, logging: false,
+  });
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pageW = 210, pageH = 297;
+  const imgData = canvas.toDataURL('image/jpeg', 0.92);
+  const imgH = (canvas.height * pageW) / canvas.width;
+  let y = 0;
+  while (y < imgH) {
+    if (y > 0) pdf.addPage();
+    pdf.addImage(imgData, 'JPEG', 0, -y, pageW, imgH);
+    y += pageH;
+  }
+  pdf.save(filename);
+};
+
+Object.assign(window, { Icon, fmtGBP, fmtDate, STATUS_LABELS, htmlToPdf });

@@ -49,7 +49,9 @@ const GenerateModal = ({ scheme, onClose }) => {
     setExporting(true);
     (async () => {
       try { if (window.__downloadRSR) await window.__downloadRSR(scheme); } catch {}
+      try { if (window.__downloadRSRPdf) await window.__downloadRSRPdf(scheme); } catch {}
       try { if (window.__downloadPCI) await window.__downloadPCI(scheme); } catch {}
+      try { if (window.__downloadPCIPdf) await window.__downloadPCIPdf(scheme); } catch {}
       try { if (window.__workbookExport) window.__workbookExport(); } catch {}
       setExporting(false);
       setExported(true);
@@ -83,8 +85,8 @@ const GenerateModal = ({ scheme, onClose }) => {
           )}
           {exported && (
             <div style={{ padding: "16px 18px", background: "var(--green-wash)", border: "1px solid var(--green)", borderRadius: "var(--radius-sm)", marginTop: 8 }}>
-              <div style={{ fontWeight: 600, color: "var(--green)", marginBottom: 4, fontSize: 14 }}>✓ 3 documents downloaded</div>
-              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>RSR, PCI/CPP, and Master Workbook saved to your downloads folder. Open the <strong>Pack</strong> tab to generate resident letters.</div>
+              <div style={{ fontWeight: 600, color: "var(--green)", marginBottom: 4, fontSize: 14 }}>✓ 5 files downloaded</div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>RSR (.docx + .pdf), PCI/CPP (.docx + .pdf), and Master Workbook (.xlsx) saved to your downloads folder. Open the <strong>Pack</strong> tab to generate resident letters.</div>
             </div>
           )}
         </div>
