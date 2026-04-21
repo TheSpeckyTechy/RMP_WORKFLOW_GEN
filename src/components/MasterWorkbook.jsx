@@ -179,12 +179,20 @@ const MasterWorkbook = ({ schemeId }) => {
         <div className="mwb-val"><select value={value} onChange={e=>update(f.key,e.target.value)}>{f.options.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
       </div>
     );
-    if (f.type === "link") return (
-      <div className="mwb-row" key={f.key}>
-        <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
-        <div className="mwb-val"><span style={{color:"var(--accent)",fontSize:12}}>🔗 {value||"Click to open DCC lookup"}</span></div>
-      </div>
-    );
+    if (f.type === "link") {
+      const postcode = encodeURIComponent(scheme.postcode||'');
+      const href = `https://gridreferencefinder.com/?postcode=${postcode}`;
+      return (
+        <div className="mwb-row" key={f.key}>
+          <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
+          <div className="mwb-val">
+            <a href={href} target="_blank" rel="noreferrer" style={{color:"var(--accent)",fontSize:12,textDecoration:"none"}}>
+              ↗ {scheme.postcode ? `Look up ${scheme.postcode}` : "Enter a postcode above first"}
+            </a>
+          </div>
+        </div>
+      );
+    }
     if (f.type === "textarea") return (
       <div className="mwb-row" key={f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>

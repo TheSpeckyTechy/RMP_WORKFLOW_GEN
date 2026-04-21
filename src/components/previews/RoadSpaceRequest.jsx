@@ -85,15 +85,35 @@ async function downloadRSR(scheme) {
   const buffer = await res.arrayBuffer();
   const zip = new window.JSZip();
   await zip.loadAsync(buffer);
+  const ext = scheme.scheme_extent ? `: ${scheme.scheme_extent}` : '';
   const fields = {
-    prepared_by: scheme.prepared_by||'', designer_email: scheme.designer_email||'',
-    designer_phone: scheme.designer_phone||'', contractor: scheme.contractor||'',
-    contractor_pe: scheme.contractor_pe||'', contractor_ooh: scheme.contractor_ooh||'',
-    road_name: scheme.road_name||'', project_number: scheme.project_number||'',
-    ward_selected: scheme.ward_selected||'', grid_ref: scheme.grid_ref||'',
-    scheme_extent: scheme.scheme_extent||'', treatment_type: scheme.treatment_type||'',
-    date_start: scheme.date_start||'', date_finish: scheme.date_finish||'',
-    tm_hours: scheme.tm_hours||'', date_prepared: scheme.date_prepared||'',
+    PROJECT_TITLE:           `${scheme.road_name||''}${ext}`,
+    PROJECT_NUMBER:          scheme.project_number||'',
+    PROJECT_ADDRESS:         `${scheme.road_name||''}${ext}`,
+    START_DATE:              scheme.date_start||'',
+    FINISH_DATE:             scheme.date_finish||'',
+    DESIGNER_NAME:           scheme.prepared_by||'',
+    DESIGNER_HEAD_OF:        scheme.designer_head_of||'',
+    DESIGNER_TELEPHONE:      scheme.designer_phone||'',
+    DESIGNER_EMAIL:          scheme.designer_email||'',
+    CLIENT_NAME_ADDRESS:     scheme.client_name_address||'',
+    CLIENT_OFFICER:          scheme.client_officer||'',
+    CLIENT_TELEPHONE:        scheme.client_phone||'',
+    CLIENT_EMAIL:            scheme.client_email||'',
+    DEPARTMENT:              scheme.department||'',
+    CDM_PRINCIPAL_DESIGNER:  scheme.cdm_principal_designer||'',
+    CDM_HEAD_OF:             scheme.cdm_head_of||'',
+    CLIENT_REF_WORK_ORDER:   scheme.client_ref_work_order||'',
+    CONTRACTOR_NAME:         scheme.contractor||'',
+    CONTRACTOR_ADDRESS:      scheme.contractor_address||'',
+    CONTRACTOR_CONTACT:      scheme.contractor_pe||'',
+    CONTRACTOR_TELEPHONE:    scheme.contractor_ooh||'',
+    CONTRACTOR_EMAIL:        scheme.contractor_email||'',
+    CONTRACTOR_OUT_OF_HOURS: scheme.contractor_ooh||'',
+    OUT_OF_HOURS_CONTACT:    scheme.contractor_ooh||'',
+    DESCRIPTION_OF_WORK:     scheme.pci_description||'',
+    OCCUPIER_TENANT_DETAILS: scheme.pci_occupiers||'',
+    SECURITY_ARRANGEMENTS:   scheme.pci_site_security||'',
   };
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
   for (const p of xmlPaths) {
@@ -101,7 +121,6 @@ async function downloadRSR(scheme) {
     let xml = await f.async('string');
     for (const [k,v] of Object.entries(fields)) {
       xml = xml.split(`{{${k}}}`).join(v);
-      xml = xml.split(`{{${k.toUpperCase()}}}`).join(v);
     }
     zip.file(p, xml);
   }
@@ -113,12 +132,16 @@ async function downloadRSR(scheme) {
 }
 
 const RSRModal = ({ scheme, onClose }) => {
+  const { updateScheme } = React.useContext(window.SchemeContext);
   const bindings = ["prepared_by","designer_email","designer_phone","contractor","contractor_pe","contractor_ooh","road_name","project_number","ward_selected","grid_ref","scheme_extent","treatment_type","date_start","date_finish","tm_hours","date_prepared"];
   const missing = bindings.filter(k => !scheme[k] && scheme[k] !== 0);
   const [downloading, setDownloading] = React.useState(false);
   const handleDownload = async () => {
     setDownloading(true);
-    try { await downloadRSR(scheme); }
+    try {
+      await downloadRSR(scheme);
+      updateScheme(scheme.id, { docs_generated: { ...(scheme.docs_generated||{}), rsr: true } });
+    }
     catch(e) { alert('Download failed: ' + e.message); }
     finally { setDownloading(false); }
   };

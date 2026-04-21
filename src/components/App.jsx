@@ -83,6 +83,26 @@ const GenerateModal = ({ scheme, onClose }) => {
   );
 };
 
+const SyncDot = ({ status }) => {
+  const cfg = {
+    loading: { color: 'var(--amber)',       label: 'Connecting to Supabase…' },
+    syncing: { color: 'var(--amber)',       label: 'Syncing…' },
+    synced:  { color: 'var(--green)',       label: 'Synced' },
+    error:   { color: 'var(--red,#c0392b)', label: 'Sync error' },
+  };
+  const { color, label } = cfg[status] || cfg.off;
+  return (
+    <span
+      title={label}
+      style={{
+        width: 8, height: 8, borderRadius: '50%', background: color,
+        display: 'inline-block', flexShrink: 0,
+        animation: (status === 'loading' || status === 'syncing') ? 'pulse 1s ease-in-out infinite' : 'none',
+      }}
+    />
+  );
+};
+
 const Tweaks = ({ tweaks, setTweaks }) => (
   <div className="tweaks-panel">
     <div className="tweaks-head"><span>Tweaks</span><span style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>design controls</span></div>
@@ -108,6 +128,7 @@ const Tweaks = ({ tweaks, setTweaks }) => (
 );
 
 const SettingsView = ({ tweaks, setTweaks }) => {
+  const { resetAllSchemes, syncStatus } = React.useContext(window.SchemeContext);
   const accents = [
     { v: "Orange", c: "oklch(0.62 0.16 45)" },
     { v: "Blue",   c: "oklch(0.52 0.14 240)" },
@@ -167,6 +188,23 @@ const SettingsView = ({ tweaks, setTweaks }) => {
           </div>
         </div>
         <div className="settings-section">
+          <div className="settings-section-title">Storage</div>
+          <div className="settings-card">
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <SyncDot status={syncStatus} />
+              <div>
+                <div style={{fontSize:13,fontWeight:500}}>Supabase · Workload</div>
+                <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>
+                  {syncStatus==='synced' && 'All changes synced · West EU (Ireland)'}
+                  {syncStatus==='syncing' && 'Syncing…'}
+                  {syncStatus==='loading' && 'Connecting…'}
+                  {syncStatus==='error' && <span style={{color:"var(--red)"}}>Sync error — check console</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="settings-section">
           <div className="settings-section-title">About</div>
           <div className="settings-card">
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -177,16 +215,139 @@ const SettingsView = ({ tweaks, setTweaks }) => {
             </div>
           </div>
         </div>
+        <div className="settings-section">
+          <div className="settings-section-title">Data</div>
+          <div className="settings-card">
+            <div className="settings-row">
+              <div>
+                <div className="settings-row-label">Reset scheme data</div>
+                <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>Clears all saved edits and reloads the original seed data. Cannot be undone.</div>
+              </div>
+              <button className="btn sm" style={{borderColor:"var(--red)",color:"var(--red)",flexShrink:0}}
+                onClick={()=>{ if(confirm("Reset all scheme data to defaults? This cannot be undone.")) resetAllSchemes(); }}>
+                Reset data
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const FINANCIAL_YEARS = ["2025/26","2026/27","2027/28","2028/29"];
+const SCHEME_TYPES = ["Carriageway","Footway","Junction","Cycleway"];
+const SCHEME_STATUSES = [
+  { k:"design", l:"In design" },{ k:"review", l:"In review" },
+  { k:"ready",  l:"Ready" },    { k:"works",  l:"On site" },
+];
+
+const NewSchemeModal = ({ onClose, onCreate }) => {
+  const { schemes } = React.useContext(window.SchemeContext);
+  const [form, setForm] = React.useState({
+    road_name: "", project_number: "", scheme_type: "Carriageway",
+    financial_year: "2026/27", ward_num: 1, status: "design",
+  });
+  const [error, setError] = React.useState("");
+  const nameRef = React.useRef(null);
+
+  React.useEffect(() => { nameRef.current?.focus(); }, []);
+
+  const set = (k, v) => { setForm(f => ({...f, [k]: v})); setError(""); };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.road_name.trim()) { setError("Road name is required."); return; }
+    if (!form.project_number.trim()) { setError("Project number is required."); return; }
+    if (schemes.find(s => s.id === form.project_number.trim())) {
+      setError(`Project number "${form.project_number.trim()}" already exists.`); return;
+    }
+    const ward = window.WARDS.find(w => w.num === form.ward_num);
+    const id = form.project_number.trim();
+    const newScheme = window.baseScheme({
+      id,
+      road_name: form.road_name.trim(),
+      project_number: id,
+      scheme_type: form.scheme_type,
+      financial_year: form.financial_year,
+      ward_num: form.ward_num,
+      ward_selected: ward ? `Ward ${ward.num} — ${ward.name}` : "",
+      status: form.status,
+    });
+    onCreate(newScheme);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{width:480}}>
+        <div className="modal-head">
+          <div style={{fontWeight:600,fontSize:15}}>New Scheme</div>
+          <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body" style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div className="field">
+              <label>Road Name <span style={{color:"var(--red)"}}>*</span></label>
+              <input ref={nameRef} type="text" placeholder="e.g. Lochee Road" value={form.road_name} onChange={e=>set("road_name",e.target.value)} />
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div className="field">
+                <label>Project Number <span style={{color:"var(--red)"}}>*</span></label>
+                <input type="text" placeholder="e.g. R5042" value={form.project_number} onChange={e=>set("project_number",e.target.value)} className="mono" />
+              </div>
+              <div className="field">
+                <label>Financial Year</label>
+                <select value={form.financial_year} onChange={e=>set("financial_year",e.target.value)}>
+                  {FINANCIAL_YEARS.map(y=><option key={y}>{y}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div className="field">
+                <label>Scheme Type</label>
+                <select value={form.scheme_type} onChange={e=>set("scheme_type",e.target.value)}>
+                  {SCHEME_TYPES.map(t=><option key={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="field">
+                <label>Initial Status</label>
+                <select value={form.status} onChange={e=>set("status",e.target.value)}>
+                  {SCHEME_STATUSES.map(s=><option key={s.k} value={s.k}>{s.l}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="field">
+              <label>Ward</label>
+              <div className="ward-picker" style={{marginBottom:0}}>
+                {window.WARDS.map(w=>(
+                  <button key={w.num} type="button"
+                    className={"ward-btn "+(form.ward_num===w.num?"active":"")}
+                    onClick={()=>set("ward_num",w.num)}>
+                    <span className="ward-num">W{w.num}</span>
+                    <span className="ward-name">{w.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {error && <div style={{fontSize:12,color:"var(--red)",fontFamily:"var(--font-mono)",background:"#fff0f0",padding:"6px 10px",borderRadius:"var(--radius-sm)",border:"1px solid #fca5a5"}}>{error}</div>}
+          </div>
+          <div className="modal-foot">
+            <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn accent"><Icon.Plus /> Create scheme</button>
+          </div>
+        </form>
       </div>
     </div>
   );
 };
 
 const AppInner = () => {
+  const { addScheme, syncStatus } = React.useContext(window.SchemeContext);
   const [view, setView] = React.useState("dashboard");
   const [openScheme, setOpenScheme] = React.useState(null);
   const [filter, setFilter] = React.useState("all");
   const [search, setSearch] = React.useState("");
+  const [newSchemeOpen, setNewSchemeOpen] = React.useState(false);
   const [generating, setGenerating] = React.useState(null);
   const [previewing, setPreviewing] = React.useState(null);
   const [tweaksOn, setTweaksOn] = React.useState(false);
@@ -215,6 +376,17 @@ const AppInner = () => {
   const STATUS_FILTER_KEYS = ["design","review","ready","works","archived"];
   React.useEffect(() => { if (STATUS_FILTER_KEYS.includes(view)) setFilter(view); }, [view]);
 
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey &&
+          !["INPUT","SELECT","TEXTAREA"].includes(document.activeElement?.tagName)) {
+        setNewSchemeOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   return (
     <div className="app">
       <Sidebar view={view} onView={(v) => { setView(v); setOpenScheme(null); }} />
@@ -229,6 +401,7 @@ const AppInner = () => {
             )}
           </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
+          <SyncDot status={syncStatus} />
           <button className="btn ghost sm"><Icon.Bell /></button>
         </header>
         <div className="content">
@@ -237,7 +410,7 @@ const AppInner = () => {
           ) : view === "settings" ? (
             <SettingsView tweaks={tweaks} setTweaks={setTweaks} />
           ) : (
-            <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} filter={filter} setFilter={setFilter} search={search} />
+            <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} onNew={()=>setNewSchemeOpen(true)} filter={filter} setFilter={setFilter} search={search} />
           )}
         </div>
       </div>
@@ -245,6 +418,7 @@ const AppInner = () => {
       {previewing?.docKey === "rsr" && <RSRModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
       {previewing?.docKey === "pci" && <PCIModal schemeId={previewing.scheme.id} onClose={() => setPreviewing(null)} />}
       {previewing?.docKey === "letter" && <LetterModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
+      {newSchemeOpen && <NewSchemeModal onClose={()=>setNewSchemeOpen(false)} onCreate={s=>{ addScheme(s); setNewSchemeOpen(false); setView("dashboard"); setFilter("all"); setSearch(""); setOpenScheme(s.id); }} />}
       {tweaksOn && <Tweaks tweaks={tweaks} setTweaks={setTweaks} />}
     </div>
   );

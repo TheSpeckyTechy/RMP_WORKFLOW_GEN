@@ -54,30 +54,61 @@ async function injectLetterXml(buffer, scheme, recipient) {
   const zip = new window.JSZip();
   await zip.loadAsync(buffer);
 
-  const recipientTags = {
-    AddressLine4: xmlEscape(recipient?.address1 || ''),
-    POSTCODE:     xmlEscape(recipient?.postcode || ''),
-    TOWN_NAME:    xmlEscape(recipient?.town || 'DUNDEE'),
+  const ext = scheme.scheme_extent ? ` (${scheme.scheme_extent})` : '';
+  const addrBlock = [
+    recipient?.address1 || '',
+    recipient?.town || 'DUNDEE',
+    recipient?.postcode || '',
+  ].filter(Boolean).join('\n');
+
+  const bodyText = (() => {
+    const start = scheme.date_start || '[start date]';
+    const finish = scheme.date_finish || '[finish date]';
+    const road = scheme.road_name || '[road]';
+    const extPhrase = scheme.scheme_extent ? ` between ${scheme.scheme_extent}` : '';
+    const tm = scheme.tm_type ? scheme.tm_type.toLowerCase() : 'temporary traffic management';
+    const tmH = scheme.tm_hours || '07:30 to 15:30';
+    return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${extPhrase}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place during working hours (${tmH}). Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
+  })();
+
+  const tags = {
+    PROJECT_TITLE:           `RESURFACING WORKS — ${(scheme.road_name||'').toUpperCase()}${ext.toUpperCase()}`,
+    PROJECT_NUMBER:          scheme.project_number || '',
+    PROJECT_ADDRESS:         `${scheme.road_name || ''}${ext}`,
+    CLIENT_NAME_ADDRESS:     addrBlock,
+    DESCRIPTION_OF_WORK:     bodyText,
+    START_DATE:              scheme.date_start || '',
+    FINISH_DATE:             scheme.date_finish || '',
+    DESIGNER_NAME:           scheme.prepared_by || '',
+    DESIGNER_HEAD_OF:        scheme.designer_head_of || '',
+    DESIGNER_TELEPHONE:      scheme.designer_phone || '',
+    DESIGNER_EMAIL:          scheme.designer_email || '',
+    CLIENT_OFFICER:          scheme.client_officer || '',
+    CLIENT_TELEPHONE:        scheme.client_phone || '',
+    CLIENT_EMAIL:            scheme.client_email || '',
+    DEPARTMENT:              scheme.department || '',
+    CONTRACTOR_NAME:         scheme.contractor || '',
+    CONTRACTOR_ADDRESS:      scheme.contractor_address || '',
+    CONTRACTOR_CONTACT:      scheme.contractor_pe || '',
+    CONTRACTOR_TELEPHONE:    scheme.contractor_ooh || '',
+    CONTRACTOR_EMAIL:        scheme.contractor_email || '',
+    OUT_OF_HOURS_CONTACT:    scheme.contractor_ooh || '',
+    CONTRACTOR_OUT_OF_HOURS: scheme.contractor_ooh || '',
+    SECURITY_ARRANGEMENTS:   scheme.pci_site_security || '',
+    OCCUPIER_TENANT_DETAILS: scheme.pci_occupiers || '',
+    CDM_PRINCIPAL_DESIGNER:  scheme.cdm_principal_designer || '',
+    CDM_HEAD_OF:             scheme.cdm_head_of || '',
+    CLIENT_REF_WORK_ORDER:   scheme.client_ref_work_order || '',
   };
-
-  const schemeTags = {};
-  LETTER_BINDINGS.forEach(b => {
-    const name = b.tag.replace(/^<<|>>$/g, '');
-    const raw = b.derive(scheme);
-    schemeTags[name] = name === 'Letter_Body_Text' ? bodyToXml(raw) : xmlEscape(raw);
-  });
-
-  const allTags = { ...schemeTags, ...recipientTags };
 
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
   for (const xmlPath of xmlPaths) {
     const file = zip.file(xmlPath);
     if (!file) continue;
     let xml = await file.async('string');
-    for (const [tag, value] of Object.entries(allTags)) {
-      xml = xml.split(`&lt;&lt;${tag}&gt;&gt;`).join(value);
-      xml = xml.split(`<<${tag}>>`).join(value);
-      xml = xml.split(`«${tag}»`).join(value);
+    for (const [tag, value] of Object.entries(tags)) {
+      const safe = bodyToXml(value);
+      xml = xml.split(`{{${tag}}}`).join(safe);
     }
     zip.file(xmlPath, xml);
   }
@@ -440,7 +471,7 @@ const CAGImportPanel = ({ scheme, onClose }) => {
 // ─── Letter Modal ─────────────────────────────────────────────────────────────
 
 const LetterModal = ({ scheme: schemeProp, onClose }) => {
-  const { getScheme } = React.useContext(window.SchemeContext);
+  const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeProp.id);
   const recipients = scheme.recipients || [];
   const [selectedIdx, setSelectedIdx] = React.useState(0);
@@ -450,7 +481,10 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
 
   const handleMailMerge = async () => {
     setMerging(true);
-    try { await mailMergeLetter(scheme, recipients); }
+    try {
+      await mailMergeLetter(scheme, recipients);
+      updateScheme(scheme.id, { docs_generated: { ...(scheme.docs_generated||{}), letter: true } });
+    }
     catch(e) { alert('Mail merge failed: ' + e.message); }
     finally { setMerging(false); }
   };
