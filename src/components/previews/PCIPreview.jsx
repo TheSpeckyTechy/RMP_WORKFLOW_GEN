@@ -168,6 +168,7 @@ const PCIModal = ({ schemeId, onClose }) => {
       a.click();
       URL.revokeObjectURL(url);
       updateScheme(schemeId, { docs_generated: { ...(scheme.docs_generated||{}), pci: true } });
+      window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number } }));
     } catch (err) {
       alert('Download failed: ' + err.message);
     }

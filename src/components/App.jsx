@@ -68,15 +68,13 @@ const GenerateModal = ({ scheme, onClose }) => {
           </div>
           {done && (
             <div style={{ padding: "16px 18px", background: "var(--green-wash)", border: "1px solid var(--green)", borderRadius: "var(--radius-sm)", marginTop: 8 }}>
-              <div style={{ fontWeight: 600, color: "var(--green)", marginBottom: 4, fontSize: 14 }}>✓ Pack generated</div>
-              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>8 documents written to <span className="mono">OneDrive · Projects (AI) · {scheme.project_number} {scheme.road_name}/</span></div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginTop: 8 }}>Estimated time saved: 2h 15m vs manual copy-paste</div>
+              <div style={{ fontWeight: 600, color: "var(--green)", marginBottom: 4, fontSize: 14 }}>✓ Ready to download</div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>Open the <strong>Pack</strong> tab on this scheme to download each document individually.</div>
             </div>
           )}
         </div>
         <div className="modal-foot">
-          <button className="btn" onClick={onClose}>Close</button>
-          <button className="btn primary" disabled={!done}><Icon.Folder /> Open folder</button>
+          <button className="btn primary" onClick={onClose}>Done</button>
         </div>
       </div>
     </div>
@@ -343,6 +341,23 @@ const NewSchemeModal = ({ onClose, onCreate }) => {
 
 const AppInner = () => {
   const { addScheme, syncStatus } = React.useContext(window.SchemeContext);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const [notifOpen, setNotifOpen] = React.useState(false);
+  const [notifications, setNotifications] = React.useState([]);
+  const notifRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handler = (e) => setNotifications(n => [e.detail, ...n].slice(0, 10));
+    window.addEventListener('rmp-download', handler);
+    return () => window.removeEventListener('rmp-download', handler);
+  }, []);
+
+  React.useEffect(() => {
+    if (!notifOpen) return;
+    const handler = (e) => { if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [notifOpen]);
   const [view, setView] = React.useState("dashboard");
   const [openScheme, setOpenScheme] = React.useState(null);
   const [filter, setFilter] = React.useState("all");
@@ -389,9 +404,11 @@ const AppInner = () => {
 
   return (
     <div className="app">
-      <Sidebar view={view} onView={(v) => { setView(v); setOpenScheme(null); }} />
+      {menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
+      <Sidebar view={view} onView={(v) => { setView(v); setOpenScheme(null); setMenuOpen(false); }} open={menuOpen} />
       <div className="main">
         <header className="topbar">
+          <button className="btn ghost sm menu-toggle" onClick={() => setMenuOpen(o => !o)} style={{padding:"4px 8px",fontSize:18,lineHeight:1}}>☰</button>
           <div className="crumbs">
             <span>Workspace</span><span className="sep">/</span>
             {openScheme ? (
@@ -402,7 +419,26 @@ const AppInner = () => {
           </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
           <SyncDot status={syncStatus} />
-          <button className="btn ghost sm"><Icon.Bell /></button>
+          <div style={{position:"relative"}} ref={notifRef}>
+            <button className="btn ghost sm" style={{position:"relative"}} onClick={()=>setNotifOpen(o=>!o)}>
+              <Icon.Bell />
+              {notifications.length > 0 && <span style={{position:"absolute",top:3,right:3,width:7,height:7,borderRadius:"50%",background:"var(--accent)",display:"block"}} />}
+            </button>
+            {notifOpen && (
+              <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:"var(--bg)",border:"1px solid var(--line)",borderRadius:"var(--radius)",boxShadow:"0 4px 20px rgba(0,0,0,0.12)",width:270,zIndex:300}}>
+                <div style={{padding:"10px 14px 6px",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",borderBottom:"1px solid var(--line)"}}>Downloads this session</div>
+                {notifications.length === 0
+                  ? <div style={{padding:"12px 14px",fontSize:12,color:"var(--ink-3)"}}>No downloads yet</div>
+                  : notifications.map((n, i) => (
+                    <div key={i} style={{padding:"8px 14px",borderBottom:"1px solid var(--line)",fontSize:12}}>
+                      <div style={{color:"var(--ink)"}}>{n.label}</div>
+                      <div style={{color:"var(--ink-3)",fontFamily:"var(--font-mono)",fontSize:10,marginTop:2}}>{n.ref}</div>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+          </div>
         </header>
         <div className="content">
           {openScheme ? (

@@ -141,6 +141,7 @@ const RSRModal = ({ scheme, onClose }) => {
     try {
       await downloadRSR(scheme);
       updateScheme(scheme.id, { docs_generated: { ...(scheme.docs_generated||{}), rsr: true } });
+      window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR — ${scheme.road_name}`, ref: scheme.project_number } }));
     }
     catch(e) { alert('Download failed: ' + e.message); }
     finally { setDownloading(false); }
