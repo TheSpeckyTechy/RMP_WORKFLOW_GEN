@@ -56,7 +56,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
             </select>
           </p>
         </div>
-        <div style={{display:"flex",gap:8}}>
+        <div className="page-actions" style={{display:"flex",gap:8}}>
           <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>
           <button className="btn ghost sm" title="Delete scheme" style={{color:"var(--red)"}} onClick={()=>{ if(confirm(`Delete "${scheme.road_name}"? This cannot be undone.`)){ deleteScheme(schemeId); onBack(); } }}><Icon.Trash /></button>
