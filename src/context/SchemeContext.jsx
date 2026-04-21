@@ -25,10 +25,15 @@ const lsSet    = (id, s) => { try { localStorage.setItem(LS_PREFIX + id, JSON.st
 const lsGetIds = ()    => { try { const v = localStorage.getItem(LS_IDS); return v ? JSON.parse(v) : []; } catch { return []; } };
 const lsSetIds = (ids) => { try { localStorage.setItem(LS_IDS, JSON.stringify(ids)); } catch {} };
 
+// Silent migration: ensure every scheme loaded from storage has a .boq.
+// Legacy rows saved before the Stage 3 model don't include it, so we back-fill
+// from window.defaultBoq() on read. Persists on the first updateScheme call.
+const withBoq = (s) => (s && !s.boq) ? { ...s, boq: window.defaultBoq() } : s;
+
 const initSchemes = () => {
-  const base = window.SCHEMES.map(s => { const saved = lsGet(s.id); return saved ? { ...s, ...saved } : s; });
+  const base = window.SCHEMES.map(s => { const saved = lsGet(s.id); return withBoq(saved ? { ...s, ...saved } : s); });
   const defaultIds = new Set(window.SCHEMES.map(s => s.id));
-  const extras = lsGetIds().filter(id => !defaultIds.has(id)).map(id => lsGet(id)).filter(Boolean);
+  const extras = lsGetIds().filter(id => !defaultIds.has(id)).map(id => lsGet(id)).filter(Boolean).map(withBoq);
   return [...extras, ...base];
 };
 
@@ -55,8 +60,8 @@ const SchemeProvider = ({ children }) => {
         const remoteMap = Object.fromEntries(rows.map(r => [r.id, r.data]));
         setSchemes(prev => {
           const localIds = new Set(prev.map(s => s.id));
-          const updated  = prev.map(s => remoteMap[s.id] ? { ...s, ...remoteMap[s.id] } : s);
-          const extras   = rows.filter(r => !localIds.has(r.id) && r.data).map(r => r.data);
+          const updated  = prev.map(s => remoteMap[s.id] ? withBoq({ ...s, ...remoteMap[s.id] }) : s);
+          const extras   = rows.filter(r => !localIds.has(r.id) && r.data).map(r => withBoq(r.data));
           return extras.length ? [...extras, ...updated] : updated;
         });
       }
