@@ -484,6 +484,7 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
     try {
       await mailMergeLetter(scheme, recipients);
       updateScheme(scheme.id, { docs_generated: { ...(scheme.docs_generated||{}), letter: true } });
+      window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `Letter — ${scheme.road_name} (${recipients.length} recipient${recipients.length!==1?'s':''})`, ref: scheme.project_number } }));
     }
     catch(e) { alert('Mail merge failed: ' + e.message); }
     finally { setMerging(false); }

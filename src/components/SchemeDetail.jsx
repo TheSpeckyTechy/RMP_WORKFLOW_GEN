@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
-  const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
+  const { getScheme, updateScheme, deleteScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
   const [tab, setTab] = React.useState("workbook");
   const workbookFieldCount = window.WORKBOOK_SCHEMA.flatMap(s=>s.fields).filter(f=>f.type!=="subheader"&&f.type!=="zone-label").length;
@@ -59,6 +59,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
         <div style={{display:"flex",gap:8}}>
           <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>
+          <button className="btn ghost sm" title="Delete scheme" style={{color:"var(--red)"}} onClick={()=>{ if(confirm(`Delete "${scheme.road_name}"? This cannot be undone.`)){ deleteScheme(schemeId); onBack(); } }}><Icon.Trash /></button>
         </div>
       </div>
       {scheme.flags&&scheme.flags.length>0&&(
