@@ -21,10 +21,61 @@
 //             window.PACK_DOCS, window.STATUS_LABELS, window.fmtDate
 // ─────────────────────────────────────────────────────────────────────────────
 
+const SchemeMobileCard = ({ scheme, onExpand, onBack, onGenerate }) => {
+  const { updateScheme } = React.useContext(window.SchemeContext);
+  const docsGenerated = scheme.docs_generated || {};
+  const packDone = window.PACK_DOCS.filter(d => docsGenerated[d.key]).length;
+  const packTotal = window.PACK_DOCS.length;
+  const packPct = packTotal > 0 ? Math.round((packDone / packTotal) * 100) : 0;
+  return (
+    <div className="scheme-mobile-card">
+      <div>
+        <span className="mono" style={{fontSize:12,color:"var(--ink-3)",cursor:"pointer"}} onClick={onBack}>← All schemes</span>
+      </div>
+      <div className="smc-header">
+        <div style={{flex:1,minWidth:0}}>
+          <div className="smc-title">{scheme.road_name}</div>
+          {scheme.scheme_extent && <div style={{fontSize:12,color:"var(--ink-3)",marginTop:4}}>{scheme.scheme_extent}</div>}
+        </div>
+        <select value={scheme.status} onChange={e=>updateScheme(scheme.id,{status:e.target.value})}
+          className={"pill "+scheme.status}
+          style={{border:"none",background:"inherit",color:"inherit",fontWeight:500,fontSize:11,cursor:"pointer",padding:"2px 6px",borderRadius:12,appearance:"none",WebkitAppearance:"none",flexShrink:0}}>
+          {Object.entries(STATUS_LABELS).map(([k,l])=><option key={k} value={k}>{l}</option>)}
+        </select>
+      </div>
+      <div className="smc-meta">
+        {[["Start date",scheme.date_start||"—"],["Finish date",scheme.date_finish||"—"],
+          ["Area",(+(scheme.area_m2)||0).toLocaleString()+" m²"],["Treatment",scheme.treatment_type||"—"],
+          ["Ward",scheme.ward||"—"],["TM type",scheme.tm_type||"—"]].map(([label,val])=>(
+          <div key={label} className="smc-meta-item">
+            <div className="smc-meta-label">{label}</div>
+            <div className="smc-meta-value" style={{fontSize:12}}>{val}</div>
+          </div>
+        ))}
+      </div>
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--ink-3)",marginBottom:6}}>
+          <span>Pack progress</span><span className="mono">{packDone}/{packTotal} docs ready</span>
+        </div>
+        <div className="pack-bar-track" style={{height:8,borderRadius:4}}>
+          <div className={"pack-bar-fill"+(packDone===packTotal&&packTotal>0?" full":"")} style={{width:packPct+"%"}} />
+        </div>
+      </div>
+      <div className="smc-actions">
+        <button className="btn accent" style={{justifyContent:"center"}} onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
+        <button className="btn" style={{justifyContent:"center"}} onClick={()=>onExpand("boq")}>View BoQ</button>
+      </div>
+      <button className="smc-expand" onClick={()=>onExpand(null)}>Full scheme details →</button>
+    </div>
+  );
+};
+
 const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
   const { getScheme, updateScheme, deleteScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
   const [tab, setTab] = React.useState("workbook");
+  const isMobile = React.useMemo(()=>window.innerWidth<=768,[]);
+  const [mobileExpanded, setMobileExpanded] = React.useState(false);
   const workbookFieldCount = window.WORKBOOK_SCHEMA.flatMap(s=>s.fields).filter(f=>f.type!=="subheader"&&f.type!=="zone-label").length;
   const tabs = [
     { k:"workbook", l:"Master Workbook", badge: String(workbookFieldCount) },
@@ -34,6 +85,18 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
     { k:"boq", l:"Bill of Quantities" },
     { k:"pack", l:"Pack", badge:`${window.PACK_DOCS.filter(d=>(scheme.docs_generated||{})[d.key]).length}/${window.PACK_DOCS.length}` },
   ];
+
+  if (isMobile && !mobileExpanded) {
+    return (
+      <SchemeMobileCard
+        scheme={scheme}
+        onExpand={(targetTab)=>{ setMobileExpanded(true); if(targetTab) setTab(targetTab); }}
+        onBack={onBack}
+        onGenerate={onGenerate}
+      />
+    );
+  }
+
   return (
     <>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,fontSize:12,color:"var(--ink-3)"}}>
