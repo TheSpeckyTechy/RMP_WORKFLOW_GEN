@@ -73,12 +73,14 @@ const GenerateModal = ({ scheme, onClose }) => {
   const [exported, setExported] = React.useState(false);
   const [failures, setFailures] = React.useState([]);
   const steps = [
-    { l: "Reading Master Workbook", meta: "45 named ranges" },
+    { l: "Reading scheme data", meta: scheme.project_number || "—" },
     { l: "Validating inputs", meta: "0 errors" },
     { l: "Looking up ward councillors", meta: `W${scheme.ward_num}` },
-    { l: "Populating PCI / CPP", meta: "DOCX" },
-    { l: "Populating Road Space Request Form", meta: "DOCX" },
-    { l: "Building Master Workbook export", meta: "XLSX" },
+    { l: "Generating PCI / CPP", meta: "DOCX" },
+    { l: "Generating Road Space Request", meta: "DOCX + PDF" },
+    { l: "Generating Master Workbook", meta: "XLSX" },
+    { l: "Generating Bill of Quantities", meta: "XLSX" },
+    { l: "Generating Front Sheet", meta: "PDF" },
   ];
   React.useEffect(() => {
     if (step >= steps.length) { setDone(true); return; }
@@ -95,6 +97,16 @@ const GenerateModal = ({ scheme, onClose }) => {
       try { if (window.__downloadPCI) await window.__downloadPCI(scheme); } catch (e) { errs.push('PCI DOCX'); console.error('PCI DOCX failed', e); }
       try { if (window.__downloadPCIPdf) await window.__downloadPCIPdf(scheme); } catch (e) { errs.push('PCI PDF'); console.error('PCI PDF failed', e); }
       try { if (window.__workbookExport) window.__workbookExport(); } catch (e) { errs.push('Master Workbook'); console.error('Master Workbook failed', e); }
+      try {
+        if (window.__downloadBoQ) await window.__downloadBoQ();
+        else if (window.__exportBoQForScheme) window.__exportBoQForScheme(scheme);
+        else errs.push('BoQ XLSX');
+      } catch (e) { errs.push('BoQ XLSX'); console.error('BoQ XLSX failed', e); }
+      try {
+        if (window.__downloadFront) await window.__downloadFront();
+        else if (window.__downloadFrontPdf) await window.__downloadFrontPdf(scheme);
+        else errs.push('Front Sheet');
+      } catch (e) { errs.push('Front Sheet'); console.error('Front Sheet PDF failed', e); }
       setFailures(errs);
       setExporting(false);
       setExported(true);
@@ -129,12 +141,12 @@ const GenerateModal = ({ scheme, onClose }) => {
           {exported && (
             <div style={{ padding: "16px 18px", background: failures.length ? "var(--amber-wash)" : "var(--green-wash)", border: `1px solid ${failures.length ? "var(--amber)" : "var(--green)"}`, borderRadius: "var(--radius-sm)", marginTop: 8 }}>
               <div style={{ fontWeight: 600, color: failures.length ? "var(--amber)" : "var(--green)", marginBottom: 4, fontSize: 14 }}>
-                {failures.length ? `⚠ ${5 - failures.length}/5 files downloaded` : "✓ 5 files downloaded"}
+                {failures.length ? `⚠ ${7 - failures.length}/7 files downloaded` : "✓ 7 files downloaded"}
               </div>
               {failures.length > 0 && (
                 <div style={{ fontSize: 12, color: "var(--red)", marginBottom: 6 }}>Failed: {failures.join(', ')} — check the browser console for details.</div>
               )}
-              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>RSR (.docx + .pdf), PCI/CPP (.docx + .pdf), and Master Workbook (.xlsx) saved to your downloads folder. Open the <strong>Pack</strong> tab to generate resident letters.</div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>Front Sheet (.pdf), RSR (.docx + .pdf), PCI/CPP (.docx + .pdf), Master Workbook (.xlsx), and BoQ (.xlsx) saved to your downloads folder. Open the <strong>Pack</strong> tab to generate resident letters (CAG recipients required).</div>
             </div>
           )}
         </div>

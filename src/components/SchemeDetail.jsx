@@ -608,6 +608,9 @@ async function downloadFrontPdf(scheme) {
   }
 }
 
+// Expose at file scope so GenerateModal can use it without PackTab being mounted.
+window.__downloadFrontPdf = downloadFrontPdf;
+
 // ─── Doc Preview (thumbnail per document type) ────────────────────────────────
 
 const DocPreview = ({ docKey, scheme }) => {
