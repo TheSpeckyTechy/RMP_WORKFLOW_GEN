@@ -485,10 +485,143 @@ const UtilitiesTab = ({ scheme }) => {
   );
 };
 
+// ─── Front Sheet (A4 HTML doc, rendered offscreen then exported as PDF) ─────────
+
+const FRONT_STATUS_COLORS = { design:"#3b82f6", review:"#f59e0b", ready:"#22c55e", works:"#6366f1", archived:"#9ca3af" };
+
+const FrontSheetDoc = ({ scheme }) => {
+  const docsGen = scheme.docs_generated || {};
+  const statusLabels = { design:"In Design", review:"In Review", ready:"Ready to Issue", works:"On Site", archived:"Archived" };
+  const statusColor = FRONT_STATUS_COLORS[scheme.status] || "#6b7280";
+  const teamRows = [
+    ["Designer",      scheme.prepared_by],
+    ["Reviewer",      scheme.reviewer_name],
+    ["Approver",      scheme.approver_name],
+    ["Client Officer",scheme.client_officer],
+    ["Contractor",    scheme.contractor],
+  ];
+  const summaryRows = [
+    ["Traffic Category", scheme.traffic_category],
+    ["Scheme Type",      scheme.scheme_type],
+    ["Tender Total",     scheme.tender_total ? `£${(+scheme.tender_total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` : null],
+    ["Date Prepared",    scheme.date_prepared],
+  ];
+  return (
+    <div style={{width:794,minHeight:1123,background:'white',fontFamily:"'Arial',Helvetica,sans-serif",color:'#111',boxSizing:'border-box',display:'flex',flexDirection:'column'}}>
+      {/* Letterhead */}
+      <div style={{background:'#1a3a5c',color:'white',padding:'28px 40px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div>
+          <div style={{fontSize:10,letterSpacing:'0.15em',textTransform:'uppercase',opacity:0.7,marginBottom:4}}>Dundee City Council</div>
+          <div style={{fontSize:20,fontWeight:700,letterSpacing:'-0.01em'}}>Road Maintenance Partnership</div>
+        </div>
+        <div style={{textAlign:'right',opacity:0.65,fontSize:10,fontFamily:'monospace',lineHeight:1.6}}>
+          <div>Handover Pack</div>
+          <div>{scheme.project_number}</div>
+        </div>
+      </div>
+
+      {/* Title band */}
+      <div style={{background:'#f0f4f8',borderBottom:'3px solid #1a3a5c',padding:'20px 40px'}}>
+        <div style={{fontSize:20,fontWeight:800,lineHeight:1.2,marginBottom:4}}>{scheme.road_name || 'Untitled Scheme'}</div>
+        {scheme.scheme_extent && <div style={{fontSize:13,color:'#555',marginBottom:8}}>{scheme.scheme_extent}</div>}
+        <div style={{display:'flex',gap:24,flexWrap:'wrap',fontSize:12,marginTop:6}}>
+          {[["Project Ref",scheme.project_number],["Financial Year",scheme.financial_year],["Ward",scheme.ward_selected?`${scheme.ward_num} — ${scheme.ward_selected}`:'—']].map(([l,v])=>(
+            <div key={l}><span style={{color:'#888',marginRight:6}}>{l}</span><span style={{fontWeight:600,fontFamily:l==='Project Ref'?'monospace':'inherit'}}>{v||'—'}</span></div>
+          ))}
+        </div>
+      </div>
+
+      {/* Status bar */}
+      <div style={{background:statusColor,color:'white',padding:'12px 40px',display:'flex',gap:32,alignItems:'center',fontSize:12,flexWrap:'wrap'}}>
+        {[["Status",statusLabels[scheme.status]||scheme.status||'—'],["Treatment",scheme.treatment_type||'—'],["Area",`${(+scheme.area_m2||0).toLocaleString()} m²`],["Works Period",scheme.date_start&&scheme.date_finish?`${scheme.date_start} → ${scheme.date_finish}`:scheme.date_start||'—']].map(([l,v])=>(
+          <div key={l}>
+            <div style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.1em',opacity:0.8,marginBottom:2}}>{l}</div>
+            <div style={{fontWeight:700}}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Two-column detail */}
+      <div style={{padding:'28px 40px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:32,flex:1}}>
+        <div>
+          <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#888',paddingBottom:6,borderBottom:'2px solid #1a3a5c',marginBottom:12}}>Design Team</div>
+          {teamRows.map(([l,v])=>(
+            <div key={l} style={{display:'grid',gridTemplateColumns:'120px 1fr',gap:6,marginBottom:9,fontSize:12}}>
+              <div style={{color:'#888'}}>{l}</div>
+              <div style={{fontWeight:v?500:400,color:v?'#111':'#bbb'}}>{v||'—'}</div>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#888',paddingBottom:6,borderBottom:'2px solid #1a3a5c',marginBottom:12}}>Scheme Details</div>
+          {summaryRows.map(([l,v])=>(
+            <div key={l} style={{display:'grid',gridTemplateColumns:'130px 1fr',gap:6,marginBottom:9,fontSize:12}}>
+              <div style={{color:'#888'}}>{l}</div>
+              <div style={{fontFamily:l==='Tender Total'?'monospace':'inherit',fontWeight:v?500:400,color:v?'#111':'#bbb'}}>{v||'—'}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Pack checklist */}
+      <div style={{padding:'0 40px 28px'}}>
+        <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#888',paddingBottom:6,borderBottom:'2px solid #1a3a5c',marginBottom:12}}>Pack Checklist</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
+          {window.PACK_DOCS.map(d=>{
+            const done = !!docsGen[d.key];
+            return (
+              <div key={d.key} style={{display:'flex',alignItems:'center',gap:7,fontSize:11,padding:'7px 10px',background:done?'#f0fdf4':'#f9fafb',borderRadius:5,border:`1px solid ${done?'#86efac':'#e5e7eb'}`}}>
+                <span style={{width:16,height:16,borderRadius:'50%',background:done?'#22c55e':'#d1d5db',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{done?'✓':'○'}</span>
+                <span style={{fontWeight:done?600:400,color:done?'#166534':'#9ca3af',lineHeight:1.2}}>{d.name}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{padding:'14px 40px',background:'#f8f9fa',borderTop:'1px solid #e5e7eb',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:10,color:'#aaa'}}>
+        <div>Generated by RMP Design Studio · {new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
+        <div style={{fontFamily:'monospace'}}>{scheme.project_number} · {scheme.road_name}</div>
+      </div>
+    </div>
+  );
+};
+
+async function downloadFrontPdf(scheme) {
+  if (!window.htmlToPdf) throw new Error('PDF library not loaded');
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
+  document.body.appendChild(container);
+  try {
+    const root = ReactDOM.createRoot(container);
+    root.render(React.createElement(FrontSheetDoc, { scheme }));
+    await new Promise(r => setTimeout(r, 500));
+    const filename = `Front_Sheet_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.pdf`;
+    await window.htmlToPdf(container.firstChild || container, filename);
+    root.unmount();
+    window.dispatchEvent(new CustomEvent('rmp-download', {
+      detail: { label: 'Front Sheet — ' + (scheme.road_name || 'scheme'), ref: scheme.project_number || '' },
+    }));
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+
 // ─── Doc Preview (thumbnail per document type) ────────────────────────────────
 
 const DocPreview = ({ docKey, scheme }) => {
-  if(docKey==="front") return <div><div style={{fontWeight:700,fontSize:6,marginBottom:2}}>DUNDEE CITY COUNCIL</div><div style={{fontSize:5,marginBottom:4,color:"#666"}}>Road Maintenance Partnership</div><div style={{fontWeight:700,fontSize:7,margin:"6px 0"}}>{scheme.road_name}</div><div style={{fontSize:5,color:"#666"}}>Project {scheme.project_number} · {scheme.financial_year}</div><div style={{height:30,border:"1px dashed #ccc",margin:"6px 0"}}></div><div style={{fontSize:5}}>Area: {scheme.area_m2} m²<br/>Tender: £{(+scheme.tender_total||0).toLocaleString()}<br/>Start: {scheme.date_start}</div></div>;
+  if(docKey==="front") return (
+    <div>
+      <div style={{background:'#1a3a5c',color:'white',fontSize:4,padding:'2px 3px',fontWeight:700,marginBottom:2}}>DUNDEE CITY COUNCIL · RMP</div>
+      <div style={{fontWeight:700,fontSize:6,margin:'3px 0'}}>{scheme.road_name}</div>
+      <div style={{fontSize:4,color:'#666',marginBottom:3}}>Project {scheme.project_number} · {scheme.financial_year}</div>
+      <div style={{height:12,background:'#3b82f6',margin:'3px 0',borderRadius:1,display:'flex',alignItems:'center',paddingLeft:3}}>
+        <span style={{fontSize:3,color:'white',fontWeight:700}}>{(STATUS_LABELS[scheme.status]||scheme.status||'').toUpperCase()}</span>
+      </div>
+      <div style={{fontSize:4,marginTop:3}}>Area: {(+scheme.area_m2||0).toLocaleString()} m²<br/>{scheme.date_start} → {scheme.date_finish}</div>
+    </div>
+  );
   if(docKey==="rsr") return <div><div style={{background:"#1f4e79",color:"white",fontSize:5,padding:"2px 3px",fontWeight:700,textAlign:"center"}}>TEMPORARY ROAD CLOSURES</div><div style={{fontSize:4,marginTop:2,marginBottom:3,textAlign:"center",fontStyle:"italic",color:"#555"}}>Info sheet — Network Management</div><div style={{fontSize:4,color:"#1f4e79",fontWeight:700,marginTop:3}}>1. Applicant Details</div><div style={{fontSize:4}}>Applicant: {scheme.prepared_by}<br/>Road: {scheme.road_name}<br/>Ref: {scheme.project_number}</div></div>;
   if(docKey==="pci") return <div><div style={{fontWeight:700,fontSize:6}}>PCI / CPP · FM710-10A</div><div style={{fontSize:5,marginTop:4}}>Pre-Construction Information</div><div style={{height:2,background:"#eee",margin:"4px 0"}}></div><div style={{fontSize:5}}>Site: {scheme.road_name}<br/>Ref: {scheme.project_number}</div></div>;
   if(docKey==="letter") return <div><div style={{fontSize:5}}>Dear Resident,</div><div style={{fontSize:5,marginTop:3}}>Works on {scheme.road_name} from {scheme.date_start}...</div><div style={{fontSize:4,marginTop:6,color:"#666"}}>Copies to ward councillors ({scheme.ward_selected})</div></div>;
@@ -515,9 +648,36 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
   const docsGen = scheme.docs_generated || {};
   const packReady = window.PACK_DOCS.filter(d => docsGen[d.key]).length;
   const packTotal = window.PACK_DOCS.length;
+  const [generatingFront, setGeneratingFront] = React.useState(false);
+
+  // Register __downloadFront so GenerateModal can call it too (PR C).
+  React.useEffect(() => {
+    window.__downloadFront = async () => {
+      setGeneratingFront(true);
+      try {
+        await downloadFrontPdf(scheme);
+        updateScheme(scheme.id, { docs_generated: { ...docsGen, front: true } });
+      } finally {
+        setGeneratingFront(false);
+      }
+    };
+    return () => { window.__downloadFront = null; };
+  }, [scheme, docsGen]); // eslint-disable-line
 
   const toggleManual = (key) => {
     updateScheme(scheme.id, { docs_generated: { ...docsGen, [key]: !docsGen[key] } });
+  };
+
+  const handleWorkingClick = (d) => {
+    if (d.key === 'boq')   return onTabSwitch('boq');
+    if (d.key === 'front') return window.__downloadFront && window.__downloadFront();
+    onPreview(scheme, d.key);
+  };
+
+  const workingLabel = (d) => {
+    if (d.key === 'boq')   return 'Open BoQ';
+    if (d.key === 'front') return generatingFront ? 'Generating…' : 'Download PDF';
+    return 'Preview';
   };
 
   return (
@@ -533,6 +693,7 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
         {window.PACK_DOCS.map((d) => {
           const done = !!docsGen[d.key];
           const isWorking = !!d.working;
+          const isGenerating = d.key === 'front' && generatingFront;
           return (
             <div key={d.key} className="doc-card">
               <div className="doc-preview">
@@ -546,8 +707,9 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
               <div className="doc-status">
                 <span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span>
                 {isWorking ? (
-                  <button className="btn sm ghost" style={{marginLeft:"auto"}} onClick={()=>d.key==='boq'?onTabSwitch('boq'):onPreview(scheme,d.key)}>
-                    {d.key==='boq'?'Open BoQ':'Preview'} <Icon.Arrow />
+                  <button className="btn sm ghost" style={{marginLeft:"auto"}} disabled={isGenerating}
+                    onClick={() => handleWorkingClick(d)}>
+                    {workingLabel(d)} {!isGenerating && <Icon.Arrow />}
                   </button>
                 ) : (
                   <label style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,fontSize:11,cursor:"pointer",userSelect:"none",color:"var(--ink-3)"}}>
@@ -561,7 +723,7 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
         })}
       </div>
       <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
-        <strong>Connected templates:</strong> RSR, PCI / CPP, and Resident Letter are live — click Preview, then download to mark as ready. Manual docs (drawings, TM, utilities) can be marked received via the checkbox.
+        <strong>Connected templates:</strong> Front Sheet, RSR, PCI / CPP, and Resident Letter are live — click the action button to download and mark as ready. Manual docs (drawings, TM, utilities) can be marked received via the checkbox.
       </div>
     </div>
   );
