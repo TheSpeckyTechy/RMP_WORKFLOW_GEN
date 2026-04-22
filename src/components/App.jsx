@@ -152,7 +152,7 @@ const relativeTime = (date) => {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 };
 
-const SettingsView = ({ tweaks, setTweaks }) => {
+const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
   const { resetAllSchemes, syncStatus, lastSynced } = React.useContext(window.SchemeContext);
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
   React.useEffect(() => {
@@ -213,6 +213,14 @@ const SettingsView = ({ tweaks, setTweaks }) => {
                   <button key={a.v} onClick={()=>setTweaks({...tweaks,accent:a.v})}
                     style={{width:28,height:28,borderRadius:"50%",background:a.c,border:tweaks.accent===a.v?"3px solid var(--ink-1)":"3px solid transparent",cursor:"pointer",flexShrink:0}}
                     title={a.v} />
+                ))}
+              </div>
+            </div>
+            <div className="settings-row">
+              <div className="settings-row-label">Theme</div>
+              <div className="tweak-seg">
+                {["Light","Dark"].map(t => (
+                  <button key={t} className={(t==="Dark")===darkMode?"active":""} onClick={()=>setDarkMode(t==="Dark")}>{t}</button>
                 ))}
               </div>
             </div>
@@ -400,16 +408,24 @@ const AppInner = () => {
   const [previewing, setPreviewing] = React.useState(null);
   const [tweaksOn, setTweaksOn] = React.useState(false);
   const [tweaks, setTweaks] = React.useState({ density: "Comfortable", aesthetic: "Technical", accent: "Orange" });
+  const [darkMode, setDarkMode] = React.useState(() => localStorage.getItem('rmp_dark_mode') === '1');
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+    localStorage.setItem('rmp_dark_mode', darkMode ? '1' : '0');
+  }, [darkMode]);
 
   React.useEffect(() => {
     document.body.classList.toggle("dense", tweaks.density === "Dense");
     document.body.classList.toggle("soft", tweaks.aesthetic === "Soft");
     document.body.classList.toggle("mono-aesthetic", tweaks.aesthetic === "Mono");
     const root = document.documentElement.style;
-    if (tweaks.accent === "Blue") { root.setProperty("--accent","oklch(0.52 0.14 240)"); root.setProperty("--accent-ink","oklch(0.32 0.12 240)"); root.setProperty("--accent-wash","oklch(0.96 0.03 240)"); }
-    else if (tweaks.accent === "Green") { root.setProperty("--accent","oklch(0.52 0.14 150)"); root.setProperty("--accent-ink","oklch(0.32 0.12 150)"); root.setProperty("--accent-wash","oklch(0.96 0.03 150)"); }
-    else { root.setProperty("--accent","oklch(0.62 0.16 45)"); root.setProperty("--accent-ink","oklch(0.32 0.12 45)"); root.setProperty("--accent-wash","oklch(0.96 0.03 45)"); }
-  }, [tweaks]);
+    const washL = darkMode ? 0.22 : 0.96;
+    const inkL  = darkMode ? 0.72 : 0.32;
+    if (tweaks.accent === "Blue") { root.setProperty("--accent","oklch(0.52 0.14 240)"); root.setProperty("--accent-ink",`oklch(${inkL} 0.12 240)`); root.setProperty("--accent-wash",`oklch(${washL} 0.04 240)`); }
+    else if (tweaks.accent === "Green") { root.setProperty("--accent","oklch(0.52 0.14 150)"); root.setProperty("--accent-ink",`oklch(${inkL} 0.12 150)`); root.setProperty("--accent-wash",`oklch(${washL} 0.04 150)`); }
+    else { root.setProperty("--accent","oklch(0.62 0.16 45)"); root.setProperty("--accent-ink",`oklch(${inkL} 0.12 45)`); root.setProperty("--accent-wash",`oklch(${washL} 0.04 45)`); }
+  }, [tweaks, darkMode]);
 
   React.useEffect(() => {
     const handler = (e) => {
@@ -477,7 +493,7 @@ const AppInner = () => {
           {openScheme ? (
             <SchemeDetail schemeId={openScheme} onBack={() => setOpenScheme(null)} onGenerate={setGenerating} onPreview={(scheme, docKey) => setPreviewing({ scheme, docKey })} />
           ) : view === "settings" ? (
-            <SettingsView tweaks={tweaks} setTweaks={setTweaks} />
+            <SettingsView tweaks={tweaks} setTweaks={setTweaks} darkMode={darkMode} setDarkMode={setDarkMode} />
           ) : (
             <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} onNew={()=>setNewSchemeOpen(true)} filter={filter} setFilter={setFilter} search={search} />
           )}
