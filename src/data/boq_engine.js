@@ -23,6 +23,14 @@
     { tag: 'surf_ac14hb_40',     label: 'AC 14 HBC surf 40mm' },
     { tag: 'surf_hra5510_40',    label: 'HRA 55/10C surf 40mm' },
     { tag: 'surf_ac6_30',        label: 'AC 6 dense surf 30mm' },
+    // Preventive / thin treatments — dramatically cheaper per m² than
+    // hot-laid courses. Listing them explicitly here fixes the catastrophic
+    // silent default where Master selections of "Micro-asphalt" used to
+    // resolve to HRA 30/14F (5–6× over-price).
+    { tag: 'surf_micro',         label: 'Micro-asphalt (slurry seal) — preventive' },
+    { tag: 'sd_10mm_int',        label: 'Surface dressing 10mm · intermediate binder' },
+    { tag: 'sd_10mm_prem',       label: 'Surface dressing 10mm · premium binder' },
+    { tag: 'sd_6mm_int',         label: 'Surface dressing 6mm · intermediate binder' },
   ];
 
   const BINDER_OPTIONS = [
@@ -78,6 +86,21 @@
 
   const matchSurfaceTag = (treatmentType) => {
     const t = (treatmentType || '').toLowerCase();
+    // Preventive treatments — matched FIRST so explicit micro/SD selections
+    // aren't swallowed by broader substring checks below.
+    if (t.includes('micro') || t.includes('slurry'))
+      return 'surf_micro';
+    if (t.includes('surface dressing') || t.includes('surface-dressing')) {
+      if (t.includes('6mm') || t.includes('6 mm'))   return 'sd_6mm_int';
+      if (t.includes('prem'))                         return 'sd_10mm_prem';
+      return 'sd_10mm_int';
+    }
+    // HBC variants before plain AC so they match precisely.
+    if (t.includes('ac14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';
+    if (t.includes('ac 14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';
+    if (t.includes('ac10') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac10hb_40';
+    if (t.includes('ac 10') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac10hb_40';
+    // Standard hot-laid courses.
     if (t.includes('hra 30') || t.includes('hra30')) return 'surf_hra3014_40_14';
     if (t.includes('hra 35') || t.includes('hra35')) return 'surf_hra3514_45_14';
     if (t.includes('hra 55') || t.includes('hra55')) return 'surf_hra5510_40';
@@ -206,12 +229,16 @@
     if (q.include_line_marks && +q.line_marks_m  > 0) pushByTag('mark_cont_100',  +q.line_marks_m);
 
     // Series 2700 — Ironwork
-    if (+q.iw_sw_cway  > 0) pushByTag('iw_sw_cway',  +q.iw_sw_cway);
-    if (+q.iw_sse_cway > 0) pushByTag('iw_sse_cway', +q.iw_sse_cway);
-    if (+q.iw_bt_cway  > 0) pushByTag('iw_bt_cway',  +q.iw_bt_cway);
-    if (+q.iw_sw_fw    > 0) pushByTag('iw_sw_fw',    +q.iw_sw_fw);
-    if (+q.iw_sse_fw   > 0) pushByTag('iw_sse_fw',   +q.iw_sse_fw);
-    if (+q.iw_bt_fw    > 0) pushByTag('iw_bt_fw',    +q.iw_bt_fw);
+    if (+q.iw_sw_cway   > 0) pushByTag('iw_sw_cway',   +q.iw_sw_cway);
+    if (+q.iw_sse_cway  > 0) pushByTag('iw_sse_cway',  +q.iw_sse_cway);
+    if (+q.iw_bt_cway   > 0) pushByTag('iw_bt_cway',   +q.iw_bt_cway);
+    if (+q.iw_gas_cway  > 0) pushByTag('iw_gas_cway',  +q.iw_gas_cway);
+    if (+q.iw_sw_fw     > 0) pushByTag('iw_sw_fw',     +q.iw_sw_fw);
+    if (+q.iw_sse_fw    > 0) pushByTag('iw_sse_fw',    +q.iw_sse_fw);
+    if (+q.iw_bt_fw     > 0) pushByTag('iw_bt_fw',     +q.iw_bt_fw);
+    if (+q.iw_gas_fw    > 0) pushByTag('iw_gas_fw',    +q.iw_gas_fw);
+    // Series 500 — Gully grating reset (priced per raised grating unit)
+    if (+q.iw_gully_cway > 0) pushByTag('iw_gully_cway', +q.iw_gully_cway);
 
     return lines;
   }
@@ -409,6 +436,8 @@
       kerb_length:       +s.kerb_length || 0,
       iw_sw_cway:        (+s.iron_mh || 0) + (+s.iron_water || 0),
       iw_bt_cway:        +s.iron_bt  || 0,
+      iw_gas_cway:       +s.iron_gas || 0,
+      iw_gully_cway:     +s.iron_gullies || 0,
       tm_type:           mapSchemeTmType(s.tm_type),
       include_diversion: /diversion/i.test(s.tm_type || ''),
       duration_days:     wd != null ? wd : 5,
@@ -450,6 +479,10 @@
     surf_ac14hb_40:     'AC14 HBC surf 40/60',
     surf_ac10hb_40:     'AC10 HBC surf 40/60',
     surf_ac6_30:        'AC6 dense 100/150',
+    surf_micro:         'Micro-asphalt',
+    sd_10mm_int:        'Surface dressing 10mm intermediate',
+    sd_10mm_prem:       'Surface dressing 10mm premium',
+    sd_6mm_int:         'Surface dressing 6mm intermediate',
   };
 
   // Push an overridden BoQ value back to its Master field. Returns the
@@ -466,6 +499,8 @@
       case 'subbase_depth':    return { subbase_depth_mm: num() };
       case 'milling_depth':    return { surface_depth_mm: num() };
       case 'iw_bt_cway':       return { iron_bt: num() };
+      case 'iw_gas_cway':      return { iron_gas: num() };
+      case 'iw_gully_cway':    return { iron_gullies: num() };
       case 'include_binder':   return { binder_depth_mm: bool() ? (+scheme.binder_depth_mm || 60) : 0 };
       case 'include_subbase':  return { subbase_depth_mm: bool() ? (+scheme.subbase_depth_mm || 150) : 0 };
       case 'surface_tag': {
@@ -503,6 +538,8 @@
     { key:'kerb_length',       label:'Kerb length',        unit:'m' },
     { key:'iw_sw_cway',        label:'SW covers — c’way',  unit:'No' },
     { key:'iw_bt_cway',        label:'BT covers — c’way',  unit:'No' },
+    { key:'iw_gas_cway',       label:'Gas covers — c’way', unit:'No' },
+    { key:'iw_gully_cway',     label:'Gully reset — c’way',unit:'No' },
     { key:'tm_type',           label:'TM type' },
     { key:'include_diversion', label:'Include diversion' },
     { key:'duration_days',     label:'Duration',           unit:'days' },
