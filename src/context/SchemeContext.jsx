@@ -25,10 +25,26 @@ const lsSet    = (id, s) => { try { localStorage.setItem(LS_PREFIX + id, JSON.st
 const lsGetIds = ()    => { try { const v = localStorage.getItem(LS_IDS); return v ? JSON.parse(v) : []; } catch { return []; } };
 const lsSetIds = (ids) => { try { localStorage.setItem(LS_IDS, JSON.stringify(ids)); } catch {} };
 
-// Silent migration: ensure every scheme loaded from storage has a .boq.
-// Legacy rows saved before the Stage 3 model don't include it, so we back-fill
-// from window.defaultBoq() on read. Persists on the first updateScheme call.
-const withBoq = (s) => (s && !s.boq) ? { ...s, boq: window.defaultBoq() } : s;
+// Silent migration: ensure every scheme loaded from storage has a .boq, and
+// that .boq.quick_inputs carries the per-layer area + milling_entries fields
+// introduced after the initial BoQ v2 ship. Persists on the first
+// updateScheme call.
+const withBoq = (s) => {
+  if (!s) return s;
+  if (!s.boq) return { ...s, boq: window.defaultBoq() };
+  const qi = s.boq.quick_inputs || {};
+  if (qi.milling_entries) return s;
+  const patched = {
+    ...qi,
+    milling_entries: [{ depth: +qi.milling_depth || 40, area: null }],
+    surface_area: qi.surface_area ?? null,
+    binder_area:  qi.binder_area  ?? null,
+    base_area:    qi.base_area    ?? null,
+    subbase_area: qi.subbase_area ?? null,
+    tack_area:    qi.tack_area    ?? null,
+  };
+  return { ...s, boq: { ...s.boq, quick_inputs: patched } };
+};
 
 const initSchemes = () => {
   const base = window.SCHEMES.map(s => { const saved = lsGet(s.id); return withBoq(saved ? { ...s, ...saved } : s); });

@@ -149,18 +149,35 @@
         break;
     }
 
-    // Series 700 — Pavements (carriageway)
-    if (cw > 0) {
-      if (q.include_milling) pushByTag('mill_' + snapMillingDepth(q.milling_depth), cw);
-      if (q.include_tack)    pushByTag('tack', cw);
-      if (q.include_base)    pushByTag(q.base_tag || 'base_ac32d_100', cw);
-      if (q.include_subbase) {
-        const vol = Math.round(cw * (+q.subbase_depth || 150) / 1000 * 10) / 10;
-        pushByTag('subbase_t1', vol);
+    // Series 700 — Pavements (carriageway).
+    // Each layer reads its own area; null/0 override falls back to cw.
+    const layerArea = (override) => {
+      const n = +override;
+      return n > 0 ? n : cw;
+    };
+
+    // Milling — one line per {depth, area} entry. Back-compat: if
+    // milling_entries is absent fall back to the single milling_depth field.
+    if (q.include_milling) {
+      const entries = Array.isArray(q.milling_entries) && q.milling_entries.length
+        ? q.milling_entries
+        : [{ depth: q.milling_depth, area: null }];
+      for (const m of entries) {
+        const a = layerArea(m.area);
+        if (a > 0) pushByTag('mill_' + snapMillingDepth(m.depth), a);
       }
-      if (q.include_binder)  pushByTag(q.binder_tag || 'bin_hra5020_60', cw);
-      pushByTag(q.surface_tag || 'surf_hra3014_40_14', cw);
     }
+
+    if (q.include_tack)    pushByTag('tack', layerArea(q.tack_area));
+    if (q.include_base)    pushByTag(q.base_tag || 'base_ac32d_100', layerArea(q.base_area));
+    if (q.include_subbase) {
+      const a   = layerArea(q.subbase_area);
+      const vol = Math.round(a * (+q.subbase_depth || 150) / 1000 * 10) / 10;
+      if (vol > 0) pushByTag('subbase_t1', vol);
+    }
+    if (q.include_binder)  pushByTag(q.binder_tag || 'bin_hra5020_60', layerArea(q.binder_area));
+    const sA = layerArea(q.surface_area);
+    if (sA > 0) pushByTag(q.surface_tag || 'surf_hra3014_40_14', sA);
 
     // Series 1100 — Kerbs
     if (+q.kerb_length > 0) pushByTag(q.kerb_type || 'kerb_k1_laid', +q.kerb_length);

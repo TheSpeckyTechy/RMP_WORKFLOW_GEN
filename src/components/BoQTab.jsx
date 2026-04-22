@@ -66,6 +66,66 @@ const BQSelect = ({ value, onChange, label, options }) => (
   </BQField>
 );
 
+// Compact "Area (m²)" override input. Shows the carriageway_area default as
+// placeholder so designers see what blank means. null/''/0 → use default.
+const BQAreaOverride = ({ value, onChange, defaultArea }) => (
+  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:9,marginTop:-2}}>
+    <span style={{fontSize:10,color:'var(--ink-3)',width:84,flexShrink:0}}>Area override</span>
+    <input
+      type="number" className="mono" min="0" step="1"
+      value={value ?? ''}
+      placeholder={(+defaultArea > 0 ? (+defaultArea).toLocaleString() : '—')}
+      onChange={e => {
+        const raw = e.target.value;
+        onChange(raw === '' ? null : +raw);
+      }}
+      style={{width:72,fontSize:11,padding:'2px 6px'}}
+    />
+    <span style={{fontSize:10,color:'var(--ink-3)'}}>m²</span>
+  </div>
+);
+
+// Editable (depth, area) list for milling. `entries` is always an array;
+// defaults to a single row. Delete icon hidden when only one row remains.
+const BQMillingList = ({ entries, onChange, defaultArea }) => {
+  const list = (entries && entries.length) ? entries : [{ depth: 40, area: null }];
+  const update = (i, patch) => onChange(list.map((e, idx) => idx === i ? { ...e, ...patch } : e));
+  const add    = ()        => onChange([...list, { depth: 40, area: null }]);
+  const remove = (i)       => onChange(list.filter((_, idx) => idx !== i));
+
+  return (
+    <div style={{
+      background:'var(--bg)', border:'1px solid var(--line)',
+      borderRadius:'var(--radius-sm)', padding:'6px 8px', marginBottom:9, marginTop:-2,
+    }}>
+      {list.map((e, i) => (
+        <div key={i} style={{display:'flex',alignItems:'center',gap:6,marginBottom: i===list.length-1 ? 6 : 4}}>
+          <select value={E.snapMillingDepth(e.depth)} onChange={ev=>update(i,{depth:+ev.target.value})}
+            style={{fontSize:11,padding:'1px 4px',flex:'0 0 70px'}}>
+            {MAT.MILLING_DEPTHS.map(d => <option key={d} value={d}>{d}mm</option>)}
+          </select>
+          <input
+            type="number" className="mono" min="0" step="1"
+            value={e.area ?? ''}
+            placeholder={(+defaultArea > 0 ? (+defaultArea).toLocaleString() : '—')}
+            onChange={ev => update(i, { area: ev.target.value === '' ? null : +ev.target.value })}
+            style={{width:66,fontSize:11,padding:'1px 4px'}}
+          />
+          <span style={{fontSize:10,color:'var(--ink-3)'}}>m²</span>
+          {list.length > 1 && (
+            <button onClick={()=>remove(i)} title="Remove"
+              style={{marginLeft:'auto',background:'transparent',border:'none',color:'var(--red)',cursor:'pointer',padding:'0 4px',fontSize:13,lineHeight:1}}>✕</button>
+          )}
+        </div>
+      ))}
+      <button onClick={add} className="btn ghost sm"
+        style={{fontSize:10,padding:'2px 6px',width:'100%',justifyContent:'center',color:'var(--accent)'}}>
+        + Add milling depth
+      </button>
+    </div>
+  );
+};
+
 // ── QuickInputRail ───────────────────────────────────────────────────────────
 // Left-rail form. Reads/writes boq.quick_inputs. Calls onApply() to regenerate
 // the auto-line set; user-added lines are preserved by the caller.
@@ -105,37 +165,54 @@ const QuickInputRail = ({ inputs, onChange, onApply, dirty }) => {
 
       {/* 01 Carriageway */}
       <BQSectionLabel n="01" label="Carriageway Treatment" />
-      <BQNum value={inputs.carriageway_area} onChange={v=>set('carriageway_area',v)} label="Area (m²)" unit="m²" />
+      <BQNum value={inputs.carriageway_area} onChange={v=>set('carriageway_area',v)} label="Default area (m²)" unit="m²" />
+      <div style={{fontSize:10,color:'var(--ink-3)',marginBottom:6,marginTop:-4,lineHeight:1.3}}>
+        Used by any layer that doesn't override it.
+      </div>
       {bandLabel && (
-        <div style={{fontSize:10,color:'var(--accent)',fontFamily:'var(--font-mono)',marginBottom:8,marginTop:-4}}>
+        <div style={{fontSize:10,color:'var(--accent)',fontFamily:'var(--font-mono)',marginBottom:8}}>
           {bandLabel}
         </div>
       )}
       <BQSelect value={inputs.surface_tag} onChange={v=>set('surface_tag',v)} label="Surface course" options={MAT.SURFACE_OPTIONS} />
+      <BQAreaOverride value={inputs.surface_area} onChange={v=>set('surface_area',v)} defaultArea={inputs.carriageway_area} />
+
       <BQToggle value={inputs.include_milling} onChange={v=>set('include_milling',v)} label="Include milling" />
       {inputs.include_milling && (
-        <BQField label="Milling depth (mm)">
-          <select value={E.snapMillingDepth(inputs.milling_depth)} onChange={e=>set('milling_depth',+e.target.value)}
-            style={{width:'100%',fontSize:12}}>
-            {MAT.MILLING_DEPTHS.map(d => <option key={d} value={d}>{d}mm</option>)}
-          </select>
-        </BQField>
+        <BQMillingList
+          entries={inputs.milling_entries || [{ depth: inputs.milling_depth || 40, area: null }]}
+          onChange={v=>set('milling_entries',v)}
+          defaultArea={inputs.carriageway_area}
+        />
       )}
+
       <BQToggle value={inputs.include_tack} onChange={v=>set('include_tack',v)} label="Include tack coat" />
+      {inputs.include_tack && (
+        <BQAreaOverride value={inputs.tack_area} onChange={v=>set('tack_area',v)} defaultArea={inputs.carriageway_area} />
+      )}
 
       {/* 02 Layer build-up */}
       <BQSectionLabel n="02" label="Layer Build-Up" />
       <BQToggle value={inputs.include_binder} onChange={v=>set('include_binder',v)} label="Binder course" />
       {inputs.include_binder && (
-        <BQSelect value={inputs.binder_tag} onChange={v=>set('binder_tag',v)} label="Binder type" options={MAT.BINDER_OPTIONS} />
+        <>
+          <BQSelect value={inputs.binder_tag} onChange={v=>set('binder_tag',v)} label="Binder type" options={MAT.BINDER_OPTIONS} />
+          <BQAreaOverride value={inputs.binder_area} onChange={v=>set('binder_area',v)} defaultArea={inputs.carriageway_area} />
+        </>
       )}
       <BQToggle value={inputs.include_base} onChange={v=>set('include_base',v)} label="Base course" />
       {inputs.include_base && (
-        <BQSelect value={inputs.base_tag} onChange={v=>set('base_tag',v)} label="Base type" options={MAT.BASE_OPTIONS} />
+        <>
+          <BQSelect value={inputs.base_tag} onChange={v=>set('base_tag',v)} label="Base type" options={MAT.BASE_OPTIONS} />
+          <BQAreaOverride value={inputs.base_area} onChange={v=>set('base_area',v)} defaultArea={inputs.carriageway_area} />
+        </>
       )}
       <BQToggle value={inputs.include_subbase} onChange={v=>set('include_subbase',v)} label="Granular sub-base (Type 1)" />
       {inputs.include_subbase && (
-        <BQNum value={inputs.subbase_depth} onChange={v=>set('subbase_depth',v)} label="Sub-base depth (mm)" unit="mm" />
+        <>
+          <BQNum value={inputs.subbase_depth} onChange={v=>set('subbase_depth',v)} label="Sub-base depth (mm)" unit="mm" />
+          <BQAreaOverride value={inputs.subbase_area} onChange={v=>set('subbase_area',v)} defaultArea={inputs.carriageway_area} />
+        </>
       )}
 
       {/* 03 TM */}
@@ -497,6 +574,9 @@ const BoQTab = ({ schemeId }) => {
       surface_tag:      E.matchSurfaceTag(scheme.treatment_type),
       include_binder:   !!(+scheme.binder_depth_mm > 0),
       milling_depth:    E.snapMillingDepth(+scheme.surface_depth_mm || 40),
+      milling_entries:  boq.quick_inputs.milling_entries && boq.quick_inputs.milling_entries.length
+        ? boq.quick_inputs.milling_entries
+        : [{ depth: E.snapMillingDepth(+scheme.surface_depth_mm || 40), area: null }],
       tm_type:          boq.quick_inputs.tm_type || 'full_closure',
       duration_days:    (() => {
         if (!scheme.date_start || !scheme.date_finish) return boq.quick_inputs.duration_days;
