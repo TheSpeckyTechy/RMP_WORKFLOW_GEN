@@ -122,32 +122,36 @@
     const fw   = +q.footway_area     || 0;
     const days = Math.max(1, +q.duration_days || 1);
 
-    // Series 100 — Traffic Management
-    switch (q.tm_type) {
-      case 'full_closure':
-        pushByTag('tm_closure_day', days);
-        if (q.include_diversion) {
-          pushByTag('tm_diversion_erect',  1);
-          pushByTag('tm_diversion_day',    days);
-          pushByTag('tm_diversion_remove', 1);
-        }
-        break;
-      case 'portable_signals':
-        pushByTag('tm_pts_erect',  1);
-        pushByTag('tm_pts_day',    days);
-        pushByTag('tm_pts_remove', 1);
-        break;
-      case 'stop_go':
-        pushByTag('tm_sg_erect',  1);
-        pushByTag('tm_sg_day',    days);
-        pushByTag('tm_sg_remove', 1);
-        break;
-      case 'footway_works':
-        pushByTag('tm_fw_erect',  1);
-        pushByTag('tm_fw_day',    days);
-        pushByTag('tm_fw_remove', 1);
-        break;
+    // Series 100 — Traffic Management. Internal codes are bijective with
+    // the Master dropdown (see SCHEME_TO_INTERNAL_TM). New codes
+    // (partial_closure, lane_closure, two_way_lights, give_take,
+    // full_closure_diversion) reuse the nearest existing rate triplet for
+    // now; distinct priced items for partial-closure and give-and-take
+    // are a follow-up (see audit D2).
+    const tm = q.tm_type;
+    const isFullClosure = tm === 'full_closure' || tm === 'partial_closure' || tm === 'full_closure_diversion';
+    const isPts         = tm === 'portable_signals' || tm === 'lane_closure' || tm === 'two_way_lights';
+    if (isFullClosure) {
+      pushByTag('tm_closure_day', days);
+      if (q.include_diversion || tm === 'full_closure_diversion') {
+        pushByTag('tm_diversion_erect',  1);
+        pushByTag('tm_diversion_day',    days);
+        pushByTag('tm_diversion_remove', 1);
+      }
+    } else if (isPts) {
+      pushByTag('tm_pts_erect',  1);
+      pushByTag('tm_pts_day',    days);
+      pushByTag('tm_pts_remove', 1);
+    } else if (tm === 'stop_go') {
+      pushByTag('tm_sg_erect',  1);
+      pushByTag('tm_sg_day',    days);
+      pushByTag('tm_sg_remove', 1);
+    } else if (tm === 'footway_works') {
+      pushByTag('tm_fw_erect',  1);
+      pushByTag('tm_fw_day',    days);
+      pushByTag('tm_fw_remove', 1);
     }
+    // 'give_take' and 'none' emit no TM lines (informal / no TM).
 
     // Series 700 — Pavements (carriageway).
     // Each layer reads its own area; null/0 override falls back to cw.
@@ -322,14 +326,39 @@
   // have no Master analogue and always come straight from stored quick_inputs.
 
   // Scheme.tm_type is human-readable; BoQ's internal code is snake_case.
+  // Bijective map between Master Workbook tm_type strings and BoQ's
+  // internal snake_case codes. Keeping these 1-to-1 prevents the lossy
+  // roundtrip where pushing an overridden tm_type back to the Master
+  // used to collapse every "portable_signals" to "Two-way lights".
+  const SCHEME_TO_INTERNAL_TM = {
+    'Full road closure':        'full_closure',
+    'Full Closure + Diversion': 'full_closure_diversion',
+    'Partial Road Closure':     'partial_closure',
+    'Lane Closure':             'lane_closure',
+    'Two-way lights':           'two_way_lights',
+    'Stop/Go boards':           'stop_go',
+    'Give & Take':              'give_take',
+    'Works on footways only':   'footway_works',
+    'None':                     'none',
+  };
+  const INTERNAL_TO_SCHEME_TM = Object.fromEntries(
+    Object.entries(SCHEME_TO_INTERNAL_TM).map(([k, v]) => [v, k])
+  );
+
   function mapSchemeTmType(s) {
-    const t = (s || '').toLowerCase();
-    if (!t || t === 'none')                             return 'none';
-    if (t.includes('footway'))                          return 'footway_works';
-    if (t.includes('stop') && t.includes('go'))         return 'stop_go';
-    if (t.includes('give'))                             return 'stop_go';
-    if (t.includes('two-way') || t.includes('lane'))    return 'portable_signals';
-    if (t.includes('partial') || t.includes('closure')) return 'full_closure';
+    if (!s) return 'none';
+    if (SCHEME_TO_INTERNAL_TM[s]) return SCHEME_TO_INTERNAL_TM[s];
+    // Fuzzy fallback for legacy free-text values a designer may have typed.
+    const t = String(s).toLowerCase();
+    if (t === 'none' || !t.trim())              return 'none';
+    if (t.includes('footway'))                  return 'footway_works';
+    if (t.includes('diversion'))                return 'full_closure_diversion';
+    if (t.includes('partial'))                  return 'partial_closure';
+    if (t.includes('give'))                     return 'give_take';
+    if (t.includes('stop') && t.includes('go')) return 'stop_go';
+    if (t.includes('lane'))                     return 'lane_closure';
+    if (t.includes('two-way'))                  return 'two_way_lights';
+    if (t.includes('closure'))                  return 'full_closure';
     return 'full_closure';
   }
 
@@ -403,6 +432,26 @@
     return out;
   }
 
+  // Reverse map from internal surface tag to the canonical Master
+  // treatment_type string. Multiple tags can share the same Master value
+  // (e.g. 14mm and 20mm chippings both land on "HRA 30/14F surf 40/60").
+  // Every value here MUST exist in the Master dropdown in
+  // window.WORKBOOK_SCHEMA so the roundtrip preserves spec integrity.
+  const TAG_TO_MASTER_TREATMENT = {
+    surf_hra3014_40_14: 'HRA 30/14F surf 40/60',
+    surf_hra3014_40_20: 'HRA 30/14F surf 40/60',
+    surf_hra3514_45_14: 'HRA 35/14F surf 40/60',
+    surf_hra3514_45_20: 'HRA 35/14F surf 40/60',
+    surf_hra5510_40:    'HRA 55/10F surf 40/60',
+    surf_sma10_40:      'SMA 10 surf 40/60',
+    surf_sma6_30:       'SMA 6 surf 100/150',
+    surf_ac14_40:       'AC14 close surf 40/60',
+    surf_ac10_40:       'AC10 close surf 40/60',
+    surf_ac14hb_40:     'AC14 HBC surf 40/60',
+    surf_ac10hb_40:     'AC10 HBC surf 40/60',
+    surf_ac6_30:        'AC6 dense 100/150',
+  };
+
   // Push an overridden BoQ value back to its Master field. Returns the
   // patch object to apply to the scheme (or null if this field has no clean
   // Master reverse-mapping). Caller runs updateScheme(schemeId, patch) and
@@ -420,18 +469,19 @@
       case 'include_binder':   return { binder_depth_mm: bool() ? (+scheme.binder_depth_mm || 60) : 0 };
       case 'include_subbase':  return { subbase_depth_mm: bool() ? (+scheme.subbase_depth_mm || 150) : 0 };
       case 'surface_tag': {
-        const opt = SURFACE_OPTIONS.find(o => o.tag === overrideValue);
-        return opt ? { treatment_type: opt.label } : null;
+        // Map the internal tag to a canonical Master treatment_type string
+        // the dropdown actually accepts. Writing the SURFACE_OPTIONS label
+        // (e.g. "HRA 30/14F 40mm · 14mm chips") would put an orphan value
+        // into the Master that no downstream reader could parse.
+        const masterStr = TAG_TO_MASTER_TREATMENT[overrideValue];
+        return masterStr ? { treatment_type: masterStr } : null;
       }
       case 'tm_type': {
-        const reverse = {
-          full_closure:     'Full road closure',
-          portable_signals: 'Two-way lights',
-          stop_go:          'Stop/Go boards',
-          footway_works:    'Works on footways only',
-          none:             'None',
-        };
-        return reverse[overrideValue] ? { tm_type: reverse[overrideValue] } : null;
+        // Use the bijective map so every internal code round-trips to
+        // exactly the Master dropdown option the designer originally
+        // chose — no silent collapse onto a single default.
+        const masterStr = INTERNAL_TO_SCHEME_TM[overrideValue];
+        return masterStr ? { tm_type: masterStr } : null;
       }
       // iw_sw_cway splits into iron_mh + iron_water — ambiguous, no clean push.
       // include_diversion is a regex read of tm_type — no clean push.

@@ -435,8 +435,24 @@ window.WORKBOOK_SCHEMA = [
   ]},
   { section: "2. Treatment Details", fields: [
     { key: "treatment_type", label: "Treatment Type", type: "select", options: [
-      "HRA 30/14F surf 40/60", "HRA 55/10F surf 40/60", "AC14 close binder 40/60",
-      "AC10 Taycoat 100/150", "AC6 dense 100/150", "SMA 10 surf 40/60", "Micro-asphalt"
+      // HRA — hot rolled asphalt surface courses
+      "HRA 30/14F surf 40/60",
+      "HRA 35/14F surf 40/60",
+      "HRA 55/10F surf 40/60",
+      // SMA — stone mastic asphalt
+      "SMA 10 surf 40/60",
+      "SMA 6 surf 100/150",
+      // AC — asphalt concrete surface courses
+      "AC14 close surf 40/60",
+      "AC14 HBC surf 40/60",
+      "AC10 close surf 40/60",
+      "AC10 HBC surf 40/60",
+      "AC10 Taycoat 100/150",
+      "AC6 dense 100/150",
+      // AC binder course (kept for legacy — typically not a surface course)
+      "AC14 close binder 40/60",
+      // Preventive treatments
+      "Micro-asphalt",
     ]},
     { key: "surface_depth_mm", label: "Surface Course Depth (mm)", type: "number", mono: true },
     { key: "binder_depth_mm", label: "Binder Course Depth (mm)", type: "number", mono: true },
