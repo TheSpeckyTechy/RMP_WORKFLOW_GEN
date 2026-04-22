@@ -49,6 +49,9 @@ window.WARDS = [
 // SchemeContext can back-fill legacy schemes loaded from localStorage / Supabase
 // that predate this field.
 window.defaultBoq = () => ({
+  // Per-field override flags — when true, quick_inputs[key] wins over the
+  // Master-derived value for that field. See boq_engine.effectiveQuickInputs.
+  overrides: {},
   quick_inputs: {
     carriageway_area:   0,
     footway_area:       0,

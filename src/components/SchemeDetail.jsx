@@ -63,12 +63,30 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
           <button className="btn ghost sm" title="Delete scheme" style={{color:"var(--red)"}} onClick={()=>{ if(confirm(`Delete "${scheme.road_name}"? This cannot be undone.`)){ deleteScheme(schemeId); onBack(); } }}><Icon.Trash /></button>
         </div>
       </div>
-      {scheme.flags&&scheme.flags.length>0&&(
-        <div style={{background:"var(--amber-wash)",border:"1px solid var(--amber)",padding:"10px 14px",borderRadius:"var(--radius-sm)",marginBottom:20,display:"flex",gap:10,alignItems:"flex-start",fontSize:13}}>
-          <span style={{color:"var(--amber)",paddingTop:2}}><Icon.Alert /></span>
-          <div><strong>Inconsistencies detected</strong><ul style={{margin:"4px 0 0",paddingLeft:16}}>{scheme.flags.map((f,i)=><li key={i} style={{color:"var(--ink-2)"}}>{f}</li>)}</ul></div>
-        </div>
-      )}
+      {(() => {
+        // Merge persisted scheme.flags with live BoQ-override flags so a
+        // divergence between the Master and the BoQ is always visible.
+        const persisted = scheme.flags || [];
+        const E = window.BOQ_ENGINE;
+        let overrideFlags = [];
+        if (E && scheme.boq && scheme.boq.overrides) {
+          const derived = E.deriveQuickInputsFromScheme(scheme);
+          const stored  = scheme.boq.quick_inputs || {};
+          const labelOf = (key) => (E.LINKED_FIELDS.find(f => f.key === key) || { label: key }).label;
+          const fmt     = v => v === true ? 'Yes' : v === false ? 'No' : v == null || v === '' ? '—' : String(v);
+          overrideFlags = Object.keys(scheme.boq.overrides).map(k =>
+            `BoQ "${labelOf(k)}" overridden — Master: ${fmt(derived[k])} · BoQ: ${fmt(stored[k])}`
+          );
+        }
+        const flags = [...persisted, ...overrideFlags];
+        if (!flags.length) return null;
+        return (
+          <div style={{background:"var(--amber-wash)",border:"1px solid var(--amber)",padding:"10px 14px",borderRadius:"var(--radius-sm)",marginBottom:20,display:"flex",gap:10,alignItems:"flex-start",fontSize:13}}>
+            <span style={{color:"var(--amber)",paddingTop:2}}><Icon.Alert /></span>
+            <div><strong>Inconsistencies detected</strong><ul style={{margin:"4px 0 0",paddingLeft:16}}>{flags.map((f,i)=><li key={i} style={{color:"var(--ink-2)"}}>{f}</li>)}</ul></div>
+          </div>
+        );
+      })()}
       <div className="tabs">
         {tabs.map(t=><div key={t.k} className={"tab "+(tab===t.k?"active":"")} onClick={()=>setTab(t.k)}>{t.l}{t.badge&&<span className="badge">{t.badge}</span>}</div>)}
       </div>

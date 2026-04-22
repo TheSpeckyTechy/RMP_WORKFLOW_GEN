@@ -306,6 +306,89 @@
     };
   }
 
+  // ── Master → BoQ derivation layer ──────────────────────────────────────────
+  // The Master Workbook is the source of truth. These helpers project the
+  // scheme's Master fields into the quick_inputs shape the BoQ consumes.
+  // Fields absent from this map (base_tag, footway surface, markings, etc.)
+  // have no Master analogue and always come straight from stored quick_inputs.
+
+  // Scheme.tm_type is human-readable; BoQ's internal code is snake_case.
+  function mapSchemeTmType(s) {
+    const t = (s || '').toLowerCase();
+    if (!t || t === 'none')                             return 'none';
+    if (t.includes('footway'))                          return 'footway_works';
+    if (t.includes('stop') && t.includes('go'))         return 'stop_go';
+    if (t.includes('give'))                             return 'stop_go';
+    if (t.includes('two-way') || t.includes('lane'))    return 'portable_signals';
+    if (t.includes('partial') || t.includes('closure')) return 'full_closure';
+    return 'full_closure';
+  }
+
+  // Convert a DD/MM/YYYY → DD/MM/YYYY date pair to working days
+  // (calendar × 5/7, min 1). Returns null if either date is unparseable.
+  function computeWorkingDays(start, finish) {
+    if (!start || !finish) return null;
+    const parse = s => { const [d,m,y] = String(s).split('/'); return new Date(+y, +m-1, +d); };
+    const a = parse(start), b = parse(finish);
+    if (isNaN(a) || isNaN(b)) return null;
+    return Math.max(1, Math.round((b - a) / 86400000 * 5 / 7));
+  }
+
+  // Core derivation — everything that the BoQ can look up from the Master.
+  function deriveQuickInputsFromScheme(scheme) {
+    const s = scheme || {};
+    const isFootway = s.scheme_type === 'Footway';
+    const wd = computeWorkingDays(s.date_start, s.date_finish);
+    return {
+      carriageway_area:  isFootway ? 0 : (+s.area_m2 || 0),
+      footway_area:      isFootway ? (+s.area_m2 || 0) : 0,
+      surface_tag:       matchSurfaceTag(s.treatment_type),
+      include_binder:    +s.binder_depth_mm  > 0,
+      include_subbase:   +s.subbase_depth_mm > 0,
+      subbase_depth:     +s.subbase_depth_mm || 150,
+      milling_depth:     snapMillingDepth(+s.surface_depth_mm || 40),
+      include_milling:   true,
+      include_tack:      true,
+      kerb_length:       +s.kerb_length || 0,
+      iw_sw_cway:        (+s.iron_mh || 0) + (+s.iron_water || 0),
+      iw_bt_cway:        +s.iron_bt  || 0,
+      tm_type:           mapSchemeTmType(s.tm_type),
+      include_diversion: /diversion/i.test(s.tm_type || ''),
+      duration_days:     wd != null ? wd : 5,
+    };
+  }
+
+  // Effective quick inputs = stored values for overridden keys, Master-derived
+  // for everything else, with non-linked stored keys passed through verbatim.
+  function effectiveQuickInputs(scheme, boq) {
+    const derived    = deriveQuickInputsFromScheme(scheme);
+    const overridden = (boq && boq.overrides)    || {};
+    const stored     = (boq && boq.quick_inputs) || {};
+    const out = { ...stored, ...derived };
+    for (const k in derived) {
+      if (overridden[k] && (k in stored)) out[k] = stored[k];
+    }
+    return out;
+  }
+
+  // Inventory of Master-linked fields. Drives the rail's LinkedField UI and
+  // the scheme-level overrides banner.
+  const LINKED_FIELDS = [
+    { key:'carriageway_area',  label:'Default area',       unit:'m²' },
+    { key:'footway_area',      label:'Footway area',       unit:'m²' },
+    { key:'surface_tag',       label:'Surface course' },
+    { key:'include_binder',    label:'Binder course' },
+    { key:'include_subbase',   label:'Sub-base' },
+    { key:'subbase_depth',     label:'Sub-base depth',     unit:'mm' },
+    { key:'milling_depth',     label:'Milling depth',      unit:'mm' },
+    { key:'kerb_length',       label:'Kerb length',        unit:'m' },
+    { key:'iw_sw_cway',        label:'SW covers — c’way',  unit:'No' },
+    { key:'iw_bt_cway',        label:'BT covers — c’way',  unit:'No' },
+    { key:'tm_type',           label:'TM type' },
+    { key:'include_diversion', label:'Include diversion' },
+    { key:'duration_days',     label:'Duration',           unit:'days' },
+  ];
+
   window.BOQ_ENGINE = {
     MATERIALS: {
       SURFACE_OPTIONS, BINDER_OPTIONS, BASE_OPTIONS,
@@ -313,5 +396,8 @@
     },
     fmtGBP, fmtQty, fmtPct, uid, snapMillingDepth, matchSurfaceTag, seriesOf,
     regenAutoLines, buildBoQLines,
+    deriveQuickInputsFromScheme, effectiveQuickInputs,
+    mapSchemeTmType, computeWorkingDays,
+    LINKED_FIELDS,
   };
 })();

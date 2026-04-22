@@ -25,25 +25,51 @@ const lsSet    = (id, s) => { try { localStorage.setItem(LS_PREFIX + id, JSON.st
 const lsGetIds = ()    => { try { const v = localStorage.getItem(LS_IDS); return v ? JSON.parse(v) : []; } catch { return []; } };
 const lsSetIds = (ids) => { try { localStorage.setItem(LS_IDS, JSON.stringify(ids)); } catch {} };
 
-// Silent migration: ensure every scheme loaded from storage has a .boq, and
-// that .boq.quick_inputs carries the per-layer area + milling_entries fields
-// introduced after the initial BoQ v2 ship. Persists on the first
-// updateScheme call.
+// Silent migration: ensure every scheme loaded from storage has a .boq that
+// matches the current shape — per-layer areas, milling_entries, and
+// Master-linked override flags. Persists on the first updateScheme call.
 const withBoq = (s) => {
   if (!s) return s;
   if (!s.boq) return { ...s, boq: window.defaultBoq() };
-  const qi = s.boq.quick_inputs || {};
-  if (qi.milling_entries) return s;
-  const patched = {
-    ...qi,
-    milling_entries: [{ depth: +qi.milling_depth || 40, area: null }],
-    surface_area: qi.surface_area ?? null,
-    binder_area:  qi.binder_area  ?? null,
-    base_area:    qi.base_area    ?? null,
-    subbase_area: qi.subbase_area ?? null,
-    tack_area:    qi.tack_area    ?? null,
-  };
-  return { ...s, boq: { ...s.boq, quick_inputs: patched } };
+
+  let boq = s.boq;
+  const qi = boq.quick_inputs || {};
+
+  // ── 1. Per-layer area / milling_entries (shipped in earlier PR) ──
+  if (!qi.milling_entries) {
+    boq = {
+      ...boq,
+      quick_inputs: {
+        ...qi,
+        milling_entries: [{ depth: +qi.milling_depth || 40, area: null }],
+        surface_area: qi.surface_area ?? null,
+        binder_area:  qi.binder_area  ?? null,
+        base_area:    qi.base_area    ?? null,
+        subbase_area: qi.subbase_area ?? null,
+        tack_area:    qi.tack_area    ?? null,
+      },
+    };
+  }
+
+  // ── 2. Master-linked overrides. Compare each stored value against the
+  //     value the Master would produce now. If they match, the field can
+  //     cleanly follow the Master; if they differ, preserve the BoQ value
+  //     by flagging it as overridden.
+  if (!boq.overrides) {
+    const E = window.BOQ_ENGINE;
+    const overrides = {};
+    if (E && E.deriveQuickInputsFromScheme && E.LINKED_FIELDS) {
+      const derived = E.deriveQuickInputsFromScheme(s);
+      const stored  = boq.quick_inputs || {};
+      for (const { key } of E.LINKED_FIELDS) {
+        if (!(key in stored)) continue;
+        if (stored[key] !== derived[key]) overrides[key] = true;
+      }
+    }
+    boq = { ...boq, overrides };
+  }
+
+  return boq === s.boq ? s : { ...s, boq };
 };
 
 const initSchemes = () => {
