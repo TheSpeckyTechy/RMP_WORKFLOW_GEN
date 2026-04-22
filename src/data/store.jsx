@@ -82,8 +82,9 @@ window.defaultBoq = () => ({
     markings_area:      0,
     include_line_marks: false,
     line_marks_m:       0,
-    iw_sw_cway:  0, iw_sse_cway: 0, iw_bt_cway: 0,
-    iw_sw_fw:    0, iw_sse_fw:   0, iw_bt_fw:   0,
+    iw_sw_cway:  0, iw_sse_cway: 0, iw_bt_cway: 0, iw_gas_cway: 0,
+    iw_sw_fw:    0, iw_sse_fw:   0, iw_bt_fw:   0, iw_gas_fw:   0,
+    iw_gully_cway: 0,
   },
   custom_lines: [],      // [{uid,id,desc,qty,unit,bandOverride?,series,auto?,notes?}]
   settings: {
@@ -451,8 +452,12 @@ window.WORKBOOK_SCHEMA = [
       "AC6 dense 100/150",
       // AC binder course (kept for legacy — typically not a surface course)
       "AC14 close binder 40/60",
-      // Preventive treatments
+      // Preventive / thin treatments — much cheaper per m² than hot-laid;
+      // selecting one produces very different BoQ line items.
       "Micro-asphalt",
+      "Surface dressing 10mm intermediate",
+      "Surface dressing 10mm premium",
+      "Surface dressing 6mm intermediate",
     ]},
     { key: "surface_depth_mm", label: "Surface Course Depth (mm)", type: "number", mono: true },
     { key: "binder_depth_mm", label: "Binder Course Depth (mm)", type: "number", mono: true },
