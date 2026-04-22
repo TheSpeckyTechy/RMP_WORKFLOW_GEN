@@ -66,6 +66,52 @@ const BQSelect = ({ value, onChange, label, options }) => (
   </BQField>
 );
 
+// Master-linked wrapper. Two states:
+//   - Linked (default): renders a read-only pill showing the Master-derived
+//     value + an "Override" micro-button that unlocks the underlying input.
+//   - Overridden: renders the input (children) with an orange dot, a badge,
+//     and a "Re-link to Master" micro-button.
+// `renderDisplay` formats the derived value for the linked state (lookup
+// friendly-labels for tags etc.). If omitted, JSON.stringify of the raw
+// value is used.
+const LinkedField = ({ label, overridden, derivedValue, renderDisplay, onOverride, onRelink, children }) => {
+  if (!overridden) {
+    const display = renderDisplay ? renderDisplay(derivedValue) :
+      (derivedValue === true ? 'Yes' : derivedValue === false ? 'No' :
+       derivedValue == null || derivedValue === '' ? '—' : String(derivedValue));
+    return (
+      <div style={{marginBottom:9}}>
+        <div style={{fontSize:11,fontWeight:500,color:'var(--ink-2)',marginBottom:3}}>{label}</div>
+        <div className="boq-linked" title="Pulled from the Master Workbook">
+          <div>
+            <span className="val mono">{display}</span>
+            <span className="src"> · 🔗 Master</span>
+          </div>
+          <button className="unlink" onClick={onOverride} title="Override this field in the BoQ only">
+            Override
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="boq-overridden" style={{marginBottom:9,paddingLeft:10,marginLeft:-4}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:3}}>
+        <div style={{fontSize:11,fontWeight:500,color:'var(--ink-2)'}}>
+          {label}
+          <span style={{fontSize:9,fontFamily:'var(--font-mono)',marginLeft:6,color:'#b45309',textTransform:'uppercase',letterSpacing:'0.05em'}}>
+            overridden
+          </span>
+        </div>
+        <button className="relink" onClick={onRelink} title="Discard the override and follow the Master">
+          ↩ Re-link
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+};
+
 // Compact "Area (m²)" override input. Shows the carriageway_area default as
 // placeholder so designers see what blank means. null/''/0 → use default.
 const BQAreaOverride = ({ value, onChange, defaultArea }) => (
@@ -129,8 +175,23 @@ const BQMillingList = ({ entries, onChange, defaultArea }) => {
 // ── QuickInputRail ───────────────────────────────────────────────────────────
 // Left-rail form. Reads/writes boq.quick_inputs. Calls onApply() to regenerate
 // the auto-line set; user-added lines are preserved by the caller.
-const QuickInputRail = ({ inputs, onChange, onApply, dirty }) => {
+const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onApply, dirty }) => {
+  // set(): for non-linked fields and for fields that are already overridden —
+  // writes straight through to quick_inputs. For linked-but-not-yet-overridden
+  // fields the Override button in LinkedField flips the flag first, so by the
+  // time the input is rendered the field's override === true.
   const set = (k, v) => onChange({ ...inputs, [k]: v });
+  const isOver = (k) => !!(overrides && overrides[k]);
+
+  // Lookup labels for display-only rendering of linked tag / enum values.
+  const surfaceLabel = (tag) => (MAT.SURFACE_OPTIONS.find(o => o.tag === tag) || {}).label || tag || '—';
+  const tmLabel      = (t)   => ({
+    'full_closure': 'Full road closure',
+    'portable_signals': 'Portable traffic signals',
+    'stop_go': 'Stop/Go boards',
+    'footway_works': 'Works on footways only',
+    'none': 'None',
+  })[t] || t || '—';
 
   const bandLabel = React.useMemo(() => {
     const a = +inputs.carriageway_area || 0;
@@ -165,7 +226,14 @@ const QuickInputRail = ({ inputs, onChange, onApply, dirty }) => {
 
       {/* 01 Carriageway */}
       <BQSectionLabel n="01" label="Carriageway Treatment" />
-      <BQNum value={inputs.carriageway_area} onChange={v=>set('carriageway_area',v)} label="Default area (m²)" unit="m²" />
+
+      <LinkedField label="Default area (m²)" overridden={isOver('carriageway_area')}
+        derivedValue={inputs.carriageway_area}
+        renderDisplay={v => (+v || 0).toLocaleString() + ' m²'}
+        onOverride={()=>onOverride('carriageway_area', inputs.carriageway_area)}
+        onRelink={()=>onRelink('carriageway_area')}>
+        <BQNum value={inputs.carriageway_area} onChange={v=>set('carriageway_area',v)} label="" unit="m²" />
+      </LinkedField>
       <div style={{fontSize:10,color:'var(--ink-3)',marginBottom:6,marginTop:-4,lineHeight:1.3}}>
         Used by any layer that doesn't override it.
       </div>
@@ -174,7 +242,13 @@ const QuickInputRail = ({ inputs, onChange, onApply, dirty }) => {
           {bandLabel}
         </div>
       )}
-      <BQSelect value={inputs.surface_tag} onChange={v=>set('surface_tag',v)} label="Surface course" options={MAT.SURFACE_OPTIONS} />
+
+      <LinkedField label="Surface course" overridden={isOver('surface_tag')}
+        derivedValue={inputs.surface_tag} renderDisplay={surfaceLabel}
+        onOverride={()=>onOverride('surface_tag', inputs.surface_tag)}
+        onRelink={()=>onRelink('surface_tag')}>
+        <BQSelect value={inputs.surface_tag} onChange={v=>set('surface_tag',v)} label="" options={MAT.SURFACE_OPTIONS} />
+      </LinkedField>
       <BQAreaOverride value={inputs.surface_area} onChange={v=>set('surface_area',v)} defaultArea={inputs.carriageway_area} />
 
       <BQToggle value={inputs.include_milling} onChange={v=>set('include_milling',v)} label="Include milling" />
@@ -186,14 +260,24 @@ const QuickInputRail = ({ inputs, onChange, onApply, dirty }) => {
         />
       )}
 
-      <BQToggle value={inputs.include_tack} onChange={v=>set('include_tack',v)} label="Include tack coat" />
+      <LinkedField label="Include tack coat" overridden={isOver('include_tack')}
+        derivedValue={inputs.include_tack}
+        onOverride={()=>onOverride('include_tack', inputs.include_tack)}
+        onRelink={()=>onRelink('include_tack')}>
+        <BQToggle value={inputs.include_tack} onChange={v=>set('include_tack',v)} label="Include tack coat" />
+      </LinkedField>
       {inputs.include_tack && (
         <BQAreaOverride value={inputs.tack_area} onChange={v=>set('tack_area',v)} defaultArea={inputs.carriageway_area} />
       )}
 
       {/* 02 Layer build-up */}
       <BQSectionLabel n="02" label="Layer Build-Up" />
-      <BQToggle value={inputs.include_binder} onChange={v=>set('include_binder',v)} label="Binder course" />
+      <LinkedField label="Binder course" overridden={isOver('include_binder')}
+        derivedValue={inputs.include_binder}
+        onOverride={()=>onOverride('include_binder', inputs.include_binder)}
+        onRelink={()=>onRelink('include_binder')}>
+        <BQToggle value={inputs.include_binder} onChange={v=>set('include_binder',v)} label="Binder course" />
+      </LinkedField>
       {inputs.include_binder && (
         <>
           <BQSelect value={inputs.binder_tag} onChange={v=>set('binder_tag',v)} label="Binder type" options={MAT.BINDER_OPTIONS} />
@@ -207,51 +291,96 @@ const QuickInputRail = ({ inputs, onChange, onApply, dirty }) => {
           <BQAreaOverride value={inputs.base_area} onChange={v=>set('base_area',v)} defaultArea={inputs.carriageway_area} />
         </>
       )}
-      <BQToggle value={inputs.include_subbase} onChange={v=>set('include_subbase',v)} label="Granular sub-base (Type 1)" />
+      <LinkedField label="Granular sub-base (Type 1)" overridden={isOver('include_subbase')}
+        derivedValue={inputs.include_subbase}
+        onOverride={()=>onOverride('include_subbase', inputs.include_subbase)}
+        onRelink={()=>onRelink('include_subbase')}>
+        <BQToggle value={inputs.include_subbase} onChange={v=>set('include_subbase',v)} label="Granular sub-base (Type 1)" />
+      </LinkedField>
       {inputs.include_subbase && (
         <>
-          <BQNum value={inputs.subbase_depth} onChange={v=>set('subbase_depth',v)} label="Sub-base depth (mm)" unit="mm" />
+          <LinkedField label="Sub-base depth (mm)" overridden={isOver('subbase_depth')}
+            derivedValue={inputs.subbase_depth} renderDisplay={v=>v+' mm'}
+            onOverride={()=>onOverride('subbase_depth', inputs.subbase_depth)}
+            onRelink={()=>onRelink('subbase_depth')}>
+            <BQNum value={inputs.subbase_depth} onChange={v=>set('subbase_depth',v)} label="" unit="mm" />
+          </LinkedField>
           <BQAreaOverride value={inputs.subbase_area} onChange={v=>set('subbase_area',v)} defaultArea={inputs.carriageway_area} />
         </>
       )}
 
       {/* 03 TM */}
       <BQSectionLabel n="03" label="Traffic Management" />
-      <BQField label="TM type">
-        <select value={inputs.tm_type} onChange={e=>set('tm_type',e.target.value)} style={{width:'100%',fontSize:12}}>
-          <option value="full_closure">Full road closure (Type 1)</option>
-          <option value="portable_signals">Portable traffic signals</option>
-          <option value="stop_go">Stop/Go boards</option>
-          <option value="footway_works">Works on footways only</option>
-          <option value="none">None</option>
-        </select>
-      </BQField>
-      <BQNum value={inputs.duration_days} onChange={v=>set('duration_days',v)} label="Duration (working days)" unit="days" min={1} />
+      <LinkedField label="TM type" overridden={isOver('tm_type')}
+        derivedValue={inputs.tm_type} renderDisplay={tmLabel}
+        onOverride={()=>onOverride('tm_type', inputs.tm_type)}
+        onRelink={()=>onRelink('tm_type')}>
+        <BQField label="">
+          <select value={inputs.tm_type} onChange={e=>set('tm_type',e.target.value)} style={{width:'100%',fontSize:12}}>
+            <option value="full_closure">Full road closure (Type 1)</option>
+            <option value="portable_signals">Portable traffic signals</option>
+            <option value="stop_go">Stop/Go boards</option>
+            <option value="footway_works">Works on footways only</option>
+            <option value="none">None</option>
+          </select>
+        </BQField>
+      </LinkedField>
+      <LinkedField label="Duration (working days)" overridden={isOver('duration_days')}
+        derivedValue={inputs.duration_days} renderDisplay={v=>v+' days'}
+        onOverride={()=>onOverride('duration_days', inputs.duration_days)}
+        onRelink={()=>onRelink('duration_days')}>
+        <BQNum value={inputs.duration_days} onChange={v=>set('duration_days',v)} label="" unit="days" min={1} />
+      </LinkedField>
       {inputs.tm_type === 'full_closure' && (
-        <BQToggle value={inputs.include_diversion} onChange={v=>set('include_diversion',v)} label="Include diversion route" />
+        <LinkedField label="Include diversion route" overridden={isOver('include_diversion')}
+          derivedValue={inputs.include_diversion}
+          onOverride={()=>onOverride('include_diversion', inputs.include_diversion)}
+          onRelink={()=>onRelink('include_diversion')}>
+          <BQToggle value={inputs.include_diversion} onChange={v=>set('include_diversion',v)} label="Include diversion route" />
+        </LinkedField>
       )}
 
       {/* 04 Ironwork */}
       <BQSectionLabel n="04" label="Ironwork (Accommodation Works)" />
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 10px'}}>
-        <BQNum value={inputs.iw_sw_cway}  onChange={v=>set('iw_sw_cway',v)}  label="SW — C'way"  unit="No" />
+        <LinkedField label="SW — C'way" overridden={isOver('iw_sw_cway')}
+          derivedValue={inputs.iw_sw_cway} renderDisplay={v=>(+v||0)+' No'}
+          onOverride={()=>onOverride('iw_sw_cway', inputs.iw_sw_cway)}
+          onRelink={()=>onRelink('iw_sw_cway')}>
+          <BQNum value={inputs.iw_sw_cway} onChange={v=>set('iw_sw_cway',v)} label="" unit="No" />
+        </LinkedField>
         <BQNum value={inputs.iw_sw_fw}    onChange={v=>set('iw_sw_fw',v)}    label="SW — F'way"  unit="No" />
         <BQNum value={inputs.iw_sse_cway} onChange={v=>set('iw_sse_cway',v)} label="SSE — C'way" unit="No" />
         <BQNum value={inputs.iw_sse_fw}   onChange={v=>set('iw_sse_fw',v)}   label="SSE — F'way" unit="No" />
-        <BQNum value={inputs.iw_bt_cway}  onChange={v=>set('iw_bt_cway',v)}  label="BT — C'way"  unit="No" />
+        <LinkedField label="BT — C'way" overridden={isOver('iw_bt_cway')}
+          derivedValue={inputs.iw_bt_cway} renderDisplay={v=>(+v||0)+' No'}
+          onOverride={()=>onOverride('iw_bt_cway', inputs.iw_bt_cway)}
+          onRelink={()=>onRelink('iw_bt_cway')}>
+          <BQNum value={inputs.iw_bt_cway} onChange={v=>set('iw_bt_cway',v)} label="" unit="No" />
+        </LinkedField>
         <BQNum value={inputs.iw_bt_fw}    onChange={v=>set('iw_bt_fw',v)}    label="BT — F'way"  unit="No" />
       </div>
 
       {/* 05 Footways & Kerbs */}
       <BQSectionLabel n="05" label="Footways & Kerbs" />
-      <BQNum value={inputs.footway_area} onChange={v=>set('footway_area',v)} label="Footway area (m²)" unit="m²" />
+      <LinkedField label="Footway area (m²)" overridden={isOver('footway_area')}
+        derivedValue={inputs.footway_area} renderDisplay={v=>(+v||0).toLocaleString()+' m²'}
+        onOverride={()=>onOverride('footway_area', inputs.footway_area)}
+        onRelink={()=>onRelink('footway_area')}>
+        <BQNum value={inputs.footway_area} onChange={v=>set('footway_area',v)} label="" unit="m²" />
+      </LinkedField>
       {+inputs.footway_area > 0 && (
         <>
           <BQSelect value={inputs.fw_surface_tag} onChange={v=>set('fw_surface_tag',v)} label="Footway surface" options={MAT.FOOTWAY_SURFACE_OPTIONS} />
           <BQToggle value={inputs.include_fw_subbase} onChange={v=>set('include_fw_subbase',v)} label="Include footway sub-base (150mm)" />
         </>
       )}
-      <BQNum value={inputs.kerb_length} onChange={v=>set('kerb_length',v)} label="Kerb length (m)" unit="m" />
+      <LinkedField label="Kerb length (m)" overridden={isOver('kerb_length')}
+        derivedValue={inputs.kerb_length} renderDisplay={v=>(+v||0)+' m'}
+        onOverride={()=>onOverride('kerb_length', inputs.kerb_length)}
+        onRelink={()=>onRelink('kerb_length')}>
+        <BQNum value={inputs.kerb_length} onChange={v=>set('kerb_length',v)} label="" unit="m" />
+      </LinkedField>
       {+inputs.kerb_length > 0 && (
         <BQSelect value={inputs.kerb_type} onChange={v=>set('kerb_type',v)} label="Kerb type" options={MAT.KERB_OPTIONS} />
       )}
@@ -564,46 +693,62 @@ const BoQTab = ({ schemeId }) => {
   const [drawerOpen, setDrawerOpen]   = React.useState(false);
   const [downloading, setDownloading] = React.useState(false);
 
-  // One-shot: if this scheme has never generated auto-lines, seed them from
-  // the scheme's existing fields (area, tm, ironwork, kerbs).
+  // Effective quick inputs = Master-derived values merged with user
+  // overrides. This is the single shape the rail renders and the engine
+  // prices against.
+  const effective = React.useMemo(
+    () => E.effectiveQuickInputs(scheme, boq),
+    [scheme, boq]
+  );
+
+  // Seed auto-lines once per scheme (first time .boq.touched is false).
+  // Runs against `effective` so the initial BoQ reflects whatever the
+  // Master already says, without storing a copy of those values.
   React.useEffect(() => {
     if (boq.touched) return;
-    const seededInputs = {
-      ...boq.quick_inputs,
-      carriageway_area: (+scheme.area_m2)     || boq.quick_inputs.carriageway_area,
-      surface_tag:      E.matchSurfaceTag(scheme.treatment_type),
-      include_binder:   !!(+scheme.binder_depth_mm > 0),
-      milling_depth:    E.snapMillingDepth(+scheme.surface_depth_mm || 40),
-      milling_entries:  boq.quick_inputs.milling_entries && boq.quick_inputs.milling_entries.length
-        ? boq.quick_inputs.milling_entries
-        : [{ depth: E.snapMillingDepth(+scheme.surface_depth_mm || 40), area: null }],
-      tm_type:          boq.quick_inputs.tm_type || 'full_closure',
-      duration_days:    (() => {
-        if (!scheme.date_start || !scheme.date_finish) return boq.quick_inputs.duration_days;
-        const p = s => { const [d,m,y]=(s||'').split('/'); return new Date(+y,+m-1,+d); };
-        const a = p(scheme.date_start), b = p(scheme.date_finish);
-        if (isNaN(a) || isNaN(b)) return boq.quick_inputs.duration_days;
-        return Math.max(1, Math.round((b-a)/86400000 * 5/7));
-      })(),
-      kerb_length: (+scheme.kerb_length) || 0,
-      iw_sw_cway:  (+scheme.iron_mh)    || 0,
-    };
-    const autoLines = E.regenAutoLines(seededInputs);
-    commit({ quick_inputs: seededInputs, custom_lines: autoLines, touched: true });
+    const autoLines = E.regenAutoLines(effective);
+    commit({ custom_lines: autoLines, touched: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schemeId]);
 
-  const computed = React.useMemo(() => E.buildBoQLines(boq, scheme), [boq, scheme]);
+  const computed = React.useMemo(
+    () => E.buildBoQLines({ ...boq, quick_inputs: effective }, scheme),
+    [boq, effective, scheme]
+  );
 
   const handleApplyQuick = () => {
-    const auto = E.regenAutoLines(boq.quick_inputs);
+    const auto   = E.regenAutoLines(effective);
     const custom = (boq.custom_lines || []).filter(l => !l.auto);
     commit({ custom_lines: [...auto, ...custom] });
     setQuickDirty(false);
   };
 
+  // Called by the rail when a linked OR overridden field is edited. Always
+  // writes to quick_inputs; the override flag is managed separately by
+  // overrideField / relinkField.
   const handleQuickChange = (qi) => {
     commit({ quick_inputs: qi });
+    setQuickDirty(true);
+  };
+
+  // Flip a linked field into an overridden field. The stored value seeds
+  // from whatever the Master currently derives so the user's starting point
+  // is never surprising.
+  const overrideField = (key, currentValue) => {
+    const overrides = { ...(boq.overrides || {}), [key]: true };
+    const quick_inputs = { ...(boq.quick_inputs || {}), [key]: currentValue };
+    commit({ overrides, quick_inputs });
+    setQuickDirty(true);
+  };
+
+  // Drop the override for a field so it follows the Master again. The
+  // stored value is removed so stale data can't re-emerge later.
+  const relinkField = (key) => {
+    const overrides = { ...(boq.overrides || {}) };
+    delete overrides[key];
+    const quick_inputs = { ...(boq.quick_inputs || {}) };
+    delete quick_inputs[key];
+    commit({ overrides, quick_inputs });
     setQuickDirty(true);
   };
 
@@ -650,7 +795,7 @@ const BoQTab = ({ schemeId }) => {
     if (!window.exportBoQXlsx) { alert('Export module not loaded'); return; }
     setDownloading(true);
     try {
-      window.exportBoQXlsx(scheme, boq, computed);
+      window.exportBoQXlsx(scheme, { ...boq, quick_inputs: effective }, computed);
       updateScheme(schemeId, { docs_generated: { ...(scheme.docs_generated||{}), boq: true } });
     } catch (e) {
       console.error(e);
@@ -673,14 +818,18 @@ const BoQTab = ({ schemeId }) => {
           onSettingsChange={handleSettings}
           onDownload={handleDownload}
           downloading={downloading}
+          onRelink={relinkField}
         />
       )}
 
       <div className="boq-body">
         <QuickInputRail
-          inputs={boq.quick_inputs}
+          inputs={effective}
+          overrides={boq.overrides || {}}
           dirty={quickDirty}
           onChange={handleQuickChange}
+          onOverride={overrideField}
+          onRelink={relinkField}
           onApply={handleApplyQuick}
         />
         <div style={{minWidth:0}}>

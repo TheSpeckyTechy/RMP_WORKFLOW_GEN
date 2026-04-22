@@ -35,7 +35,50 @@ const SERIES_COLOUR = {
 const colourFor = (n) => SERIES_COLOUR[n] || '#7a7a7a';
 
 // ── Project header ───────────────────────────────────────────────────────────
-const ProjectHeader = ({ scheme, computed, onDownload, downloading }) => {
+const OverridesPanel = ({ scheme, boq, onRelink, onClose }) => {
+  const derived = _E.deriveQuickInputsFromScheme(scheme);
+  const stored  = boq.quick_inputs || {};
+  const fmt = (v) => v === true ? 'Yes' : v === false ? 'No'
+              : v == null || v === '' ? '—'
+              : typeof v === 'number' ? v.toLocaleString() : String(v);
+  const rows = _E.LINKED_FIELDS
+    .filter(f => boq.overrides && boq.overrides[f.key])
+    .map(f => ({ key: f.key, label: f.label, unit: f.unit, master: derived[f.key], boq: stored[f.key] }));
+
+  return (
+    <div className="boq-settings-pop" onClick={e=>e.stopPropagation()} style={{minWidth:380}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <div style={{fontSize:12,fontWeight:600}}>Overrides — {rows.length} field{rows.length===1?'':'s'}</div>
+        <button className="btn ghost sm" onClick={onClose} title="Close">✕</button>
+      </div>
+      <div style={{fontSize:11,color:'var(--ink-3)',lineHeight:1.5,marginBottom:10}}>
+        Each field below is diverging from the Master Workbook. Click Re-link
+        to discard the BoQ value and follow the Master again.
+      </div>
+      {rows.length === 0 && (
+        <div style={{fontSize:11,color:'var(--ink-3)',textAlign:'center',padding:'18px 0'}}>No overrides. Every linked field follows the Master.</div>
+      )}
+      {rows.map(r => (
+        <div key={r.key} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:6,padding:'8px 0',borderTop:'1px solid var(--line)'}}>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:11,fontWeight:600,color:'var(--ink)'}}>{r.label}</div>
+            <div style={{fontSize:10,color:'var(--ink-3)',fontFamily:'var(--font-mono)',marginTop:2}}>
+              Master: <span style={{color:'var(--ink-2)'}}>{fmt(r.master)}</span>
+              <span style={{margin:'0 6px'}}>·</span>
+              BoQ: <span style={{color:'#b45309',fontWeight:600}}>{fmt(r.boq)}</span>
+              {r.unit && <span style={{color:'var(--ink-3)'}}> {r.unit}</span>}
+            </div>
+          </div>
+          <button className="btn ghost sm" style={{fontSize:10,padding:'2px 8px',color:'var(--accent)'}}
+            onClick={() => onRelink && onRelink(r.key)}>↩ Re-link</button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onRelink }) => {
+  const [panelOpen, setPanelOpen] = React.useState(false);
   const workingDays = (() => {
     if (!scheme.date_start || !scheme.date_finish) return null;
     const p = s => { const [d,m,y]=(s||'').split('/'); return new Date(+y,+m-1,+d); };
@@ -43,9 +86,10 @@ const ProjectHeader = ({ scheme, computed, onDownload, downloading }) => {
     if (isNaN(a) || isNaN(b)) return null;
     return Math.max(1, Math.round((b-a)/86400000 * 5/7));
   })();
+  const overrideCount = Object.keys((boq && boq.overrides) || {}).length;
 
   return (
-    <div className="boq-header">
+    <div className="boq-header" style={{position:'relative'}}>
       <div>
         <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
           <span className="section-num">{scheme.project_number || '—'}</span>
@@ -61,6 +105,12 @@ const ProjectHeader = ({ scheme, computed, onDownload, downloading }) => {
         </div>
       </div>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        {overrideCount > 0 && (
+          <button className="boq-override-chip" onClick={()=>setPanelOpen(o=>!o)}
+            title="Show overridden fields and re-link to Master">
+            ⚠ {overrideCount} override{overrideCount===1?'':'s'}
+          </button>
+        )}
         <div style={{textAlign:'right',marginRight:4}}>
           <div style={{fontSize:10,color:'var(--ink-3)',textTransform:'uppercase',letterSpacing:'0.07em'}}>Total inc VAT</div>
           <div className="mono" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em'}}>{_E.fmtGBP(computed.totalIncVat)}</div>
@@ -69,6 +119,9 @@ const ProjectHeader = ({ scheme, computed, onDownload, downloading }) => {
           <Icon.Download /> {downloading ? 'Generating…' : 'Download .xlsx'}
         </button>
       </div>
+      {panelOpen && boq && (
+        <OverridesPanel scheme={scheme} boq={boq} onRelink={onRelink} onClose={()=>setPanelOpen(false)} />
+      )}
     </div>
   );
 };
@@ -351,10 +404,10 @@ const RatesFooter = ({ computed, boq }) => {
 };
 
 // ── BoQSummary (top-level, exported) ─────────────────────────────────────────
-const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading }) => {
+const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading, onRelink }) => {
   return (
     <div className="boq-summary">
-      <ProjectHeader scheme={scheme} computed={computed} onDownload={onDownload} downloading={downloading} />
+      <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} downloading={downloading} onRelink={onRelink} />
       <CostBreakdownBar groups={computed.groups} subtotal={computed.subtotal} />
       <SeriesCardGrid groups={computed.groups} subtotal={computed.subtotal} />
       <GrandTotalPanel computed={computed} boq={boq} onSettingsChange={onSettingsChange} />
