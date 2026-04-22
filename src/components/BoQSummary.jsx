@@ -38,12 +38,18 @@ const colourFor = (n) => SERIES_COLOUR[n] || '#7a7a7a';
 const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
   const derived = _E.deriveQuickInputsFromScheme(scheme);
   const stored  = boq.quick_inputs || {};
+  const [toast, setToast] = React.useState('');
   const fmt = (v) => v === true ? 'Yes' : v === false ? 'No'
               : v == null || v === '' ? '—'
               : typeof v === 'number' ? v.toLocaleString() : String(v);
   const pushable = (key) => _E.schemePatchForOverride
     ? _E.schemePatchForOverride(key, stored[key], scheme) !== null
     : false;
+  const handlePush = (key, value) => {
+    onPushToMaster && onPushToMaster(key, value);
+    setToast('Pushed to Master ✓');
+    setTimeout(() => setToast(''), 2200);
+  };
   const rows = _E.LINKED_FIELDS
     .filter(f => boq.overrides && boq.overrides[f.key])
     .map(f => ({ key: f.key, label: f.label, unit: f.unit, master: derived[f.key], boq: stored[f.key] }));
@@ -58,6 +64,9 @@ const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
         Each field below is diverging from the Master Workbook. Click Re-link
         to discard the BoQ value and follow the Master again.
       </div>
+      {toast && (
+        <div style={{fontSize:11,color:'var(--green)',fontWeight:600,padding:'4px 0 8px',textAlign:'center'}}>{toast}</div>
+      )}
       {rows.length === 0 && (
         <div style={{fontSize:11,color:'var(--ink-3)',textAlign:'center',padding:'18px 0'}}>No overrides. Every linked field follows the Master.</div>
       )}
@@ -73,13 +82,13 @@ const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
             </div>
           </div>
           <div style={{display:'flex',gap:4,flexShrink:0}}>
-            {pushable(r.key) && (
-              <button className="btn ghost sm" style={{fontSize:10,padding:'2px 8px',color:'var(--ink-2)'}}
-                title="Push this BoQ value up to the Master Workbook and clear the override"
-                onClick={() => onPushToMaster && onPushToMaster(r.key, r.boq)}>
-                ↑ Push to Master
-              </button>
-            )}
+            <button className="btn ghost sm"
+              style={{fontSize:10,padding:'2px 8px',color: pushable(r.key) ? 'var(--ink-2)' : 'var(--ink-3)',opacity: pushable(r.key) ? 1 : 0.45,cursor: pushable(r.key) ? 'pointer' : 'not-allowed'}}
+              title={pushable(r.key) ? "Push this BoQ value up to the Master Workbook and clear the override" : "Cannot push — this field has no Master equivalent"}
+              disabled={!pushable(r.key)}
+              onClick={() => pushable(r.key) && handlePush(r.key, r.boq)}>
+              ↑ Push to Master
+            </button>
             <button className="btn ghost sm" style={{fontSize:10,padding:'2px 8px',color:'var(--accent)'}}
               onClick={() => onRelink && onRelink(r.key)}>↩ Re-link</button>
           </div>

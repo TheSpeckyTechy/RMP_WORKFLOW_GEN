@@ -26,11 +26,52 @@
 //             window.RSRModal, window.PCIModal, window.LetterModal, window.Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[RMP ErrorBoundary]', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'100vh',gap:16,padding:32,fontFamily:'system-ui',textAlign:'center'}}>
+          <div style={{fontSize:32}}>⚠</div>
+          <div style={{fontWeight:700,fontSize:18}}>Something went wrong</div>
+          <div style={{fontSize:13,color:'var(--ink-2,#666)',maxWidth:480,lineHeight:1.6}}>
+            An unexpected error occurred. Your data is safe — it is stored in localStorage and Supabase.
+          </div>
+          <div style={{fontFamily:'monospace',fontSize:11,color:'#c00',background:'#fff0f0',padding:'8px 14px',borderRadius:6,maxWidth:560,wordBreak:'break-word'}}>
+            {this.state.error?.message}
+          </div>
+          <button
+            style={{marginTop:8,padding:'10px 22px',background:'var(--accent,#c6572c)',color:'white',border:'none',borderRadius:6,cursor:'pointer',fontSize:14,fontWeight:600}}
+            onClick={() => this.setState({ hasError: false, error: null })}>
+            Try again
+          </button>
+          <button
+            style={{padding:'8px 18px',background:'transparent',border:'1px solid var(--line,#ccc)',borderRadius:6,cursor:'pointer',fontSize:13}}
+            onClick={() => window.location.reload()}>
+            Reload page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const GenerateModal = ({ scheme, onClose }) => {
   const [step, setStep] = React.useState(0);
   const [done, setDone] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [exported, setExported] = React.useState(false);
+  const [failures, setFailures] = React.useState([]);
   const steps = [
     { l: "Reading Master Workbook", meta: "45 named ranges" },
     { l: "Validating inputs", meta: "0 errors" },
@@ -48,11 +89,13 @@ const GenerateModal = ({ scheme, onClose }) => {
     if (!done) return;
     setExporting(true);
     (async () => {
-      try { if (window.__downloadRSR) await window.__downloadRSR(scheme); } catch {}
-      try { if (window.__downloadRSRPdf) await window.__downloadRSRPdf(scheme); } catch {}
-      try { if (window.__downloadPCI) await window.__downloadPCI(scheme); } catch {}
-      try { if (window.__downloadPCIPdf) await window.__downloadPCIPdf(scheme); } catch {}
-      try { if (window.__workbookExport) window.__workbookExport(); } catch {}
+      const errs = [];
+      try { if (window.__downloadRSR) await window.__downloadRSR(scheme); } catch (e) { errs.push('RSR DOCX'); console.error('RSR DOCX failed', e); }
+      try { if (window.__downloadRSRPdf) await window.__downloadRSRPdf(scheme); } catch (e) { errs.push('RSR PDF'); console.error('RSR PDF failed', e); }
+      try { if (window.__downloadPCI) await window.__downloadPCI(scheme); } catch (e) { errs.push('PCI DOCX'); console.error('PCI DOCX failed', e); }
+      try { if (window.__downloadPCIPdf) await window.__downloadPCIPdf(scheme); } catch (e) { errs.push('PCI PDF'); console.error('PCI PDF failed', e); }
+      try { if (window.__workbookExport) window.__workbookExport(); } catch (e) { errs.push('Master Workbook'); console.error('Master Workbook failed', e); }
+      setFailures(errs);
       setExporting(false);
       setExported(true);
     })();
@@ -84,8 +127,13 @@ const GenerateModal = ({ scheme, onClose }) => {
             </div>
           )}
           {exported && (
-            <div style={{ padding: "16px 18px", background: "var(--green-wash)", border: "1px solid var(--green)", borderRadius: "var(--radius-sm)", marginTop: 8 }}>
-              <div style={{ fontWeight: 600, color: "var(--green)", marginBottom: 4, fontSize: 14 }}>✓ 5 files downloaded</div>
+            <div style={{ padding: "16px 18px", background: failures.length ? "var(--amber-wash)" : "var(--green-wash)", border: `1px solid ${failures.length ? "var(--amber)" : "var(--green)"}`, borderRadius: "var(--radius-sm)", marginTop: 8 }}>
+              <div style={{ fontWeight: 600, color: failures.length ? "var(--amber)" : "var(--green)", marginBottom: 4, fontSize: 14 }}>
+                {failures.length ? `⚠ ${5 - failures.length}/5 files downloaded` : "✓ 5 files downloaded"}
+              </div>
+              {failures.length > 0 && (
+                <div style={{ fontSize: 12, color: "var(--red)", marginBottom: 6 }}>Failed: {failures.join(', ')} — check the browser console for details.</div>
+              )}
               <div style={{ fontSize: 12, color: "var(--ink-2)" }}>RSR (.docx + .pdf), PCI/CPP (.docx + .pdf), and Master Workbook (.xlsx) saved to your downloads folder. Open the <strong>Pack</strong> tab to generate resident letters.</div>
             </div>
           )}
@@ -537,9 +585,11 @@ const App = () => {
 
   if (!authed) return <PasswordGate onAuth={() => { setLockReason(null); setAuthed(true); }} reason={lockReason} />;
   return (
-    <SchemeProvider>
-      <AppInner />
-    </SchemeProvider>
+    <ErrorBoundary>
+      <SchemeProvider>
+        <AppInner />
+      </SchemeProvider>
+    </ErrorBoundary>
   );
 };
 
