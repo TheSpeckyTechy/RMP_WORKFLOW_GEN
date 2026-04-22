@@ -35,12 +35,15 @@ const SERIES_COLOUR = {
 const colourFor = (n) => SERIES_COLOUR[n] || '#7a7a7a';
 
 // ── Project header ───────────────────────────────────────────────────────────
-const OverridesPanel = ({ scheme, boq, onRelink, onClose }) => {
+const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
   const derived = _E.deriveQuickInputsFromScheme(scheme);
   const stored  = boq.quick_inputs || {};
   const fmt = (v) => v === true ? 'Yes' : v === false ? 'No'
               : v == null || v === '' ? '—'
               : typeof v === 'number' ? v.toLocaleString() : String(v);
+  const pushable = (key) => _E.schemePatchForOverride
+    ? _E.schemePatchForOverride(key, stored[key], scheme) !== null
+    : false;
   const rows = _E.LINKED_FIELDS
     .filter(f => boq.overrides && boq.overrides[f.key])
     .map(f => ({ key: f.key, label: f.label, unit: f.unit, master: derived[f.key], boq: stored[f.key] }));
@@ -59,7 +62,7 @@ const OverridesPanel = ({ scheme, boq, onRelink, onClose }) => {
         <div style={{fontSize:11,color:'var(--ink-3)',textAlign:'center',padding:'18px 0'}}>No overrides. Every linked field follows the Master.</div>
       )}
       {rows.map(r => (
-        <div key={r.key} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:6,padding:'8px 0',borderTop:'1px solid var(--line)'}}>
+        <div key={r.key} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:6,padding:'8px 0',borderTop:'1px solid var(--line)',alignItems:'center'}}>
           <div style={{minWidth:0}}>
             <div style={{fontSize:11,fontWeight:600,color:'var(--ink)'}}>{r.label}</div>
             <div style={{fontSize:10,color:'var(--ink-3)',fontFamily:'var(--font-mono)',marginTop:2}}>
@@ -69,15 +72,24 @@ const OverridesPanel = ({ scheme, boq, onRelink, onClose }) => {
               {r.unit && <span style={{color:'var(--ink-3)'}}> {r.unit}</span>}
             </div>
           </div>
-          <button className="btn ghost sm" style={{fontSize:10,padding:'2px 8px',color:'var(--accent)'}}
-            onClick={() => onRelink && onRelink(r.key)}>↩ Re-link</button>
+          <div style={{display:'flex',gap:4,flexShrink:0}}>
+            {pushable(r.key) && (
+              <button className="btn ghost sm" style={{fontSize:10,padding:'2px 8px',color:'var(--ink-2)'}}
+                title="Push this BoQ value up to the Master Workbook and clear the override"
+                onClick={() => onPushToMaster && onPushToMaster(r.key, r.boq)}>
+                ↑ Push to Master
+              </button>
+            )}
+            <button className="btn ghost sm" style={{fontSize:10,padding:'2px 8px',color:'var(--accent)'}}
+              onClick={() => onRelink && onRelink(r.key)}>↩ Re-link</button>
+          </div>
         </div>
       ))}
     </div>
   );
 };
 
-const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onRelink }) => {
+const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onRelink, onPushToMaster }) => {
   const [panelOpen, setPanelOpen] = React.useState(false);
   const workingDays = (() => {
     if (!scheme.date_start || !scheme.date_finish) return null;
@@ -120,7 +132,8 @@ const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onRelin
         </button>
       </div>
       {panelOpen && boq && (
-        <OverridesPanel scheme={scheme} boq={boq} onRelink={onRelink} onClose={()=>setPanelOpen(false)} />
+        <OverridesPanel scheme={scheme} boq={boq} onRelink={onRelink}
+          onPushToMaster={onPushToMaster} onClose={()=>setPanelOpen(false)} />
       )}
     </div>
   );
@@ -404,10 +417,10 @@ const RatesFooter = ({ computed, boq }) => {
 };
 
 // ── BoQSummary (top-level, exported) ─────────────────────────────────────────
-const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading, onRelink }) => {
+const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading, onRelink, onPushToMaster }) => {
   return (
     <div className="boq-summary">
-      <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} downloading={downloading} onRelink={onRelink} />
+      <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} downloading={downloading} onRelink={onRelink} onPushToMaster={onPushToMaster} />
       <CostBreakdownBar groups={computed.groups} subtotal={computed.subtotal} />
       <SeriesCardGrid groups={computed.groups} subtotal={computed.subtotal} />
       <GrandTotalPanel computed={computed} boq={boq} onSettingsChange={onSettingsChange} />

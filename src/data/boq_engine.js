@@ -176,8 +176,17 @@
       if (vol > 0) pushByTag('subbase_t1', vol);
     }
     if (q.include_binder)  pushByTag(q.binder_tag || 'bin_hra5020_60', layerArea(q.binder_area));
-    const sA = layerArea(q.surface_area);
-    if (sA > 0) pushByTag(q.surface_tag || 'surf_hra3014_40_14', sA);
+
+    // Surface course — zone-driven when Treatment tab has populated zones;
+    // otherwise the single-material manual path.
+    if (Array.isArray(q.surface_zones) && q.surface_zones.length) {
+      for (const sz of q.surface_zones) {
+        if (+sz.area > 0 && sz.tag) pushByTag(sz.tag, +sz.area);
+      }
+    } else {
+      const sA = layerArea(q.surface_area);
+      if (sA > 0) pushByTag(q.surface_tag || 'surf_hra3014_40_14', sA);
+    }
 
     // Series 1100 — Kerbs
     if (+q.kerb_length > 0) pushByTag(q.kerb_type || 'kerb_k1_laid', +q.kerb_length);
@@ -335,10 +344,29 @@
   }
 
   // Core derivation — everything that the BoQ can look up from the Master.
+  // When scheme.treatments has priced zones, their (area, depth, material)
+  // trios drive the milling and surface-course lines so the Treatment tab
+  // effectively feeds the BoQ without the designer re-entering anything.
   function deriveQuickInputsFromScheme(scheme) {
     const s = scheme || {};
     const isFootway = s.scheme_type === 'Footway';
     const wd = computeWorkingDays(s.date_start, s.date_finish);
+
+    const zones = (s.treatments || []).filter(z => +z.area_m2 > 0);
+    const millingFromZones = zones.map(z => ({
+      depth:     +z.depth_mm || 40,
+      area:      +z.area_m2,
+      zoneId:    z.id,
+      zoneLabel: z.zone || '',
+    }));
+    const surfaceFromZones = zones.map(z => ({
+      area:      +z.area_m2,
+      tag:       matchSurfaceTag(z.treatment_type || s.treatment_type),
+      depth:     +z.depth_mm || 40,
+      zoneId:    z.id,
+      zoneLabel: z.zone || '',
+    }));
+
     return {
       carriageway_area:  isFootway ? 0 : (+s.area_m2 || 0),
       footway_area:      isFootway ? (+s.area_m2 || 0) : 0,
@@ -355,6 +383,10 @@
       tm_type:           mapSchemeTmType(s.tm_type),
       include_diversion: /diversion/i.test(s.tm_type || ''),
       duration_days:     wd != null ? wd : 5,
+      // Zone-driven shapes. When zones.length > 0 these win over the
+      // scalar surface_tag / milling_entries values above.
+      milling_entries:   zones.length ? millingFromZones : [{ depth: snapMillingDepth(+s.surface_depth_mm || 40), area: null }],
+      surface_zones:     zones.length ? surfaceFromZones : null,
     };
   }
 
@@ -369,6 +401,43 @@
       if (overridden[k] && (k in stored)) out[k] = stored[k];
     }
     return out;
+  }
+
+  // Push an overridden BoQ value back to its Master field. Returns the
+  // patch object to apply to the scheme (or null if this field has no clean
+  // Master reverse-mapping). Caller runs updateScheme(schemeId, patch) and
+  // clears the override flag.
+  function schemePatchForOverride(key, overrideValue, scheme) {
+    const num = () => +overrideValue || 0;
+    const bool = () => !!overrideValue;
+    switch (key) {
+      case 'carriageway_area': return { area_m2: num() };
+      case 'footway_area':     return { area_m2: num() };   // footway schemes store area here too
+      case 'kerb_length':      return { kerb_length: num() };
+      case 'subbase_depth':    return { subbase_depth_mm: num() };
+      case 'milling_depth':    return { surface_depth_mm: num() };
+      case 'iw_bt_cway':       return { iron_bt: num() };
+      case 'include_binder':   return { binder_depth_mm: bool() ? (+scheme.binder_depth_mm || 60) : 0 };
+      case 'include_subbase':  return { subbase_depth_mm: bool() ? (+scheme.subbase_depth_mm || 150) : 0 };
+      case 'surface_tag': {
+        const opt = SURFACE_OPTIONS.find(o => o.tag === overrideValue);
+        return opt ? { treatment_type: opt.label } : null;
+      }
+      case 'tm_type': {
+        const reverse = {
+          full_closure:     'Full road closure',
+          portable_signals: 'Two-way lights',
+          stop_go:          'Stop/Go boards',
+          footway_works:    'Works on footways only',
+          none:             'None',
+        };
+        return reverse[overrideValue] ? { tm_type: reverse[overrideValue] } : null;
+      }
+      // iw_sw_cway splits into iron_mh + iron_water — ambiguous, no clean push.
+      // include_diversion is a regex read of tm_type — no clean push.
+      // duration_days is derived from date_start/date_finish — no clean push.
+      default: return null;
+    }
   }
 
   // Inventory of Master-linked fields. Drives the rail's LinkedField UI and
@@ -398,6 +467,7 @@
     regenAutoLines, buildBoQLines,
     deriveQuickInputsFromScheme, effectiveQuickInputs,
     mapSchemeTmType, computeWorkingDays,
+    schemePatchForOverride,
     LINKED_FIELDS,
   };
 })();

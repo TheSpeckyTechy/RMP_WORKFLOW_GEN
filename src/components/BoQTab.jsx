@@ -183,6 +183,9 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
   const set = (k, v) => onChange({ ...inputs, [k]: v });
   const isOver = (k) => !!(overrides && overrides[k]);
 
+  // Zones drive the pavement lines when the Treatment tab has populated them.
+  const zonesActive = Array.isArray(inputs.surface_zones) && inputs.surface_zones.length > 0;
+
   // Lookup labels for display-only rendering of linked tag / enum values.
   const surfaceLabel = (tag) => (MAT.SURFACE_OPTIONS.find(o => o.tag === tag) || {}).label || tag || '—';
   const tmLabel      = (t)   => ({
@@ -243,16 +246,40 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
         </div>
       )}
 
-      <LinkedField label="Surface course" overridden={isOver('surface_tag')}
-        derivedValue={inputs.surface_tag} renderDisplay={surfaceLabel}
-        onOverride={()=>onOverride('surface_tag', inputs.surface_tag)}
-        onRelink={()=>onRelink('surface_tag')}>
-        <BQSelect value={inputs.surface_tag} onChange={v=>set('surface_tag',v)} label="" options={MAT.SURFACE_OPTIONS} />
-      </LinkedField>
-      <BQAreaOverride value={inputs.surface_area} onChange={v=>set('surface_area',v)} defaultArea={inputs.carriageway_area} />
+      {zonesActive ? (
+        <div className="boq-zones-banner" title="Treatment tab drives the surface + milling lines">
+          <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--accent)',marginBottom:6}}>
+            📐 Driven by {inputs.surface_zones.length} Treatment Zone{inputs.surface_zones.length === 1 ? '' : 's'}
+          </div>
+          {inputs.surface_zones.map((z, i) => (
+            <div key={i} style={{fontSize:11,color:'var(--ink-2)',lineHeight:1.5,display:'flex',justifyContent:'space-between',gap:8}}>
+              <span style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                <span className="mono" style={{fontSize:10,color:'var(--ink-3)',marginRight:4}}>{z.zoneLabel || ('Zone ' + (i+1))}</span>
+                {surfaceLabel(z.tag)}
+              </span>
+              <span className="mono" style={{fontSize:10,color:'var(--ink-3)',flexShrink:0}}>
+                {(+z.area || 0).toLocaleString()} m² · {z.depth} mm
+              </span>
+            </div>
+          ))}
+          <div style={{fontSize:10,color:'var(--ink-3)',marginTop:8,fontStyle:'italic'}}>
+            Edit materials and areas in the Treatment tab.
+          </div>
+        </div>
+      ) : (
+        <>
+          <LinkedField label="Surface course" overridden={isOver('surface_tag')}
+            derivedValue={inputs.surface_tag} renderDisplay={surfaceLabel}
+            onOverride={()=>onOverride('surface_tag', inputs.surface_tag)}
+            onRelink={()=>onRelink('surface_tag')}>
+            <BQSelect value={inputs.surface_tag} onChange={v=>set('surface_tag',v)} label="" options={MAT.SURFACE_OPTIONS} />
+          </LinkedField>
+          <BQAreaOverride value={inputs.surface_area} onChange={v=>set('surface_area',v)} defaultArea={inputs.carriageway_area} />
+        </>
+      )}
 
       <BQToggle value={inputs.include_milling} onChange={v=>set('include_milling',v)} label="Include milling" />
-      {inputs.include_milling && (
+      {inputs.include_milling && !zonesActive && (
         <BQMillingList
           entries={inputs.milling_entries || [{ depth: inputs.milling_depth || 40, area: null }]}
           onChange={v=>set('milling_entries',v)}
@@ -752,6 +779,24 @@ const BoQTab = ({ schemeId }) => {
     setQuickDirty(true);
   };
 
+  // Push an overridden BoQ value up to its Master field. Clears the
+  // override flag afterwards so the field follows the Master again.
+  const pushToMaster = (key, value) => {
+    const patch = E.schemePatchForOverride(key, value, scheme);
+    if (!patch) return;
+    // Merge scheme patch + cleared override in a single updateScheme call so
+    // the subsequent re-render sees a consistent state.
+    const overrides = { ...(boq.overrides || {}) };
+    delete overrides[key];
+    const quick_inputs = { ...(boq.quick_inputs || {}) };
+    delete quick_inputs[key];
+    updateScheme(schemeId, {
+      ...patch,
+      boq: { ...boq, overrides, quick_inputs },
+    });
+    setQuickDirty(true);
+  };
+
   const editLine = (uid, patch) => {
     commit({ custom_lines: boq.custom_lines.map(l => l.uid === uid ? { ...l, ...patch } : l) });
   };
@@ -819,6 +864,7 @@ const BoQTab = ({ schemeId }) => {
           onDownload={handleDownload}
           downloading={downloading}
           onRelink={relinkField}
+          onPushToMaster={pushToMaster}
         />
       )}
 

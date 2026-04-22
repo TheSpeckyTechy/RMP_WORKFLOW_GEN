@@ -64,8 +64,9 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
         </div>
       </div>
       {(() => {
-        // Merge persisted scheme.flags with live BoQ-override flags so a
-        // divergence between the Master and the BoQ is always visible.
+        // Merge persisted scheme.flags with live BoQ-override flags and
+        // zone-area / scheme-area mismatches so every form of drift is
+        // visible at the top of the page.
         const persisted = scheme.flags || [];
         const E = window.BOQ_ENGINE;
         let overrideFlags = [];
@@ -78,7 +79,18 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
             `BoQ "${labelOf(k)}" overridden — Master: ${fmt(derived[k])} · BoQ: ${fmt(stored[k])}`
           );
         }
-        const flags = [...persisted, ...overrideFlags];
+        const zoneFlags = [];
+        if (scheme.treatments && scheme.treatments.length && +scheme.area_m2 > 0) {
+          const zoneTotal = scheme.treatments.reduce((s, z) => s + (+z.area_m2 || 0), 0);
+          const diff = zoneTotal - (+scheme.area_m2 || 0);
+          if (Math.abs(diff) > 0.5) {
+            zoneFlags.push(
+              `Treatment zones sum to ${zoneTotal.toLocaleString()} m² but scheme area is ${(+scheme.area_m2).toLocaleString()} m² ` +
+              `(${diff > 0 ? '+' : ''}${diff.toLocaleString()} m² ${diff > 0 ? 'over' : 'under'})`
+            );
+          }
+        }
+        const flags = [...persisted, ...zoneFlags, ...overrideFlags];
         if (!flags.length) return null;
         return (
           <div style={{background:"var(--amber-wash)",border:"1px solid var(--amber)",padding:"10px 14px",borderRadius:"var(--radius-sm)",marginBottom:20,display:"flex",gap:10,alignItems:"flex-start",fontSize:13}}>
