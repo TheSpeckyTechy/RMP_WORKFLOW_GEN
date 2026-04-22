@@ -70,7 +70,7 @@ const SchemeMobileCard = ({ scheme, onExpand, onBack, onGenerate }) => {
   );
 };
 
-const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
+const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) => {
   const { getScheme, updateScheme, deleteScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
   const [tab, setTab] = React.useState("workbook");
@@ -90,7 +90,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
     return (
       <SchemeMobileCard
         scheme={scheme}
-        onExpand={(targetTab)=>{ setMobileExpanded(true); if(targetTab) setTab(targetTab); }}
+        onExpand={(targetTab)=>{ setMobileExpanded(true); if(targetTab) setTab(targetTab); window.scrollTo({top:0,behavior:'smooth'}); }}
         onBack={onBack}
         onGenerate={onGenerate}
       />
@@ -123,6 +123,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview }) => {
         <div style={{display:"flex",gap:8}}>
           <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>
+          {onDuplicate && <button className="btn ghost sm" title="Duplicate scheme" onClick={()=>onDuplicate(scheme)}><Icon.Copy /></button>}
           <button className="btn ghost sm" title="Delete scheme" style={{color:"var(--red)"}} onClick={()=>{ if(confirm(`Delete "${scheme.road_name}"? This cannot be undone.`)){ deleteScheme(schemeId); onBack(); } }}><Icon.Trash /></button>
         </div>
       </div>
@@ -601,7 +602,7 @@ async function downloadFrontPdf(scheme) {
     await window.htmlToPdf(container.firstChild || container, filename);
     root.unmount();
     window.dispatchEvent(new CustomEvent('rmp-download', {
-      detail: { label: 'Front Sheet — ' + (scheme.road_name || 'scheme'), ref: scheme.project_number || '' },
+      detail: { label: 'Front Sheet — ' + (scheme.road_name || 'scheme'), ref: scheme.project_number || '', fn: '__downloadFrontPdf', schemeId: scheme.id },
     }));
   } finally {
     document.body.removeChild(container);

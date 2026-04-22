@@ -1,3 +1,5 @@
+const APP_VERSION = '2.0.0';
+
 // ─── App.jsx ───────────────────────────────────────────────────────────────────
 // Root of the React application. Loaded last — all other scripts must be
 // defined before this one (see load order in RMP Design Studio.html).
@@ -215,6 +217,19 @@ const relativeTime = (date) => {
 const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
   const { resetAllSchemes, syncStatus, lastSynced } = React.useContext(window.SchemeContext);
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+  const [userPrefs, setUserPrefs] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('rmp_user_prefs')) || {}; } catch { return {}; }
+  });
+  const [editingUser, setEditingUser] = React.useState(false);
+  const userName = userPrefs.name || 'Jake McAllister';
+  const userRole = userPrefs.role || 'Designer';
+  const userOrg  = userPrefs.org  || 'Dundee City Council';
+  const initials = userName.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'JM';
+  const saveUserPrefs = (patch) => {
+    const next = { ...userPrefs, ...patch };
+    setUserPrefs(next);
+    localStorage.setItem('rmp_user_prefs', JSON.stringify(next));
+  };
   React.useEffect(() => {
     if (!lastSynced || syncStatus !== 'synced') return;
     const t = setInterval(forceUpdate, 30000);
@@ -237,14 +252,33 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
         <div className="settings-section">
           <div className="settings-section-title">User</div>
           <div className="settings-card">
-            <div style={{display:"flex",alignItems:"center",gap:14}}>
-              <div className="user-avatar" style={{width:44,height:44,fontSize:16,borderRadius:"50%",background:"var(--accent)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,flexShrink:0}}>JM</div>
-              <div>
-                <div style={{fontWeight:600,fontSize:14}}>Jake McAllister</div>
-                <div style={{fontSize:12,color:"var(--ink-3)"}}>Designer · Road Maintenance Partnership</div>
-                <div style={{fontSize:11,color:"var(--ink-3)",fontFamily:"var(--font-mono)",marginTop:2}}>Dundee City Council</div>
+            {!editingUser ? (
+              <div style={{display:"flex",alignItems:"center",gap:14}}>
+                <div className="user-avatar" style={{width:44,height:44,fontSize:16,borderRadius:"50%",background:"var(--accent)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,flexShrink:0}}>{initials}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:14}}>{userName}</div>
+                  <div style={{fontSize:12,color:"var(--ink-3)"}}>{userRole} · Road Maintenance Partnership</div>
+                  <div style={{fontSize:11,color:"var(--ink-3)",fontFamily:"var(--font-mono)",marginTop:2}}>{userOrg}</div>
+                </div>
+                <button className="btn ghost sm" onClick={()=>setEditingUser(true)}>Edit</button>
               </div>
-            </div>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{display:"flex",gap:14,alignItems:"center"}}>
+                  <div className="user-avatar" style={{width:44,height:44,fontSize:16,borderRadius:"50%",background:"var(--accent)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,flexShrink:0}}>{initials}</div>
+                  <div style={{flex:1,display:"flex",flexDirection:"column",gap:6}}>
+                    <input type="text" placeholder="Full name" value={userPrefs.name||''} onChange={e=>saveUserPrefs({name:e.target.value})} style={{fontSize:13}} />
+                    <div style={{display:"flex",gap:6}}>
+                      <input type="text" placeholder="Role (e.g. Designer)" value={userPrefs.role||''} onChange={e=>saveUserPrefs({role:e.target.value})} style={{fontSize:12,flex:1}} />
+                      <input type="text" placeholder="Organisation" value={userPrefs.org||''} onChange={e=>saveUserPrefs({org:e.target.value})} style={{fontSize:12,flex:1}} />
+                    </div>
+                  </div>
+                </div>
+                <div style={{display:"flex",justifyContent:"flex-end"}}>
+                  <button className="btn sm accent" onClick={()=>setEditingUser(false)}>Save</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <div className="settings-section">
@@ -308,7 +342,7 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
           <div className="settings-card">
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Application</span><span className="mono">RMP Design Studio</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Version</span><span className="mono">2.0.0</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Version</span><span className="mono">{APP_VERSION}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Client</span><span className="mono">Dundee City Council</span></div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Templates</span><span className="mono">RSR · PCI/CPP · Letter · Workbook</span></div>
             </div>
@@ -341,12 +375,14 @@ const SCHEME_STATUSES = [
   { k:"ready",  l:"Ready" },    { k:"works",  l:"On site" },
 ];
 
-const NewSchemeModal = ({ onClose, onCreate }) => {
+const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
   const { schemes } = React.useContext(window.SchemeContext);
-  const [form, setForm] = React.useState({
+  const [form, setForm] = React.useState(() => ({
     road_name: "", project_number: "", scheme_type: "Carriageway",
     financial_year: "2026/27", ward_num: 1, status: "design",
-  });
+    ...(initialValues || {}),
+    project_number: "", // always blank — must choose a new unique ref
+  }));
   const [error, setError] = React.useState("");
   const nameRef = React.useRef(null);
 
@@ -380,7 +416,7 @@ const NewSchemeModal = ({ onClose, onCreate }) => {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()} style={{width:480}}>
         <div className="modal-head">
-          <div style={{fontWeight:600,fontSize:15}}>New Scheme</div>
+          <div style={{fontWeight:600,fontSize:15}}>{initialValues ? 'Duplicate Scheme' : 'New Scheme'}</div>
           <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
         </div>
         <form onSubmit={handleSubmit}>
@@ -441,7 +477,7 @@ const NewSchemeModal = ({ onClose, onCreate }) => {
 };
 
 const AppInner = () => {
-  const { addScheme, syncStatus } = React.useContext(window.SchemeContext);
+  const { addScheme, syncStatus, getScheme } = React.useContext(window.SchemeContext);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [notifOpen, setNotifOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState([]);
@@ -464,6 +500,7 @@ const AppInner = () => {
   const [filter, setFilter] = React.useState("all");
   const [search, setSearch] = React.useState("");
   const [newSchemeOpen, setNewSchemeOpen] = React.useState(false);
+  const [duplicateSource, setDuplicateSource] = React.useState(null);
   const [generating, setGenerating] = React.useState(null);
   const [previewing, setPreviewing] = React.useState(null);
   const [tweaksOn, setTweaksOn] = React.useState(false);
@@ -540,7 +577,13 @@ const AppInner = () => {
                   ? <div style={{padding:"12px 14px",fontSize:12,color:"var(--ink-3)"}}>No downloads yet</div>
                   : notifications.map((n, i) => (
                     <div key={i} style={{padding:"8px 14px",borderBottom:"1px solid var(--line)",fontSize:12}}>
-                      <div style={{color:"var(--ink)"}}>{n.label}</div>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
+                        <div style={{color:"var(--ink)",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.label}</div>
+                        {n.fn && window[n.fn] && (
+                          <button className="btn ghost sm" title="Re-download" style={{fontSize:11,padding:"1px 6px",flexShrink:0}}
+                            onClick={()=>{ const s=n.schemeId&&getScheme(n.schemeId); if(s&&window[n.fn]) window[n.fn](s); }}>↻</button>
+                        )}
+                      </div>
                       <div style={{color:"var(--ink-3)",fontFamily:"var(--font-mono)",fontSize:10,marginTop:2}}>{n.ref}</div>
                     </div>
                   ))
@@ -551,7 +594,8 @@ const AppInner = () => {
         </header>
         <div className="content">
           {openScheme ? (
-            <SchemeDetail schemeId={openScheme} onBack={() => setOpenScheme(null)} onGenerate={setGenerating} onPreview={(scheme, docKey) => setPreviewing({ scheme, docKey })} />
+            <SchemeDetail schemeId={openScheme} onBack={() => setOpenScheme(null)} onGenerate={setGenerating} onPreview={(scheme, docKey) => setPreviewing({ scheme, docKey })}
+              onDuplicate={(scheme) => { setDuplicateSource({ road_name: scheme.road_name, scheme_type: scheme.scheme_type, financial_year: scheme.financial_year, ward_num: scheme.ward_num, status: 'design' }); setNewSchemeOpen(true); }} />
           ) : view === "settings" ? (
             <SettingsView tweaks={tweaks} setTweaks={setTweaks} darkMode={darkMode} setDarkMode={setDarkMode} />
           ) : (
@@ -563,7 +607,7 @@ const AppInner = () => {
       {previewing?.docKey === "rsr" && <RSRModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
       {previewing?.docKey === "pci" && <PCIModal schemeId={previewing.scheme.id} onClose={() => setPreviewing(null)} />}
       {previewing?.docKey === "letter" && <LetterModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
-      {newSchemeOpen && <NewSchemeModal onClose={()=>setNewSchemeOpen(false)} onCreate={s=>{ addScheme(s); setNewSchemeOpen(false); setView("dashboard"); setFilter("all"); setSearch(""); setOpenScheme(s.id); }} />}
+      {newSchemeOpen && <NewSchemeModal onClose={()=>{ setNewSchemeOpen(false); setDuplicateSource(null); }} initialValues={duplicateSource} onCreate={s=>{ addScheme(s); setNewSchemeOpen(false); setDuplicateSource(null); setView("dashboard"); setFilter("all"); setSearch(""); setOpenScheme(s.id); }} />}
       {tweaksOn && <Tweaks tweaks={tweaks} setTweaks={setTweaks} />}
     </div>
   );
