@@ -152,6 +152,71 @@ async function mailMergeLetter(scheme, recipients) {
   a.click(); URL.revokeObjectURL(a.href);
 }
 
+// Render every letter into one multi-page PDF by rendering each recipient's
+// letter off-screen via docx-preview, capturing with html2canvas, and
+// appending pages to a single jsPDF document.
+async function mailMergeLetterPdf(scheme, recipients, onProgress) {
+  if (!recipients.length) throw new Error('No recipients');
+  if (!window.html2canvas || !window.jspdf || !window.docx) {
+    throw new Error('PDF libraries not loaded');
+  }
+  const { jsPDF } = window.jspdf;
+  const templateBuffer = await loadLetterBuffer();
+
+  // Off-screen host. Fixed A4 width at 96dpi keeps html2canvas output
+  // consistent across devices.
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-99999px;top:0;width:794px;background:#fff;pointer-events:none;';
+  document.body.appendChild(host);
+
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pageW = 210, pageH = 297;
+  let isFirstPage = true;
+
+  try {
+    for (let i = 0; i < recipients.length; i++) {
+      onProgress?.(i, recipients.length);
+      host.innerHTML = '';
+      // docx-preview may mutate the buffer — pass a fresh copy each time.
+      const buf = templateBuffer.slice(0);
+      await window.docx.renderAsync(buf, host, null, {
+        className:'docx', inWrapper:true, ignoreWidth:false, ignoreHeight:false,
+        ignoreFonts:false, breakPages:true, experimental:false,
+        trimXmlDeclaration:true, useBase64URL:true,
+      });
+      applyLetter(host, scheme, recipients[i]);
+
+      // Let the browser compute layout before screenshotting.
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      const canvas = await window.html2canvas(host, {
+        scale: 2, backgroundColor: '#ffffff', useCORS: true, allowTaint: true, logging: false,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.9);
+      const imgH = (canvas.height * pageW) / canvas.width;
+
+      // Split a tall letter across as many A4 pages as it needs, and
+      // always start a new page for a new recipient.
+      let y = 0;
+      while (y < imgH) {
+        if (!isFirstPage) pdf.addPage();
+        isFirstPage = false;
+        pdf.addImage(imgData, 'JPEG', 0, -y, pageW, imgH);
+        y += pageH;
+      }
+    }
+  } finally {
+    host.remove();
+  }
+
+  onProgress?.(recipients.length, recipients.length);
+  const slug = (scheme.project_number || scheme.road_name || 'letter').replace(/\s+/g,'_');
+  const name = recipients.length === 1
+    ? `Letter_${slug}_${(recipients[0].address1||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30)}.pdf`
+    : `MailMerge_${slug}_${recipients.length}letters.pdf`;
+  pdf.save(name);
+}
+
 const applyLetter = (root, scheme, recipient) => {
   const recipientBindings = { AddressLine4: recipient?.address1||"", POSTCODE: recipient?.postcode||"", TOWN_NAME: recipient?.town||"DUNDEE" };
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
@@ -485,17 +550,23 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
   const [selectedIdx, setSelectedIdx] = React.useState(0);
   const [showImport, setShowImport] = React.useState(false);
   const [merging, setMerging] = React.useState(false);
+  const [mergeProgress, setMergeProgress] = React.useState(null);
   const recipient = recipients[selectedIdx];
 
-  const handleMailMerge = async () => {
+  const runMailMerge = async (mode) => {
     setMerging(true);
+    setMergeProgress(mode === 'pdf' ? { done: 0, total: recipients.length } : null);
     try {
-      await mailMergeLetter(scheme, recipients);
+      if (mode === 'pdf') {
+        await mailMergeLetterPdf(scheme, recipients, (done, total) => setMergeProgress({ done, total }));
+      } else {
+        await mailMergeLetter(scheme, recipients);
+      }
       updateScheme(scheme.id, { docs_generated: { ...(scheme.docs_generated||{}), letter: true } });
-      window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `Letter — ${scheme.road_name} (${recipients.length} recipient${recipients.length!==1?'s':''})`, ref: scheme.project_number } }));
+      window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `Letter — ${scheme.road_name} (${recipients.length} recipient${recipients.length!==1?'s':''}, ${mode.toUpperCase()})`, ref: scheme.project_number } }));
     }
     catch(e) { alert('Mail merge failed: ' + e.message); }
-    finally { setMerging(false); }
+    finally { setMerging(false); setMergeProgress(null); }
   };
   const residents = recipients.filter(r=>r.type==="resident");
   const businesses = recipients.filter(r=>r.type==="business");
@@ -515,8 +586,16 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
             </div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            <button className="btn sm" onClick={handleMailMerge} disabled={merging||recipients.length===0}>
-              <Icon.Download /> {merging ? "Generating…" : `Mail merge · ${recipients.length} letter${recipients.length!==1?"s":""}`}
+            <button className="btn sm" onClick={()=>runMailMerge('pdf')} disabled={merging||recipients.length===0}>
+              <Icon.Download /> {merging && mergeProgress
+                ? `Generating PDF · ${mergeProgress.done}/${mergeProgress.total}`
+                : merging
+                  ? "Generating…"
+                  : `Mail merge · ${recipients.length} letter${recipients.length!==1?"s":""} (PDF)`}
+            </button>
+            <button className="btn ghost sm" onClick={()=>runMailMerge('docx')} disabled={merging||recipients.length===0}
+              title="Download as editable DOCX (ZIP for multiple recipients)">
+              DOCX
             </button>
             <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
           </div>
