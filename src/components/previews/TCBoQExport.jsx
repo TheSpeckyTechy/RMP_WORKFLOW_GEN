@@ -59,6 +59,7 @@ async function downloadTCBoQXlsx(scheme, computed) {
     const nameM = m[0].match(/name="([^"]*)"/);
     const ridM  = m[0].match(/r:id="([^"]*)"/);
     if (!nameM || !ridM || !nameM[1].endsWith(' Input')) continue;
+    if (nameM[1] === 'Series 6400 Input') continue; // lot/band data, not quantities
     const target = relMap[ridM[1]];
     if (target) inputPaths.push('xl/' + target);
   }
