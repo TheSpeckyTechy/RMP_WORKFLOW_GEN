@@ -614,7 +614,16 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
   const [showImport, setShowImport] = React.useState(false);
   const [merging, setMerging] = React.useState(false);
   const [mergeProgress, setMergeProgress] = React.useState(null);
+  const [recipientFilter, setRecipientFilter] = React.useState('');
   const recipient = recipients[selectedIdx];
+
+  const matchesFilter = (r) => {
+    const q = recipientFilter.trim().toLowerCase();
+    if (!q) return true;
+    return (r.address1||'').toLowerCase().includes(q)
+        || (r.postcode||'').toLowerCase().includes(q)
+        || (r.name||'').toLowerCase().includes(q);
+  };
 
   const runMailMerge = async (mode) => {
     setMerging(true);
@@ -688,28 +697,48 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
 
               {residents.length>0&&(
                 <Collapsible title="Residents" count={residents.length} defaultOpen={true}>
+                  <input
+                    type="text"
+                    className="letter-recip-filter"
+                    placeholder={`Filter ${residents.length} residents…`}
+                    value={recipientFilter}
+                    onChange={e=>setRecipientFilter(e.target.value)}
+                  />
                   <div className="letter-recip-list">
-                    {recipients.map((r,i)=>r.type==="resident"&&(
+                    {recipients.map((r,i)=>r.type==="resident"&&matchesFilter(r)&&(
                       <button key={i} className={"letter-recip "+(i===selectedIdx?"active":"")}
                         onClick={()=>setSelectedIdx(i)}>
                         <div className="letter-recip-addr">{r.address1}</div>
                         <div className="letter-recip-meta">{r.postcode}</div>
                       </button>
                     ))}
+                    {residents.filter(matchesFilter).length===0 && (
+                      <div className="letter-recip-empty">No residents match "{recipientFilter}"</div>
+                    )}
                   </div>
                 </Collapsible>
               )}
 
               {businesses.length>0&&(
                 <Collapsible title="Businesses" count={businesses.length} defaultOpen={false}>
+                  <input
+                    type="text"
+                    className="letter-recip-filter"
+                    placeholder={`Filter ${businesses.length} businesses…`}
+                    value={recipientFilter}
+                    onChange={e=>setRecipientFilter(e.target.value)}
+                  />
                   <div className="letter-recip-list">
-                    {recipients.map((r,i)=>r.type==="business"&&(
+                    {recipients.map((r,i)=>r.type==="business"&&matchesFilter(r)&&(
                       <button key={i} className={"letter-recip "+(i===selectedIdx?"active":"")}
                         onClick={()=>setSelectedIdx(i)}>
                         <div className="letter-recip-addr"><strong>{r.name}</strong></div>
                         <div className="letter-recip-meta">{r.address1} · {r.postcode}</div>
                       </button>
                     ))}
+                    {businesses.filter(matchesFilter).length===0 && (
+                      <div className="letter-recip-empty">No businesses match "{recipientFilter}"</div>
+                    )}
                   </div>
                 </Collapsible>
               )}
