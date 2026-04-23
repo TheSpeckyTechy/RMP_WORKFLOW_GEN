@@ -311,7 +311,12 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
           <BQAreaOverride value={inputs.binder_area} onChange={v=>set('binder_area',v)} defaultArea={inputs.carriageway_area} />
         </>
       )}
-      <BQToggle value={inputs.include_base} onChange={v=>set('include_base',v)} label="Base course" />
+      <LinkedField label="Base course" overridden={isOver('include_base')}
+        derivedValue={inputs.include_base}
+        onOverride={()=>onOverride('include_base', inputs.include_base)}
+        onRelink={()=>onRelink('include_base')}>
+        <BQToggle value={inputs.include_base} onChange={v=>set('include_base',v)} label="Base course" />
+      </LinkedField>
       {inputs.include_base && (
         <>
           <BQSelect value={inputs.base_tag} onChange={v=>set('base_tag',v)} label="Base type" options={MAT.BASE_OPTIONS} />

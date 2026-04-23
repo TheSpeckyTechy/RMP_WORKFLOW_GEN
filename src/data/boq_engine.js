@@ -195,24 +195,45 @@
       }
     }
 
-    if (q.include_tack)    pushByTag('tack', layerArea(q.tack_area));
-    if (q.include_base)    pushByTag(q.base_tag || 'base_ac32d_100', layerArea(q.base_area));
-    if (q.include_subbase) {
-      const a   = layerArea(q.subbase_area);
-      const vol = Math.round(a * (+q.subbase_depth || 150) / 1000 * 10) / 10;
-      if (vol > 0) pushByTag('subbase_t1', vol);
-    }
-    if (q.include_binder)  pushByTag(q.binder_tag || 'bin_hra5020_60', layerArea(q.binder_area));
+    // Structural layers — zone-driven path emits per-zone lines so deep
+    // inlay zones get binder/base lines while shallow inlay zones don't.
+    // Dedupe at the end folds same-material lines across zones together.
+    const binderTag = q.binder_tag || 'bin_hra5020_60';
+    const baseTag   = q.base_tag   || 'base_ac32d_100';
+    const zonesPath = Array.isArray(q.surface_zones) && q.surface_zones.length;
 
-    // Surface course — zone-driven when Treatment tab has populated zones;
-    // otherwise the single-material manual path.
-    if (Array.isArray(q.surface_zones) && q.surface_zones.length) {
+    if (zonesPath) {
       for (const sz of q.surface_zones) {
-        if (+sz.area > 0 && sz.tag) pushByTag(sz.tag, +sz.area);
+        const a = +sz.area || 0;
+        if (a <= 0) continue;
+        if (sz.tag)             pushByTag(sz.tag, a);        // surface
+        if (q.include_tack)     pushByTag('tack', a);        // tack follows surface
+        if (q.include_binder && sz.needsBinder) pushByTag(binderTag, a);
+        if (q.include_base   && sz.needsBase)   pushByTag(baseTag,   a);
       }
     } else {
+      // Manual (single-material) path.
+      if (q.include_tack)   pushByTag('tack', layerArea(q.tack_area));
+      if (q.include_binder) pushByTag(binderTag, layerArea(q.binder_area));
+      if (q.include_base)   pushByTag(baseTag,   layerArea(q.base_area));
       const sA = layerArea(q.surface_area);
       if (sA > 0) pushByTag(q.surface_tag || 'surf_hra3014_40_14', sA);
+    }
+
+    // Sub-base is scheme-wide (rarely zone-driven — it's a full reconstruction
+    // layer). If zoned, uses the sum of zone areas that need base (ie.
+    // zones deep enough to warrant sub-base).
+    if (q.include_subbase) {
+      let area = 0;
+      if (zonesPath) {
+        area = q.surface_zones
+          .filter(sz => sz.needsBase)
+          .reduce((t, sz) => t + (+sz.area || 0), 0);
+      } else {
+        area = layerArea(q.subbase_area);
+      }
+      const vol = Math.round(area * (+q.subbase_depth || 150) / 1000 * 10) / 10;
+      if (vol > 0) pushByTag('subbase_t1', vol);
     }
 
     // Series 1100 — Kerbs
@@ -240,7 +261,30 @@
     // Series 500 — Gully grating reset (priced per raised grating unit)
     if (+q.iw_gully_cway > 0) pushByTag('iw_gully_cway', +q.iw_gully_cway);
 
-    return lines;
+    return dedupeLines(lines);
+  }
+
+  // Collapse auto-lines that share the same (item id, bandOverride) into a
+  // single line with summed quantity. Real JMCA pricing picks the rate band
+  // from the TOTAL line quantity — so 4 zones of 19 + 23 + 31 + 595 m² of
+  // the same AC14 surface course must be one 668 m² line (Band B), not four
+  // separate lines (one Band A and three Band B).
+  //
+  // Dedup key includes bandOverride so a user-forced Band A line never folds
+  // into an auto-banded line of the same material.
+  function dedupeLines(lines) {
+    const bucket = new Map();
+    const order = [];
+    for (const l of lines) {
+      const key = l.id + '\x00' + (l.bandOverride || '');
+      if (bucket.has(key)) {
+        bucket.get(key).qty += +l.qty || 0;
+      } else {
+        bucket.set(key, { ...l });
+        order.push(key);
+      }
+    }
+    return order.map(k => bucket.get(k));
   }
 
   // ── buildBoQLines ──────────────────────────────────────────────────────────
@@ -409,6 +453,19 @@
     const wd = computeWorkingDays(s.date_start, s.date_finish);
 
     const zones = (s.treatments || []).filter(z => +z.area_m2 > 0);
+
+    // Per-zone layer build-up. Designers set `zone.depth_mm` as the TOTAL
+    // excavation depth, not per-layer depths. We derive which structural
+    // layers are needed from the depth relative to the Master's surface +
+    // binder depths:
+    //   depth ≤ surface_depth              → surface only (standard inlay)
+    //   surface < depth ≤ surface+binder   → surface + binder (deep inlay)
+    //   depth > surface + binder           → surface + binder + base
+    const surfaceDepth = +s.surface_depth_mm || 40;
+    const binderDepth  = +s.binder_depth_mm  || 60;
+    const zoneNeedsBinder = z => (+z.depth_mm || 40) > surfaceDepth;
+    const zoneNeedsBase   = z => (+z.depth_mm || 40) > (surfaceDepth + binderDepth);
+
     const millingFromZones = zones.map(z => ({
       depth:     +z.depth_mm || 40,
       area:      +z.area_m2,
@@ -421,13 +478,20 @@
       depth:     +z.depth_mm || 40,
       zoneId:    z.id,
       zoneLabel: z.zone || '',
+      needsBinder: zoneNeedsBinder(z),
+      needsBase:   zoneNeedsBase(z),
     }));
+    // Any zone deep enough to warrant a binder/base drives the scheme-level
+    // toggle on. Designers can still explicitly override via the rail.
+    const anyZoneNeedsBinder = zones.some(zoneNeedsBinder);
+    const anyZoneNeedsBase   = zones.some(zoneNeedsBase);
 
     return {
       carriageway_area:  isFootway ? 0 : (+s.area_m2 || 0),
       footway_area:      isFootway ? (+s.area_m2 || 0) : 0,
       surface_tag:       matchSurfaceTag(s.treatment_type),
-      include_binder:    +s.binder_depth_mm  > 0,
+      include_binder:    anyZoneNeedsBinder || +s.binder_depth_mm  > 0,
+      include_base:      anyZoneNeedsBase,
       include_subbase:   +s.subbase_depth_mm > 0,
       subbase_depth:     +s.subbase_depth_mm || 150,
       milling_depth:     snapMillingDepth(+s.surface_depth_mm || 40),
@@ -532,6 +596,7 @@
     { key:'footway_area',      label:'Footway area',       unit:'m²' },
     { key:'surface_tag',       label:'Surface course' },
     { key:'include_binder',    label:'Binder course' },
+    { key:'include_base',      label:'Base course' },
     { key:'include_subbase',   label:'Sub-base' },
     { key:'subbase_depth',     label:'Sub-base depth',     unit:'mm' },
     { key:'milling_depth',     label:'Milling depth',      unit:'mm' },
