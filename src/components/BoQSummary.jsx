@@ -77,7 +77,7 @@ const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
             <div style={{fontSize:10,color:'var(--ink-3)',fontFamily:'var(--font-mono)',marginTop:2}}>
               Master: <span style={{color:'var(--ink-2)'}}>{fmt(r.master)}</span>
               <span style={{margin:'0 6px'}}>·</span>
-              BoQ: <span style={{color:'#b45309',fontWeight:600}}>{fmt(r.boq)}</span>
+              BoQ: <span style={{color:'var(--amber)',fontWeight:600}}>{fmt(r.boq)}</span>
               {r.unit && <span style={{color:'var(--ink-3)'}}> {r.unit}</span>}
             </div>
           </div>

@@ -464,7 +464,7 @@ const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
                 ))}
               </div>
             </div>
-            {error && <div style={{fontSize:12,color:"var(--red)",fontFamily:"var(--font-mono)",background:"#fff0f0",padding:"6px 10px",borderRadius:"var(--radius-sm)",border:"1px solid #fca5a5"}}>{error}</div>}
+            {error && <div className="inline-error" style={{fontSize:12,color:"var(--red)",fontFamily:"var(--font-mono)",padding:"6px 10px",borderRadius:"var(--radius-sm)"}}>{error}</div>}
           </div>
           <div className="modal-foot">
             <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
