@@ -11,7 +11,8 @@
 //   "* Design" sheets — hidden; column C formula reads from Input: ='Series X Input'!C9
 //   "* Final" sheets  — post-completion measured values (untouched)
 //
-// Item ID mapping: engine uses XXX/YYY (e.g. 700/023), JMCA uses (XXX÷100)/YYY (7/023).
+// Item ID mapping: engine and JMCA template both use TC series notation (e.g. "7/023", "2700/01").
+// Only the item part is normalised: leading zeros stripped via parseInt so "023" → 23 matches.
 
 const TC_BOQ_TEMPLATE = 'templates/TC_BoQ_JMCA_TEMPLATE.xlsx';
 
@@ -107,6 +108,33 @@ async function downloadTCBoQXlsx(scheme, computed) {
       return full;
     });
 
+    // Clear stale cached <v> values from formula cells so Protected View
+    // doesn't show Clepington Road data. Excel recalculates on "Enable Editing".
+    // Handles both full formulas (<f>...</f>) and abbreviated shared refs (<f .../>).
+    xml = xml.replace(/(<c\b[^>]*>(?:<f[^>]*>[^<]*<\/f>|<f[^>]*?\/>))<v>[^<]*<\/v>/g, '$1');
+
+    zip.file(path, xml);
+  }
+
+  // 4b. Clear stale cached values from Design + Summary Design sheets.
+  // Input-sheet changes won't propagate until Excel recalculates, so cached
+  // Clepington-era <v> values in Design/Summary formulas must be scrubbed too.
+  const designPaths = [];
+  for (const m of wbXml.matchAll(/<sheet\b[^/]*\/>/g)) {
+    const nameM = m[0].match(/name="([^"]*)"/);
+    const ridM  = m[0].match(/r:id="([^"]*)"/);
+    if (!nameM || !ridM) continue;
+    const name = nameM[1];
+    if (!name.endsWith(' Design') && name !== 'Summary Design') continue;
+    const target = relMap[ridM[1]];
+    if (target) designPaths.push('xl/' + target);
+  }
+
+  for (const path of designPaths) {
+    const file = zip.file(path);
+    if (!file) continue;
+    let xml = await file.async('string');
+    xml = xml.replace(/(<c\b[^>]*>(?:<f[^>]*>[^<]*<\/f>|<f[^>]*?\/>))<v>[^<]*<\/v>/g, '$1');
     zip.file(path, xml);
   }
 
