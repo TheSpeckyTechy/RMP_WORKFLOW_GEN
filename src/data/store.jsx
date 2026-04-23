@@ -500,9 +500,9 @@ window.UTILITIES = [
 // Address for all: Contracts House, 1 Soutar Street, Dundee, DD3 8SS
 window.TAYSIDE_STAFF = [
   { name: "Darren Conway",   role: "Senior Project Engineer",    mobile: "07585 987484", directLine: "",              email: "darren.conway@tayside-contracts.co.uk" },
-  { name: "Garry Robertson", role: "Project Engineer",           mobile: "07771 765668", directLine: "01382 834083", email: "" },
+  { name: "Garry Robertson", role: "Project Engineer",           mobile: "07771 765668", directLine: "01382 834083", email: "garry.robertson@tayside-contracts.co.uk" },
   { name: "Ross Smith",      role: "Project Engineer",           mobile: "07799 583208", directLine: "01382 834085", email: "ross.smith@tayside-contracts.co.uk" },
-  { name: "Blair Shaw",      role: "Assistant Project Engineer", mobile: "07468 707896", directLine: "01382 834127", email: "" },
+  { name: "Blair Shaw",      role: "Assistant Project Engineer", mobile: "07468 707896", directLine: "01382 834127", email: "blair.shaw@tayside-contracts.co.uk" },
 ];
 
 // The full Master Workbook schema — all 8 sections, 49 named ranges, in cell order
