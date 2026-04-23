@@ -716,9 +716,10 @@ const BoQTab = ({ schemeId }) => {
 
   const commit = (patch) => updateScheme(schemeId, { boq: { ...boq, ...patch } });
 
-  const [quickDirty, setQuickDirty]   = React.useState(false);
-  const [drawerOpen, setDrawerOpen]   = React.useState(false);
-  const [downloading, setDownloading] = React.useState(false);
+  const [quickDirty, setQuickDirty]     = React.useState(false);
+  const [drawerOpen, setDrawerOpen]     = React.useState(false);
+  const [downloading, setDownloading]   = React.useState(false);
+  const [downloadingTC, setDownloadingTC] = React.useState(false);
 
   // Effective quick inputs = Master-derived values merged with user
   // overrides. This is the single shape the rail renders and the engine
@@ -836,6 +837,18 @@ const BoQTab = ({ schemeId }) => {
 
   const handleSettings = (settings) => commit({ settings });
 
+  const handleDownloadTC = async () => {
+    if (!window.__downloadTCBoQ) { alert('TC BoQ module not loaded'); return; }
+    setDownloadingTC(true);
+    try {
+      await window.__downloadTCBoQ(scheme, computed);
+      updateScheme(schemeId, { docs_generated: { ...(scheme.docs_generated||{}), boq_tc: true } });
+    } catch (e) {
+      console.error(e);
+      alert('Download failed: ' + e.message);
+    } finally { setDownloadingTC(false); }
+  };
+
   const handleDownload = async () => {
     if (!window.exportBoQXlsx) { alert('Export module not loaded'); return; }
     setDownloading(true);
@@ -863,6 +876,8 @@ const BoQTab = ({ schemeId }) => {
           onSettingsChange={handleSettings}
           onDownload={handleDownload}
           downloading={downloading}
+          onDownloadTC={handleDownloadTC}
+          downloadingTC={downloadingTC}
           onRelink={relinkField}
           onPushToMaster={pushToMaster}
         />
