@@ -9,7 +9,7 @@
 //
 // Exports (via window): MasterWorkbook
 // Depends on: React, window.SchemeContext, window.WORKBOOK_SCHEMA,
-//             window.WARDS, window.Icon
+//             window.WARDS, window.TAYSIDE_STAFF, window.Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MasterWorkbook = ({ schemeId }) => {
@@ -178,6 +178,29 @@ const MasterWorkbook = ({ schemeId }) => {
       <div className="mwb-row" key={f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
         <div className="mwb-val"><select value={value} onChange={e=>update(f.key,e.target.value)}>{f.options.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
+      </div>
+    );
+    if (f.type === "tayside-pe") return (
+      <div className="mwb-row" key={f.key}>
+        <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
+        <div className="mwb-val"><select value={value} onChange={e => {
+          const name = e.target.value;
+          const s = window.TAYSIDE_STAFF.find(x => x.name === name);
+          if (s) {
+            updateScheme(schemeId, {
+              contractor_pe: s.name,
+              contractor_ooh: s.mobile,
+              supervisor_name: s.name,
+              supervisor_phone: s.directLine || s.mobile,
+              supervisor_email: s.email,
+            });
+          } else {
+            update(f.key, "");
+          }
+        }}>
+          <option value=""></option>
+          {window.TAYSIDE_STAFF.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
+        </select></div>
       </div>
     );
     if (f.type === "link") {
