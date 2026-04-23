@@ -35,6 +35,31 @@ const defaultLetterBody = s => {
 const resolvedSubject = s => (s.letter_subject_override && s.letter_subject_override.trim()) || defaultLetterSubject(s);
 const resolvedBody    = s => (s.letter_body_override    && s.letter_body_override.trim())    || defaultLetterBody(s);
 
+// ─── Collapsible side panel section ──────────────────────────────────────────
+const Collapsible = ({ title, count, defaultOpen=false, right, children }) => {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <div style={{marginBottom:10,borderBottom:"1px solid var(--line)"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,padding:"8px 0"}}>
+        <button
+          onClick={()=>setOpen(o=>!o)}
+          style={{
+            flex:1,display:"flex",alignItems:"center",gap:6,
+            background:"none",border:0,padding:0,cursor:"pointer",
+            fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
+            textTransform:"uppercase",letterSpacing:"0.08em",textAlign:"left",
+          }}>
+          <span style={{display:"inline-block",width:10,transition:"transform 0.12s",
+            transform:open?"rotate(90deg)":"rotate(0deg)"}}>▸</span>
+          <span>{title}{typeof count==="number"?` (${count})`:""}</span>
+        </button>
+        {right && <div onClick={e=>e.stopPropagation()}>{right}</div>}
+      </div>
+      {open && <div style={{paddingBottom:10}}>{children}</div>}
+    </div>
+  );
+};
+
 const LETTER_BINDINGS = [
   { tag: "<<Our_Ref>>", derive: s => s.project_number || "" },
   { tag: "<<Letter_Date>>", derive: s => new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) },
@@ -520,11 +545,7 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
               </div>
 
               {residents.length>0&&(
-                <div style={{marginBottom:14}}>
-                  <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
-                    textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>
-                    Residents ({residents.length})
-                  </div>
+                <Collapsible title="Residents" count={residents.length} defaultOpen={true}>
                   <div className="letter-recip-list">
                     {recipients.map((r,i)=>r.type==="resident"&&(
                       <button key={i} className={"letter-recip "+(i===selectedIdx?"active":"")}
@@ -534,15 +555,11 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
                       </button>
                     ))}
                   </div>
-                </div>
+                </Collapsible>
               )}
 
               {businesses.length>0&&(
-                <div style={{marginBottom:14}}>
-                  <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
-                    textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>
-                    Businesses ({businesses.length})
-                  </div>
+                <Collapsible title="Businesses" count={businesses.length} defaultOpen={false}>
                   <div className="letter-recip-list">
                     {recipients.map((r,i)=>r.type==="business"&&(
                       <button key={i} className={"letter-recip "+(i===selectedIdx?"active":"")}
@@ -552,7 +569,7 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
                       </button>
                     ))}
                   </div>
-                </div>
+                </Collapsible>
               )}
 
               {recipients.length===0&&(
@@ -565,20 +582,16 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
                 </div>
               )}
 
-              <div style={{marginTop:18}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-                  <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
-                    textTransform:"uppercase",letterSpacing:"0.08em"}}>
-                    Letter content
-                  </div>
-                  {(scheme.letter_subject_override||scheme.letter_body_override) && (
-                    <button className="btn ghost sm"
-                      title="Reset letter content to the auto-generated default"
-                      onClick={()=>updateScheme(scheme.id,{letter_subject_override:"",letter_body_override:""})}>
-                      ↺ Reset
-                    </button>
-                  )}
-                </div>
+              <Collapsible
+                title="Letter content"
+                defaultOpen={false}
+                right={(scheme.letter_subject_override||scheme.letter_body_override) && (
+                  <button className="btn ghost sm"
+                    title="Reset letter content to the auto-generated default"
+                    onClick={()=>updateScheme(scheme.id,{letter_subject_override:"",letter_body_override:""})}>
+                    ↺ Reset
+                  </button>
+                )}>
                 <label style={{display:"block",fontSize:11,color:"var(--ink-3)",marginBottom:3}}>Subject line</label>
                 <input
                   style={{width:"100%",marginBottom:10,padding:"6px 8px",fontSize:12,
@@ -600,13 +613,9 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
                 <div style={{fontSize:10,color:"var(--ink-3)",marginTop:4,lineHeight:1.4}}>
                   Leave blank to use the auto-generated text shown above. Edits save automatically and flow into the preview and mail-merged DOCX.
                 </div>
-              </div>
+              </Collapsible>
 
-              <div style={{marginTop:18}}>
-                <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
-                  textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>
-                  Template bindings
-                </div>
+              <Collapsible title="Template bindings" count={LETTER_BINDINGS.length} defaultOpen={false}>
                 <div className="rsr-bind-list">
                   {LETTER_BINDINGS.map(b=>{
                     const val=recipient?b.derive(scheme):"";
@@ -621,7 +630,7 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
                     );
                   })}
                 </div>
-              </div>
+              </Collapsible>
             </div>
           )}
         </div>
