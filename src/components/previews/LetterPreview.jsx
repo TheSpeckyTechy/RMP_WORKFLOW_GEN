@@ -285,7 +285,7 @@ const applyLetter = (root, scheme, recipient) => {
   }
 };
 
-const LetterDoc = ({ scheme, recipient }) => {
+const LetterDoc = ({ scheme, recipient, onPageCount }) => {
   const ref = React.useRef(null);
   const [status, setStatus] = React.useState("loading");
   React.useEffect(() => {
@@ -297,7 +297,12 @@ const LetterDoc = ({ scheme, recipient }) => {
         ref.current.innerHTML="";
         await window.docx.renderAsync(buf,ref.current,null,{className:"docx",inWrapper:true,ignoreWidth:false,ignoreHeight:false,ignoreFonts:false,breakPages:true,experimental:false,trimXmlDeclaration:true,useBase64URL:true});
         if(cancelled)return;
-        applyLetter(ref.current,scheme,recipient); setStatus("ready");
+        applyLetter(ref.current,scheme,recipient);
+        if (onPageCount && ref.current) {
+          const pages = ref.current.querySelectorAll('.docx-page-wrapper, .docx-page, section[class*="page"]');
+          onPageCount(Math.max(1, pages.length));
+        }
+        setStatus("ready");
       } catch(e){ console.error(e); setStatus("error:"+e.message); }
     })();
     return ()=>{cancelled=true;};
@@ -594,7 +599,10 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
   const [showImport, setShowImport] = React.useState(false);
   const [merging, setMerging] = React.useState(false);
   const [mergeProgress, setMergeProgress] = React.useState(null);
+  const [pageCount, setPageCount] = React.useState(null);
   const recipient = recipients[selectedIdx];
+
+  React.useEffect(() => { setPageCount(null); }, [selectedIdx]);
 
   const runMailMerge = async (mode) => {
     setMerging(true);
@@ -627,6 +635,11 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
             <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>
               {scheme.project_number} · {scheme.road_name} · {recipients.length} recipient{recipients.length!==1?"s":""}
             </div>
+            {pageCount && (
+              <span className={'letter-page-badge' + (pageCount > 1 ? ' letter-page-warn' : '')}>
+                {pageCount === 1 ? '1 page' : `${pageCount} pages — aim for 1`}
+              </span>
+            )}
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             <button className="btn sm" onClick={()=>runMailMerge('pdf')} disabled={merging||recipients.length===0}>
@@ -646,7 +659,7 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
         <div className="rsr-body">
           <div className="rsr-preview-pane">
             {recipient
-              ? <LetterDoc scheme={scheme} recipient={recipient}/>
+              ? <LetterDoc scheme={scheme} recipient={recipient} onPageCount={setPageCount}/>
               : <div style={{padding:40,textAlign:"center",color:"var(--ink-3)"}}>
                   No recipients yet — import from CAG or add manually.
                 </div>

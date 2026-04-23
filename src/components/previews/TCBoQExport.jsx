@@ -11,8 +11,13 @@
 //   "* Design" sheets — hidden; column C formula reads from Input: ='Series X Input'!C9
 //   "* Final" sheets  — post-completion measured values (untouched)
 //
-// Item ID mapping: engine and JMCA template both use TC series notation (e.g. "7/023", "2700/01").
-// Only the item part is normalised: leading zeros stripped via parseInt so "023" → 23 matches.
+// The template (TC_BoQ_JMCA_TEMPLATE.xlsx) is pre-cleaned: all Input sheet column C
+// cells are zeroed and all formula cached <v> values are stripped across every sheet.
+// This export therefore only needs to WRITE quantities — no clearing required.
+//
+// Item ID mapping: engine and JMCA template both use TC series notation (e.g. "7/023",
+// "2700/01"). Only the item part is normalised: leading zeros stripped via parseInt.
+// Series 6400 Input is skipped — it contains lot/band designators, not quantities.
 
 const TC_BOQ_TEMPLATE = 'templates/TC_BoQ_JMCA_TEMPLATE.xlsx';
 
@@ -36,8 +41,6 @@ async function downloadTCBoQXlsx(scheme, computed) {
   }
 
   // 2. Build engine qty map: "series/itemNum" → qty  (e.g. "7/23" → 500)
-  // Engine IDs already use the TC series notation ("7/023", "2700/01", "12/001").
-  // Only normalise the item part by stripping leading zeros via parseInt.
   const qtyMap = {};
   for (const line of (computed.lines || [])) {
     const [series, item] = (line.id || '').split('/');
@@ -48,6 +51,7 @@ async function downloadTCBoQXlsx(scheme, computed) {
   }
 
   // 3. Resolve "* Input" sheet file paths via workbook + rels
+  // Series 6400 Input is excluded — its column C holds lot/band designators, not quantities.
   const wbXml   = await zip.file('xl/workbook.xml').async('string');
   const relsXml = await zip.file('xl/_rels/workbook.xml.rels').async('string');
 
@@ -59,35 +63,31 @@ async function downloadTCBoQXlsx(scheme, computed) {
     const nameM = m[0].match(/name="([^"]*)"/);
     const ridM  = m[0].match(/r:id="([^"]*)"/);
     if (!nameM || !ridM || !nameM[1].endsWith(' Input')) continue;
-    if (nameM[1] === 'Series 6400 Input') continue; // lot/band data, not quantities
+    if (nameM[1] === 'Series 6400 Input') continue;
     const target = relMap[ridM[1]];
     if (target) inputPaths.push('xl/' + target);
   }
 
-  // 4. Update column C Qty cells in each Input sheet
+  // 4. Write column C Qty cells in each Input sheet
   for (const path of inputPaths) {
     const file = zip.file(path);
     if (!file) continue;
     let xml = await file.async('string');
 
     xml = xml.replace(/<row\b([^>]*)>([\s\S]*?)<\/row>/g, (full, rowAttrs, rowContent) => {
-      // Find column A shared-string cell to get the item ID
       const colAM = rowContent.match(/<c\b[^>]*r="A\d+"[^>]*t="s"[^>]*>\s*<v>(\d+)<\/v>/);
       if (!colAM) return full;
       const cellStr = (sharedStrings[parseInt(colAM[1])] || '').trim();
       if (!/^\d+\/\d+$/.test(cellStr)) return full;
 
-      // Look up engine qty for this TC item ID
       const [idS, idN] = cellStr.split('/');
       const qty = qtyMap[`${idS}/${parseInt(idN, 10)}`] ?? 0;
 
-      // Update column C cell — preserves s="..." style attr, handles both:
-      //   self-closing: <c r="C9" s="406"/>
-      //   with value:   <c r="C9" s="406"><v>1595</v></c>
+      // Update column C cell — preserves s="..." style attr
       const cRe = /<c r="C(\d+)"([^>]*)(?:\/>|>(?:<v>[^<]*<\/v>)?<\/c>)/;
       const cM  = rowContent.match(cRe);
       if (cM) {
-        const rN   = cM[1];
+        const rN    = cM[1];
         const attrs = cM[2];
         const newCell = qty > 0
           ? `<c r="C${rN}"${attrs}><v>${qty}</v></c>`
@@ -95,7 +95,7 @@ async function downloadTCBoQXlsx(scheme, computed) {
         return `<row${rowAttrs}>${rowContent.replace(cRe, newCell)}</row>`;
       }
 
-      // No C cell exists yet — insert only if qty > 0
+      // No C cell yet — insert only if qty > 0
       if (qty > 0) {
         const rM = rowAttrs.match(/\br="(\d+)"/);
         const rNum = rM ? rM[1] : '';
@@ -109,33 +109,6 @@ async function downloadTCBoQXlsx(scheme, computed) {
       return full;
     });
 
-    // Clear stale cached <v> values from formula cells so Protected View
-    // doesn't show Clepington Road data. Excel recalculates on "Enable Editing".
-    // Handles both full formulas (<f>...</f>) and abbreviated shared refs (<f .../>).
-    xml = xml.replace(/(<c\b[^>]*>(?:<f[^>]*>[^<]*<\/f>|<f[^>]*?\/>))<v>[^<]*<\/v>/g, '$1');
-
-    zip.file(path, xml);
-  }
-
-  // 4b. Clear stale cached values from Design + Summary Design sheets.
-  // Input-sheet changes won't propagate until Excel recalculates, so cached
-  // Clepington-era <v> values in Design/Summary formulas must be scrubbed too.
-  const designPaths = [];
-  for (const m of wbXml.matchAll(/<sheet\b[^/]*\/>/g)) {
-    const nameM = m[0].match(/name="([^"]*)"/);
-    const ridM  = m[0].match(/r:id="([^"]*)"/);
-    if (!nameM || !ridM) continue;
-    const name = nameM[1];
-    if (!name.endsWith(' Design') && name !== 'Summary Design') continue;
-    const target = relMap[ridM[1]];
-    if (target) designPaths.push('xl/' + target);
-  }
-
-  for (const path of designPaths) {
-    const file = zip.file(path);
-    if (!file) continue;
-    let xml = await file.async('string');
-    xml = xml.replace(/(<c\b[^>]*>(?:<f[^>]*>[^<]*<\/f>|<f[^>]*?\/>))<v>[^<]*<\/v>/g, '$1');
     zip.file(path, xml);
   }
 
