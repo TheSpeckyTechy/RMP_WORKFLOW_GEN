@@ -496,6 +496,15 @@ window.UTILITIES = [
   { name: "Street Lighting", portal: "DCC internal" },
 ];
 
+// Tayside Contracts — project-engineer pool for the Contractor Project Engineer field.
+// Address for all: Contracts House, 1 Soutar Street, Dundee, DD3 8SS
+window.TAYSIDE_STAFF = [
+  { name: "Darren Conway",   role: "Senior Project Engineer",    mobile: "07585 987484", directLine: "",              email: "darren.conway@tayside-contracts.co.uk" },
+  { name: "Garry Robertson", role: "Project Engineer",           mobile: "07771 765668", directLine: "01382 834083", email: "" },
+  { name: "Ross Smith",      role: "Project Engineer",           mobile: "07799 583208", directLine: "01382 834085", email: "ross.smith@tayside-contracts.co.uk" },
+  { name: "Blair Shaw",      role: "Assistant Project Engineer", mobile: "07468 707896", directLine: "01382 834127", email: "" },
+];
+
 // The full Master Workbook schema — all 8 sections, 49 named ranges, in cell order
 window.WORKBOOK_SCHEMA = [
   { section: "1. Scheme Identity", fields: [
@@ -582,7 +591,7 @@ window.WORKBOOK_SCHEMA = [
     { key: "client_phone", label: "Client Officer Phone", type: "text", mono: true },
     { key: "contractor", label: "Contractor", type: "text" },
     { key: "contractor_ref", label: "Contractor Reference", type: "text", mono: true },
-    { key: "contractor_pe", label: "Contractor Project Engineer", type: "text" },
+    { key: "contractor_pe", label: "Contractor Project Engineer", type: "select", options: ["", ...window.TAYSIDE_STAFF.map(s => s.name)] },
     { key: "contractor_ch", label: "Contractor Chargehand", type: "text" },
     { key: "contractor_ooh", label: "Contractor Out-of-Hours", type: "text", mono: true },
     { key: "supervisor_name", label: "Site Supervisor Name", type: "text" },
