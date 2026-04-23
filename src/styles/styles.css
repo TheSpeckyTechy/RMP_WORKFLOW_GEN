@@ -374,8 +374,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
 .rsr-doc{border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.06)}
 .rsr-title-bar{border-radius:6px;box-shadow:0 2px 6px rgba(31,78,121,0.25),inset 0 1px 0 rgba(255,255,255,0.1)}
 .docx{border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.06) !important}
-.letter-recip{border-radius:6px;transition:border-color var(--t-fast),background var(--t-fast),box-shadow var(--t-fast)}
+.letter-recip{border-radius:6px;padding:8px 10px;transition:border-color var(--t-fast),background var(--t-fast),box-shadow var(--t-fast),color var(--t-fast)}
 .letter-recip:hover{box-shadow:var(--shadow-xs)}
+.letter-recip-addr{line-height:1.35}
+.letter-recip-meta{letter-spacing:0.02em}
+[data-theme="dark"] .letter-recip{background:var(--bg-elev);border-color:var(--line);color:var(--ink)}
+[data-theme="dark"] .letter-recip:hover{background:var(--bg-sunken);border-color:color-mix(in oklab,var(--accent) 40%,var(--line))}
+[data-theme="dark"] .letter-recip.active{background:color-mix(in oklab,var(--accent) 18%,var(--bg-elev));border-color:var(--accent);color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--accent) 40%,transparent)}
+[data-theme="dark"] .letter-recip.active .letter-recip-addr{color:#fff}
+[data-theme="dark"] .letter-recip.active .letter-recip-meta{color:color-mix(in oklab,#fff 75%,var(--accent))}
+[data-theme="dark"] .rsr-side{background:var(--bg-elev)}
+[data-theme="dark"] .rsr-preview-pane{background:var(--bg-sunken)}
+[data-theme="dark"] .rsr-bind{background:var(--bg-elev);border-color:var(--line)}
 
 /* ── Reduced motion ─────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion:reduce){
