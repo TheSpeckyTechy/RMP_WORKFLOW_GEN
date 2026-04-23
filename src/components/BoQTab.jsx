@@ -311,7 +311,12 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
           <BQAreaOverride value={inputs.binder_area} onChange={v=>set('binder_area',v)} defaultArea={inputs.carriageway_area} />
         </>
       )}
-      <BQToggle value={inputs.include_base} onChange={v=>set('include_base',v)} label="Base course" />
+      <LinkedField label="Base course" overridden={isOver('include_base')}
+        derivedValue={inputs.include_base}
+        onOverride={()=>onOverride('include_base', inputs.include_base)}
+        onRelink={()=>onRelink('include_base')}>
+        <BQToggle value={inputs.include_base} onChange={v=>set('include_base',v)} label="Base course" />
+      </LinkedField>
       {inputs.include_base && (
         <>
           <BQSelect value={inputs.base_tag} onChange={v=>set('base_tag',v)} label="Base type" options={MAT.BASE_OPTIONS} />
@@ -366,6 +371,31 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
           <BQToggle value={inputs.include_diversion} onChange={v=>set('include_diversion',v)} label="Include diversion route" />
         </LinkedField>
       )}
+      {inputs.tm_type === 'give_take' && (
+        <div style={{
+          fontSize:10, color:'var(--ink-2)', lineHeight:1.5,
+          background:'var(--bg-sunken)', border:'1px dashed var(--line)',
+          borderRadius:'var(--radius-sm)', padding:'8px 10px', marginBottom:9,
+        }}>
+          <strong style={{fontWeight:600}}>No TM lines emitted.</strong> Give &amp;
+          Take is an informal passing-place method with no formal signage or
+          dedicated traffic-control operatives. If the scheme still needs a
+          small provisional sum for site supervision, add it manually from the
+          catalogue.
+        </div>
+      )}
+      {inputs.tm_type === 'partial_closure' && (
+        <div style={{
+          fontSize:10, color:'var(--ink-2)', lineHeight:1.5,
+          background:'var(--bg-sunken)', border:'1px dashed var(--line)',
+          borderRadius:'var(--radius-sm)', padding:'8px 10px', marginBottom:9,
+        }}>
+          Partial Road Closure currently uses the full-closure day rate as
+          the nearest JMCA equivalent. If the running-lane maintenance on
+          your scheme warrants a different rate, add the appropriate
+          Series 100 line from the catalogue and adjust manually.
+        </div>
+      )}
 
       {/* 04 Ironwork */}
       <BQSectionLabel n="04" label="Ironwork (Accommodation Works)" />
@@ -386,7 +416,20 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
           <BQNum value={inputs.iw_bt_cway} onChange={v=>set('iw_bt_cway',v)} label="" unit="No" />
         </LinkedField>
         <BQNum value={inputs.iw_bt_fw}    onChange={v=>set('iw_bt_fw',v)}    label="BT — F'way"  unit="No" />
+        <LinkedField label="Gas — C'way" overridden={isOver('iw_gas_cway')}
+          derivedValue={inputs.iw_gas_cway} renderDisplay={v=>(+v||0)+' No'}
+          onOverride={()=>onOverride('iw_gas_cway', inputs.iw_gas_cway)}
+          onRelink={()=>onRelink('iw_gas_cway')}>
+          <BQNum value={inputs.iw_gas_cway} onChange={v=>set('iw_gas_cway',v)} label="" unit="No" />
+        </LinkedField>
+        <BQNum value={inputs.iw_gas_fw}   onChange={v=>set('iw_gas_fw',v)}   label="Gas — F'way" unit="No" />
       </div>
+      <LinkedField label="Gullies — reset (carriageway)" overridden={isOver('iw_gully_cway')}
+        derivedValue={inputs.iw_gully_cway} renderDisplay={v=>(+v||0)+' No'}
+        onOverride={()=>onOverride('iw_gully_cway', inputs.iw_gully_cway)}
+        onRelink={()=>onRelink('iw_gully_cway')}>
+        <BQNum value={inputs.iw_gully_cway} onChange={v=>set('iw_gully_cway',v)} label="" unit="No" />
+      </LinkedField>
 
       {/* 05 Footways & Kerbs */}
       <BQSectionLabel n="05" label="Footways & Kerbs" />
