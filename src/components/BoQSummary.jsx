@@ -38,12 +38,18 @@ const colourFor = (n) => SERIES_COLOUR[n] || '#7a7a7a';
 const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
   const derived = _E.deriveQuickInputsFromScheme(scheme);
   const stored  = boq.quick_inputs || {};
+  const [toast, setToast] = React.useState('');
   const fmt = (v) => v === true ? 'Yes' : v === false ? 'No'
               : v == null || v === '' ? '—'
               : typeof v === 'number' ? v.toLocaleString() : String(v);
   const pushable = (key) => _E.schemePatchForOverride
     ? _E.schemePatchForOverride(key, stored[key], scheme) !== null
     : false;
+  const handlePush = (key, value) => {
+    onPushToMaster && onPushToMaster(key, value);
+    setToast('Pushed to Master ✓');
+    setTimeout(() => setToast(''), 2200);
+  };
   const rows = _E.LINKED_FIELDS
     .filter(f => boq.overrides && boq.overrides[f.key])
     .map(f => ({ key: f.key, label: f.label, unit: f.unit, master: derived[f.key], boq: stored[f.key] }));
@@ -58,6 +64,9 @@ const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
         Each field below is diverging from the Master Workbook. Click Re-link
         to discard the BoQ value and follow the Master again.
       </div>
+      {toast && (
+        <div style={{fontSize:11,color:'var(--green)',fontWeight:600,padding:'4px 0 8px',textAlign:'center'}}>{toast}</div>
+      )}
       {rows.length === 0 && (
         <div style={{fontSize:11,color:'var(--ink-3)',textAlign:'center',padding:'18px 0'}}>No overrides. Every linked field follows the Master.</div>
       )}
@@ -73,13 +82,13 @@ const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
             </div>
           </div>
           <div style={{display:'flex',gap:4,flexShrink:0}}>
-            {pushable(r.key) && (
-              <button className="btn ghost sm" style={{fontSize:10,padding:'2px 8px',color:'var(--ink-2)'}}
-                title="Push this BoQ value up to the Master Workbook and clear the override"
-                onClick={() => onPushToMaster && onPushToMaster(r.key, r.boq)}>
-                ↑ Push to Master
-              </button>
-            )}
+            <button className="btn ghost sm"
+              style={{fontSize:10,padding:'2px 8px',color: pushable(r.key) ? 'var(--ink-2)' : 'var(--ink-3)',opacity: pushable(r.key) ? 1 : 0.45,cursor: pushable(r.key) ? 'pointer' : 'not-allowed'}}
+              title={pushable(r.key) ? "Push this BoQ value up to the Master Workbook and clear the override" : "Cannot push — this field has no Master equivalent"}
+              disabled={!pushable(r.key)}
+              onClick={() => pushable(r.key) && handlePush(r.key, r.boq)}>
+              ↑ Push to Master
+            </button>
             <button className="btn ghost sm" style={{fontSize:10,padding:'2px 8px',color:'var(--accent)'}}
               onClick={() => onRelink && onRelink(r.key)}>↩ Re-link</button>
           </div>
@@ -89,7 +98,7 @@ const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
   );
 };
 
-const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onRelink, onPushToMaster }) => {
+const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onDownloadTC, downloadingTC, onRelink, onPushToMaster }) => {
   const [panelOpen, setPanelOpen] = React.useState(false);
   const workingDays = (() => {
     if (!scheme.date_start || !scheme.date_finish) return null;
@@ -127,6 +136,10 @@ const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onRelin
           <div style={{fontSize:10,color:'var(--ink-3)',textTransform:'uppercase',letterSpacing:'0.07em'}}>Total inc VAT</div>
           <div className="mono" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em'}}>{_E.fmtGBP(computed.totalIncVat)}</div>
         </div>
+        <button className="btn" onClick={onDownloadTC} disabled={downloadingTC || !computed.lines?.length}
+          title="Download TC JMCA Bill of Quantities with scheme quantities filled in">
+          <Icon.Download /> {downloadingTC ? 'Generating…' : 'Download TC BoQ'}
+        </button>
         <button className="btn accent" onClick={onDownload} disabled={downloading || !computed.groups.length}>
           <Icon.Download /> {downloading ? 'Generating…' : 'Download .xlsx'}
         </button>
@@ -417,10 +430,10 @@ const RatesFooter = ({ computed, boq }) => {
 };
 
 // ── BoQSummary (top-level, exported) ─────────────────────────────────────────
-const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading, onRelink, onPushToMaster }) => {
+const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading, onDownloadTC, downloadingTC, onRelink, onPushToMaster }) => {
   return (
     <div className="boq-summary">
-      <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} downloading={downloading} onRelink={onRelink} onPushToMaster={onPushToMaster} />
+      <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} downloading={downloading} onDownloadTC={onDownloadTC} downloadingTC={downloadingTC} onRelink={onRelink} onPushToMaster={onPushToMaster} />
       <CostBreakdownBar groups={computed.groups} subtotal={computed.subtotal} />
       <SeriesCardGrid groups={computed.groups} subtotal={computed.subtotal} />
       <GrandTotalPanel computed={computed} boq={boq} onSettingsChange={onSettingsChange} />

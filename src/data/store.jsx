@@ -466,7 +466,7 @@ window.SCHEMES = [
 ];
 
 window.PACK_DOCS = [
-  { key: "front", name: "Front Sheet", type: "DOCX", auto: true },
+  { key: "front", name: "Front Sheet", type: "PDF", auto: true, working: true },
   { key: "pci", name: "PCI / CPP (FM710-10A)", type: "DOCX", auto: true, working: true },
   { key: "rsr", name: "Road Space Request Form", type: "DOCX", auto: true, working: true },
   { key: "letter", name: "Resident / Business Letter", type: "DOCX", auto: true, working: true },

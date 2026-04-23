@@ -439,7 +439,7 @@
 
     // Notify the app's download log (existing convention from legacy BoQTab)
     window.dispatchEvent(new CustomEvent('rmp-download', {
-      detail: { label: 'BoQ — ' + (scheme.road_name || 'scheme'), ref: scheme.project_number || '' },
+      detail: { label: 'BoQ — ' + (scheme.road_name || 'scheme'), ref: scheme.project_number || '', fn: '__exportBoQForScheme', schemeId: scheme.id },
     }));
   };
 })();

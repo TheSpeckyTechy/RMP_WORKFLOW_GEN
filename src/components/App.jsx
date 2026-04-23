@@ -1,3 +1,5 @@
+const APP_VERSION = '2.0.0';
+
 // ─── App.jsx ───────────────────────────────────────────────────────────────────
 // Root of the React application. Loaded last — all other scripts must be
 // defined before this one (see load order in RMP Design Studio.html).
@@ -26,18 +28,61 @@
 //             window.RSRModal, window.PCIModal, window.LetterModal, window.Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[RMP ErrorBoundary]', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'100vh',gap:16,padding:32,fontFamily:'system-ui',textAlign:'center'}}>
+          <div style={{fontSize:32}}>⚠</div>
+          <div style={{fontWeight:700,fontSize:18}}>Something went wrong</div>
+          <div style={{fontSize:13,color:'var(--ink-2,#666)',maxWidth:480,lineHeight:1.6}}>
+            An unexpected error occurred. Your data is safe — it is stored in localStorage and Supabase.
+          </div>
+          <div style={{fontFamily:'monospace',fontSize:11,color:'#c00',background:'#fff0f0',padding:'8px 14px',borderRadius:6,maxWidth:560,wordBreak:'break-word'}}>
+            {this.state.error?.message}
+          </div>
+          <button
+            style={{marginTop:8,padding:'10px 22px',background:'var(--accent,#c6572c)',color:'white',border:'none',borderRadius:6,cursor:'pointer',fontSize:14,fontWeight:600}}
+            onClick={() => this.setState({ hasError: false, error: null })}>
+            Try again
+          </button>
+          <button
+            style={{padding:'8px 18px',background:'transparent',border:'1px solid var(--line,#ccc)',borderRadius:6,cursor:'pointer',fontSize:13}}
+            onClick={() => window.location.reload()}>
+            Reload page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const GenerateModal = ({ scheme, onClose }) => {
   const [step, setStep] = React.useState(0);
   const [done, setDone] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [exported, setExported] = React.useState(false);
+  const [failures, setFailures] = React.useState([]);
   const steps = [
-    { l: "Reading Master Workbook", meta: "45 named ranges" },
+    { l: "Reading scheme data", meta: scheme.project_number || "—" },
     { l: "Validating inputs", meta: "0 errors" },
     { l: "Looking up ward councillors", meta: `W${scheme.ward_num}` },
-    { l: "Populating PCI / CPP", meta: "DOCX" },
-    { l: "Populating Road Space Request Form", meta: "DOCX" },
-    { l: "Building Master Workbook export", meta: "XLSX" },
+    { l: "Generating PCI / CPP", meta: "DOCX" },
+    { l: "Generating Road Space Request", meta: "DOCX + PDF" },
+    { l: "Generating Master Workbook", meta: "XLSX" },
+    { l: "Generating Bill of Quantities", meta: "XLSX" },
+    { l: "Generating Front Sheet", meta: "PDF" },
   ];
   React.useEffect(() => {
     if (step >= steps.length) { setDone(true); return; }
@@ -48,11 +93,23 @@ const GenerateModal = ({ scheme, onClose }) => {
     if (!done) return;
     setExporting(true);
     (async () => {
-      try { if (window.__downloadRSR) await window.__downloadRSR(scheme); } catch {}
-      try { if (window.__downloadRSRPdf) await window.__downloadRSRPdf(scheme); } catch {}
-      try { if (window.__downloadPCI) await window.__downloadPCI(scheme); } catch {}
-      try { if (window.__downloadPCIPdf) await window.__downloadPCIPdf(scheme); } catch {}
-      try { if (window.__workbookExport) window.__workbookExport(); } catch {}
+      const errs = [];
+      try { if (window.__downloadRSR) await window.__downloadRSR(scheme); } catch (e) { errs.push('RSR DOCX'); console.error('RSR DOCX failed', e); }
+      try { if (window.__downloadRSRPdf) await window.__downloadRSRPdf(scheme); } catch (e) { errs.push('RSR PDF'); console.error('RSR PDF failed', e); }
+      try { if (window.__downloadPCI) await window.__downloadPCI(scheme); } catch (e) { errs.push('PCI DOCX'); console.error('PCI DOCX failed', e); }
+      try { if (window.__downloadPCIPdf) await window.__downloadPCIPdf(scheme); } catch (e) { errs.push('PCI PDF'); console.error('PCI PDF failed', e); }
+      try { if (window.__workbookExport) window.__workbookExport(); } catch (e) { errs.push('Master Workbook'); console.error('Master Workbook failed', e); }
+      try {
+        if (window.__downloadBoQ) await window.__downloadBoQ();
+        else if (window.__exportBoQForScheme) window.__exportBoQForScheme(scheme);
+        else errs.push('BoQ XLSX');
+      } catch (e) { errs.push('BoQ XLSX'); console.error('BoQ XLSX failed', e); }
+      try {
+        if (window.__downloadFront) await window.__downloadFront();
+        else if (window.__downloadFrontPdf) await window.__downloadFrontPdf(scheme);
+        else errs.push('Front Sheet');
+      } catch (e) { errs.push('Front Sheet'); console.error('Front Sheet PDF failed', e); }
+      setFailures(errs);
       setExporting(false);
       setExported(true);
     })();
@@ -84,9 +141,14 @@ const GenerateModal = ({ scheme, onClose }) => {
             </div>
           )}
           {exported && (
-            <div style={{ padding: "16px 18px", background: "var(--green-wash)", border: "1px solid var(--green)", borderRadius: "var(--radius-sm)", marginTop: 8 }}>
-              <div style={{ fontWeight: 600, color: "var(--green)", marginBottom: 4, fontSize: 14 }}>✓ 5 files downloaded</div>
-              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>RSR (.docx + .pdf), PCI/CPP (.docx + .pdf), and Master Workbook (.xlsx) saved to your downloads folder. Open the <strong>Pack</strong> tab to generate resident letters.</div>
+            <div style={{ padding: "16px 18px", background: failures.length ? "var(--amber-wash)" : "var(--green-wash)", border: `1px solid ${failures.length ? "var(--amber)" : "var(--green)"}`, borderRadius: "var(--radius-sm)", marginTop: 8 }}>
+              <div style={{ fontWeight: 600, color: failures.length ? "var(--amber)" : "var(--green)", marginBottom: 4, fontSize: 14 }}>
+                {failures.length ? `⚠ ${7 - failures.length}/7 files downloaded` : "✓ 7 files downloaded"}
+              </div>
+              {failures.length > 0 && (
+                <div style={{ fontSize: 12, color: "var(--red)", marginBottom: 6 }}>Failed: {failures.join(', ')} — check the browser console for details.</div>
+              )}
+              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>Front Sheet (.pdf), RSR (.docx + .pdf), PCI/CPP (.docx + .pdf), Master Workbook (.xlsx), and BoQ (.xlsx) saved to your downloads folder. Open the <strong>Pack</strong> tab to generate resident letters (CAG recipients required).</div>
             </div>
           )}
         </div>
@@ -155,6 +217,19 @@ const relativeTime = (date) => {
 const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
   const { resetAllSchemes, syncStatus, lastSynced } = React.useContext(window.SchemeContext);
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+  const [userPrefs, setUserPrefs] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem('rmp_user_prefs')) || {}; } catch { return {}; }
+  });
+  const [editingUser, setEditingUser] = React.useState(false);
+  const userName = userPrefs.name || 'Jake McAllister';
+  const userRole = userPrefs.role || 'Designer';
+  const userOrg  = userPrefs.org  || 'Dundee City Council';
+  const initials = userName.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'JM';
+  const saveUserPrefs = (patch) => {
+    const next = { ...userPrefs, ...patch };
+    setUserPrefs(next);
+    localStorage.setItem('rmp_user_prefs', JSON.stringify(next));
+  };
   React.useEffect(() => {
     if (!lastSynced || syncStatus !== 'synced') return;
     const t = setInterval(forceUpdate, 30000);
@@ -177,14 +252,33 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
         <div className="settings-section">
           <div className="settings-section-title">User</div>
           <div className="settings-card">
-            <div style={{display:"flex",alignItems:"center",gap:14}}>
-              <div className="user-avatar" style={{width:44,height:44,fontSize:16,borderRadius:"50%",background:"var(--accent)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,flexShrink:0}}>JM</div>
-              <div>
-                <div style={{fontWeight:600,fontSize:14}}>Jake McAllister</div>
-                <div style={{fontSize:12,color:"var(--ink-3)"}}>Designer · Road Maintenance Partnership</div>
-                <div style={{fontSize:11,color:"var(--ink-3)",fontFamily:"var(--font-mono)",marginTop:2}}>Dundee City Council</div>
+            {!editingUser ? (
+              <div style={{display:"flex",alignItems:"center",gap:14}}>
+                <div className="user-avatar" style={{width:44,height:44,fontSize:16,borderRadius:"50%",background:"var(--accent)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,flexShrink:0}}>{initials}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:14}}>{userName}</div>
+                  <div style={{fontSize:12,color:"var(--ink-3)"}}>{userRole} · Road Maintenance Partnership</div>
+                  <div style={{fontSize:11,color:"var(--ink-3)",fontFamily:"var(--font-mono)",marginTop:2}}>{userOrg}</div>
+                </div>
+                <button className="btn ghost sm" onClick={()=>setEditingUser(true)}>Edit</button>
               </div>
-            </div>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{display:"flex",gap:14,alignItems:"center"}}>
+                  <div className="user-avatar" style={{width:44,height:44,fontSize:16,borderRadius:"50%",background:"var(--accent)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,flexShrink:0}}>{initials}</div>
+                  <div style={{flex:1,display:"flex",flexDirection:"column",gap:6}}>
+                    <input type="text" placeholder="Full name" value={userPrefs.name||''} onChange={e=>saveUserPrefs({name:e.target.value})} style={{fontSize:13}} />
+                    <div style={{display:"flex",gap:6}}>
+                      <input type="text" placeholder="Role (e.g. Designer)" value={userPrefs.role||''} onChange={e=>saveUserPrefs({role:e.target.value})} style={{fontSize:12,flex:1}} />
+                      <input type="text" placeholder="Organisation" value={userPrefs.org||''} onChange={e=>saveUserPrefs({org:e.target.value})} style={{fontSize:12,flex:1}} />
+                    </div>
+                  </div>
+                </div>
+                <div style={{display:"flex",justifyContent:"flex-end"}}>
+                  <button className="btn sm accent" onClick={()=>setEditingUser(false)}>Save</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <div className="settings-section">
@@ -248,7 +342,7 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
           <div className="settings-card">
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Application</span><span className="mono">RMP Design Studio</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Version</span><span className="mono">2.0.0</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Version</span><span className="mono">{APP_VERSION}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Client</span><span className="mono">Dundee City Council</span></div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Templates</span><span className="mono">RSR · PCI/CPP · Letter · Workbook</span></div>
             </div>
@@ -281,12 +375,14 @@ const SCHEME_STATUSES = [
   { k:"ready",  l:"Ready" },    { k:"works",  l:"On site" },
 ];
 
-const NewSchemeModal = ({ onClose, onCreate }) => {
+const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
   const { schemes } = React.useContext(window.SchemeContext);
-  const [form, setForm] = React.useState({
+  const [form, setForm] = React.useState(() => ({
     road_name: "", project_number: "", scheme_type: "Carriageway",
     financial_year: "2026/27", ward_num: 1, status: "design",
-  });
+    ...(initialValues || {}),
+    project_number: "", // always blank — must choose a new unique ref
+  }));
   const [error, setError] = React.useState("");
   const nameRef = React.useRef(null);
 
@@ -320,7 +416,7 @@ const NewSchemeModal = ({ onClose, onCreate }) => {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()} style={{width:480}}>
         <div className="modal-head">
-          <div style={{fontWeight:600,fontSize:15}}>New Scheme</div>
+          <div style={{fontWeight:600,fontSize:15}}>{initialValues ? 'Duplicate Scheme' : 'New Scheme'}</div>
           <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
         </div>
         <form onSubmit={handleSubmit}>
@@ -381,7 +477,7 @@ const NewSchemeModal = ({ onClose, onCreate }) => {
 };
 
 const AppInner = () => {
-  const { addScheme, syncStatus } = React.useContext(window.SchemeContext);
+  const { addScheme, syncStatus, getScheme } = React.useContext(window.SchemeContext);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [notifOpen, setNotifOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState([]);
@@ -404,6 +500,7 @@ const AppInner = () => {
   const [filter, setFilter] = React.useState("all");
   const [search, setSearch] = React.useState("");
   const [newSchemeOpen, setNewSchemeOpen] = React.useState(false);
+  const [duplicateSource, setDuplicateSource] = React.useState(null);
   const [generating, setGenerating] = React.useState(null);
   const [previewing, setPreviewing] = React.useState(null);
   const [tweaksOn, setTweaksOn] = React.useState(false);
@@ -480,7 +577,13 @@ const AppInner = () => {
                   ? <div style={{padding:"12px 14px",fontSize:12,color:"var(--ink-3)"}}>No downloads yet</div>
                   : notifications.map((n, i) => (
                     <div key={i} style={{padding:"8px 14px",borderBottom:"1px solid var(--line)",fontSize:12}}>
-                      <div style={{color:"var(--ink)"}}>{n.label}</div>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
+                        <div style={{color:"var(--ink)",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.label}</div>
+                        {n.fn && window[n.fn] && (
+                          <button className="btn ghost sm" title="Re-download" style={{fontSize:11,padding:"1px 6px",flexShrink:0}}
+                            onClick={()=>{ const s=n.schemeId&&getScheme(n.schemeId); if(s&&window[n.fn]) window[n.fn](s); }}>↻</button>
+                        )}
+                      </div>
                       <div style={{color:"var(--ink-3)",fontFamily:"var(--font-mono)",fontSize:10,marginTop:2}}>{n.ref}</div>
                     </div>
                   ))
@@ -491,7 +594,8 @@ const AppInner = () => {
         </header>
         <div className="content">
           {openScheme ? (
-            <SchemeDetail schemeId={openScheme} onBack={() => setOpenScheme(null)} onGenerate={setGenerating} onPreview={(scheme, docKey) => setPreviewing({ scheme, docKey })} />
+            <SchemeDetail schemeId={openScheme} onBack={() => setOpenScheme(null)} onGenerate={setGenerating} onPreview={(scheme, docKey) => setPreviewing({ scheme, docKey })}
+              onDuplicate={(scheme) => { setDuplicateSource({ road_name: scheme.road_name, scheme_type: scheme.scheme_type, financial_year: scheme.financial_year, ward_num: scheme.ward_num, status: 'design' }); setNewSchemeOpen(true); }} />
           ) : view === "settings" ? (
             <SettingsView tweaks={tweaks} setTweaks={setTweaks} darkMode={darkMode} setDarkMode={setDarkMode} />
           ) : (
@@ -503,7 +607,7 @@ const AppInner = () => {
       {previewing?.docKey === "rsr" && <RSRModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
       {previewing?.docKey === "pci" && <PCIModal schemeId={previewing.scheme.id} onClose={() => setPreviewing(null)} />}
       {previewing?.docKey === "letter" && <LetterModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
-      {newSchemeOpen && <NewSchemeModal onClose={()=>setNewSchemeOpen(false)} onCreate={s=>{ addScheme(s); setNewSchemeOpen(false); setView("dashboard"); setFilter("all"); setSearch(""); setOpenScheme(s.id); }} />}
+      {newSchemeOpen && <NewSchemeModal onClose={()=>{ setNewSchemeOpen(false); setDuplicateSource(null); }} initialValues={duplicateSource} onCreate={s=>{ addScheme(s); setNewSchemeOpen(false); setDuplicateSource(null); setView("dashboard"); setFilter("all"); setSearch(""); setOpenScheme(s.id); }} />}
       {tweaksOn && <Tweaks tweaks={tweaks} setTweaks={setTweaks} />}
     </div>
   );
@@ -537,9 +641,11 @@ const App = () => {
 
   if (!authed) return <PasswordGate onAuth={() => { setLockReason(null); setAuthed(true); }} reason={lockReason} />;
   return (
-    <SchemeProvider>
-      <AppInner />
-    </SchemeProvider>
+    <ErrorBoundary>
+      <SchemeProvider>
+        <AppInner />
+      </SchemeProvider>
+    </ErrorBoundary>
   );
 };
 
