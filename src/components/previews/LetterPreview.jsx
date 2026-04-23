@@ -60,8 +60,14 @@ const Collapsible = ({ title, count, defaultOpen=false, right, children }) => {
   );
 };
 
+// Letter reference: project number + SL + designer initials (skip blank parts).
+// e.g. prepared_by "Jake McAllister" with project "R5008" → "R5008/SL/JM".
+const initialsOf = name => String(name||'').trim().split(/\s+/).map(w => w[0]||'').join('').toUpperCase();
+const buildLetterRef = s => [s.project_number||'', 'SL', initialsOf(s.prepared_by)].filter(p => p && p !== '').join('/');
+
 const LETTER_BINDINGS = [
-  { tag: "<<Our_Ref>>", derive: s => s.project_number || "" },
+  { tag: "<<Our_Ref>>",  derive: buildLetterRef },
+  { tag: "<<Your_Ref>>", derive: buildLetterRef },
   { tag: "<<Letter_Date>>", derive: s => new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) },
   { tag: "<<Letter_Subject>>", derive: resolvedSubject },
   { tag: "<<Letter_Body_Text>>", derive: resolvedBody },
@@ -97,8 +103,11 @@ async function injectLetterXml(buffer, scheme, recipient) {
 
   // <<TAG>> placeholders are XML-encoded as &lt;&lt;TAG&gt;&gt; in document.xml
   // «TAG» MERGEFIELD visible text uses guillemet characters (U+00AB / U+00BB)
+  const letterRef = buildLetterRef(scheme);
+
   const replacements = [
-    ['&lt;&lt;Our_Ref&gt;&gt;',          xmlEscape(scheme.project_number || '')],
+    ['&lt;&lt;Our_Ref&gt;&gt;',           xmlEscape(letterRef)],
+    ['&lt;&lt;Your_Ref&gt;&gt;',          xmlEscape(letterRef)],  // harmless if not in template
     ['&lt;&lt;Letter_Date&gt;&gt;',       xmlEscape(new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'}))],
     ['&lt;&lt;Letter_Subject&gt;&gt;',    xmlEscape(subjectText)],
     ['&lt;&lt;Letter_Body_Text&gt;&gt;',  bodyToXml(bodyText)],
@@ -110,6 +119,19 @@ async function injectLetterXml(buffer, scheme, recipient) {
     ['«TOWN_NAME»',             xmlEscape(recipient?.town || 'DUNDEE')],
   ];
 
+  // The template has "Your Ref:" as a static label with an empty value cell
+  // (no <<Your_Ref>> placeholder). Inject the ref into that empty paragraph.
+  const injectYourRefValue = (xml, value) => {
+    const labelIdx = xml.indexOf('Your Ref:');
+    if (labelIdx < 0) return xml;
+    const labelPEnd = xml.indexOf('</w:p>', labelIdx);            // end of label paragraph
+    if (labelPEnd < 0) return xml;
+    const valuePEnd = xml.indexOf('</w:p>', labelPEnd + 6);       // end of empty value paragraph
+    if (valuePEnd < 0) return xml;
+    const run = `<w:r><w:rPr><w:rFonts w:ascii="Arial Narrow" w:hAnsi="Arial Narrow"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr><w:t>${xmlEscape(value)}</w:t></w:r>`;
+    return xml.slice(0, valuePEnd) + run + xml.slice(valuePEnd);
+  };
+
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
   for (const xmlPath of xmlPaths) {
     const file = zip.file(xmlPath);
@@ -118,6 +140,7 @@ async function injectLetterXml(buffer, scheme, recipient) {
     for (const [placeholder, value] of replacements) {
       xml = xml.split(placeholder).join(value);
     }
+    xml = injectYourRefValue(xml, letterRef);
     zip.file(xmlPath, xml);
   }
 
@@ -240,6 +263,26 @@ const applyLetter = (root, scheme, recipient) => {
     });
     node.parentNode.replaceChild(frag, node);
   });
+
+  // Inject Your Ref value into the empty cell next to the "Your Ref:" label
+  // (the template has no placeholder there).
+  const yourRefValue = buildLetterRef(scheme);
+  const allCells = root.querySelectorAll('td, th');
+  for (const cell of allCells) {
+    if (/^\s*Your Ref:\s*$/.test(cell.textContent||'')) {
+      const nextCell = cell.nextElementSibling;
+      if (!nextCell) break;
+      const target = nextCell.querySelector('p, div') || nextCell;
+      if ((target.textContent||'').trim() === '') {
+        const span = document.createElement('span');
+        span.className = 'pci-bound' + (yourRefValue ? '' : ' pci-missing');
+        span.dataset.key = 'Your_Ref';
+        span.textContent = yourRefValue || '<<Your_Ref>>';
+        target.appendChild(span);
+      }
+      break;
+    }
+  }
 };
 
 const LetterDoc = ({ scheme, recipient }) => {
