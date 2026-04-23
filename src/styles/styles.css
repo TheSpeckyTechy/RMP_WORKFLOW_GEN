@@ -174,3 +174,220 @@
 [data-theme="dark"] .boq-grand-total{background:var(--bg-elev);color:var(--ink)}
 [data-theme="dark"] .boq-grand-total .row.final{border-top-color:var(--line)}
 [data-theme="dark"] .boq-override-chip{background:rgba(245,158,11,0.15);color:var(--amber);border-color:rgba(245,158,11,0.3)}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PREMIUM POLISH LAYER
+   Design-token additions + refined interactions, shadows, focus states.
+   Higher specificity overrides on existing selectors — no structural changes.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+:root{
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;
+  --shadow-xs:0 1px 2px rgba(17,17,17,0.04);
+  --shadow-sm:0 1px 3px rgba(17,17,17,0.06),0 1px 2px rgba(17,17,17,0.04);
+  --shadow-md:0 6px 16px rgba(17,17,17,0.08),0 2px 4px rgba(17,17,17,0.04);
+  --shadow-lg:0 18px 48px rgba(17,17,17,0.14),0 6px 16px rgba(17,17,17,0.06);
+  --focus-ring:0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+  --ease:cubic-bezier(0.4,0,0.2,1);
+  --t-fast:120ms var(--ease);
+  --t:180ms var(--ease);
+}
+[data-theme="dark"]{
+  --shadow-xs:0 1px 2px rgba(0,0,0,0.3);
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.35),0 1px 2px rgba(0,0,0,0.25);
+  --shadow-md:0 8px 20px rgba(0,0,0,0.45),0 2px 6px rgba(0,0,0,0.3);
+  --shadow-lg:0 20px 50px rgba(0,0,0,0.55),0 8px 18px rgba(0,0,0,0.35);
+  --focus-ring:0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+/* ── Base typography refinement ─────────────────────────────────────────── */
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;font-feature-settings:"cv11","ss01","ss03"}
+::selection{background:var(--accent-wash);color:var(--accent-ink)}
+
+/* ── Scrollbars ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.12);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,0.22);background-clip:padding-box;border:2px solid transparent}
+[data-theme="dark"] ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);background-clip:padding-box;border:2px solid transparent}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.18);background-clip:padding-box;border:2px solid transparent}
+
+/* ── Sidebar: richer surface + active accent bar ────────────────────────── */
+.sidebar{background:linear-gradient(180deg,#1c1f26 0%,#15181e 100%);box-shadow:1px 0 0 rgba(255,255,255,0.02),inset -1px 0 0 rgba(0,0,0,0.3)}
+.sidebar-logo{padding:22px 18px 16px}
+.sidebar-logo-mark{box-shadow:0 2px 6px rgba(180,83,9,0.35),inset 0 1px 0 rgba(255,255,255,0.2)}
+.nav-item{position:relative;padding:9px 12px;transition:background var(--t-fast),color var(--t-fast)}
+.nav-item:hover{background:rgba(255,255,255,0.05)}
+.nav-item.active{background:linear-gradient(90deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04));color:#fff}
+.nav-item.active::before{content:"";position:absolute;left:-8px;top:6px;bottom:6px;width:3px;background:var(--accent);border-radius:0 3px 3px 0;box-shadow:0 0 8px color-mix(in oklab,var(--accent) 50%,transparent)}
+.user-avatar{box-shadow:0 1px 3px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.15)}
+
+/* ── Topbar: subtler dividers + centred search polish ───────────────────── */
+.topbar{box-shadow:inset 0 -1px 0 var(--line);border-bottom:none;backdrop-filter:saturate(1.2)}
+.searchbar{transition:border-color var(--t-fast),box-shadow var(--t-fast),background var(--t-fast)}
+.searchbar:focus-within{border-color:var(--accent);box-shadow:var(--focus-ring);background:var(--bg)}
+.crumbs .current{letter-spacing:-0.005em}
+
+/* ── Content area: gentle background texture ────────────────────────────── */
+.main{background:var(--bg-sunken)}
+.content{background:var(--bg-sunken)}
+
+/* ── Page head hierarchy ────────────────────────────────────────────────── */
+.page-title{font-size:24px;line-height:1.15;letter-spacing:-0.025em}
+.page-sub{max-width:60ch;line-height:1.5}
+
+/* ── Stat cards: subtle lift + accent top hairline ──────────────────────── */
+.stat{background:var(--bg);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden;transition:transform var(--t),box-shadow var(--t),border-color var(--t);box-shadow:var(--shadow-xs)}
+.stat::before{content:"";position:absolute;inset:0 0 auto 0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:opacity var(--t)}
+.stat:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);border-color:color-mix(in oklab,var(--accent) 25%,var(--line))}
+.stat:hover::before{opacity:1}
+.stat-label{font-weight:600;color:var(--ink-3)}
+.stat-value{font-size:28px;font-feature-settings:"tnum"}
+.stat-meta .up{font-weight:600}
+[data-theme="dark"] .stat{background:var(--bg-elev)}
+
+/* ── Filters (chips): taller, smoother ──────────────────────────────────── */
+.chip{padding:6px 12px;transition:background var(--t-fast),border-color var(--t-fast),color var(--t-fast)}
+.chip:hover{background:var(--bg-sunken)}
+.chip.active{box-shadow:inset 0 0 0 1px var(--accent)}
+
+/* ── Table: refined hover + sticky header ───────────────────────────────── */
+.table-wrap{background:var(--bg);border-radius:10px;box-shadow:var(--shadow-xs)}
+.schemes thead tr{background:var(--bg-elev)}
+.schemes thead th{position:sticky;top:0;z-index:2;background:var(--bg-elev);font-weight:600;color:var(--ink-2)}
+.schemes tbody tr{transition:background var(--t-fast),box-shadow var(--t-fast)}
+.schemes tbody tr:hover{background:var(--accent-wash);box-shadow:inset 3px 0 0 var(--accent)}
+[data-theme="dark"] .schemes tbody tr:hover{background:rgba(255,255,255,0.04);box-shadow:inset 3px 0 0 var(--accent)}
+.schemes td{padding:12px}
+.row-ref{letter-spacing:-0.01em}
+.pack-bar-track{height:5px}
+.pack-bar-fill{box-shadow:0 0 6px color-mix(in oklab,var(--accent) 35%,transparent)}
+.pack-bar-fill.full{box-shadow:0 0 6px color-mix(in oklab,var(--green) 35%,transparent)}
+
+/* ── Pills: more breathing room, refined colour ─────────────────────────── */
+.pill{padding:3px 9px;font-weight:600;letter-spacing:0.01em;box-shadow:inset 0 0 0 1px color-mix(in oklab,currentColor 18%,transparent)}
+
+/* ── Buttons: tight heights, focus ring, subtle lift ────────────────────── */
+.btn{min-height:32px;padding:7px 13px;border-radius:7px;transition:background var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast),transform var(--t-fast),color var(--t-fast);box-shadow:var(--shadow-xs)}
+.btn:hover{box-shadow:var(--shadow-sm)}
+.btn:active{transform:translateY(0.5px)}
+.btn:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+.btn.ghost{box-shadow:none}
+.btn.ghost:hover{box-shadow:none}
+.btn.primary{box-shadow:0 1px 2px rgba(0,0,0,0.15),inset 0 1px 0 rgba(255,255,255,0.08)}
+.btn.primary:hover{background:#000;box-shadow:0 4px 12px rgba(0,0,0,0.18),inset 0 1px 0 rgba(255,255,255,0.08)}
+.btn.accent{box-shadow:0 1px 2px color-mix(in oklab,var(--accent) 40%,transparent),inset 0 1px 0 rgba(255,255,255,0.14)}
+.btn.accent:hover{filter:brightness(1.05);box-shadow:0 4px 14px color-mix(in oklab,var(--accent) 45%,transparent),inset 0 1px 0 rgba(255,255,255,0.14)}
+.btn.sm{min-height:26px;padding:4px 10px;border-radius:6px}
+
+/* ── Inputs: focus ring + smoother borders ──────────────────────────────── */
+input[type=text],input[type=email],input[type=number],input[type=date],input[type=password],select,textarea{padding:7px 10px;border-radius:6px;transition:border-color var(--t-fast),box-shadow var(--t-fast),background var(--t-fast)}
+input:hover,select:hover,textarea:hover{border-color:color-mix(in oklab,var(--ink-3) 40%,var(--line))}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:var(--focus-ring)}
+.field label{font-weight:600;letter-spacing:0.01em;text-transform:uppercase;font-size:10px;color:var(--ink-3)}
+
+/* ── Form sections ──────────────────────────────────────────────────────── */
+.form-section{border-radius:10px;box-shadow:var(--shadow-xs);padding:20px 22px}
+.section-head{padding-bottom:12px}
+.section-num{letter-spacing:0.04em;box-shadow:0 1px 2px color-mix(in oklab,var(--accent) 35%,transparent),inset 0 1px 0 rgba(255,255,255,0.12)}
+.treatment-rec{border-radius:10px;padding:14px 16px;box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--accent) 35%,transparent)}
+
+/* ── Tabs: smoother indicator ───────────────────────────────────────────── */
+.tab{transition:color var(--t-fast),border-color var(--t),background var(--t-fast);border-radius:6px 6px 0 0}
+.tab:hover{background:var(--bg-sunken)}
+.tab.active{border-bottom-width:2px}
+.badge{box-shadow:inset 0 0 0 1px color-mix(in oklab,currentColor 14%,transparent)}
+
+/* ── Ward picker ─────────────────────────────────────────────────────────── */
+.ward-btn{border-radius:8px;transition:border-color var(--t-fast),background var(--t-fast),box-shadow var(--t-fast)}
+.ward-btn:hover{box-shadow:var(--shadow-xs)}
+.ward-btn.active{box-shadow:0 0 0 1px var(--accent),var(--shadow-xs)}
+
+/* ── Portal cards ────────────────────────────────────────────────────────── */
+.portal-card{border-radius:10px;transition:transform var(--t),border-color var(--t),box-shadow var(--t)}
+.portal-card:hover{transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.portal-logo{box-shadow:var(--shadow-xs)}
+
+/* ── Master workbook refinement ─────────────────────────────────────────── */
+.master-workbook{border-radius:10px;box-shadow:var(--shadow-xs)}
+.mwb-head{padding:18px 22px}
+.mwb-legend .swatch{width:11px;height:11px;box-shadow:0 1px 2px rgba(0,0,0,0.06)}
+.mwb-section-num{letter-spacing:0.04em}
+.calc-badge{letter-spacing:0.05em}
+
+/* ── Utility rows ───────────────────────────────────────────────────────── */
+.util-row{transition:background var(--t-fast)}
+.util-row:hover{background:var(--bg-sunken)}
+
+/* ── Doc/pack cards ─────────────────────────────────────────────────────── */
+.doc-card{border-radius:10px;transition:transform var(--t),box-shadow var(--t),border-color var(--t)}
+.doc-card:hover{transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.doc-preview .sheet{border-radius:3px;box-shadow:0 3px 10px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04)}
+
+/* ── Modals: backdrop blur + richer shadow ──────────────────────────────── */
+.modal-backdrop{background:rgba(15,17,23,0.45);backdrop-filter:blur(6px) saturate(1.1);-webkit-backdrop-filter:blur(6px) saturate(1.1);animation:fade-in 160ms var(--ease)}
+.modal{border-radius:12px;box-shadow:var(--shadow-lg);animation:modal-in 220ms var(--ease)}
+.modal-head{padding:18px 22px}
+.modal-body{padding:20px 22px}
+.modal-foot{padding:14px 22px;background:var(--bg-elev)}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes modal-in{from{opacity:0;transform:translateY(8px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ── Password gate: premium entry ───────────────────────────────────────── */
+.gate-backdrop{background:radial-gradient(ellipse at 50% 30%,#2a2e38 0%,#15181e 60%,#0d0f14 100%)}
+.gate-card{box-shadow:0 24px 72px rgba(0,0,0,0.55),0 6px 20px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.04);border-radius:14px;animation:modal-in 260ms var(--ease)}
+.gate-logo{padding:26px 26px 20px}
+.gate-body{padding:22px 26px 26px}
+.gate-field input{padding:10px 12px;border-radius:7px;transition:border-color var(--t-fast),box-shadow var(--t-fast),background var(--t-fast)}
+.gate-field input:focus{box-shadow:0 0 0 3px color-mix(in oklab,var(--accent) 28%,transparent)}
+.gate-btn{min-height:40px;font-weight:600}
+
+/* ── Tweaks panel ───────────────────────────────────────────────────────── */
+.tweaks-panel{border-radius:10px;box-shadow:var(--shadow-lg)}
+
+/* ── Gen timeline ───────────────────────────────────────────────────────── */
+.gen-step{border-radius:8px;transition:background var(--t-fast)}
+.gen-step.active .gen-step-icon{box-shadow:0 0 0 4px color-mix(in oklab,var(--accent) 20%,transparent)}
+.gen-step.done .gen-step-icon{box-shadow:0 0 0 3px color-mix(in oklab,var(--green) 18%,transparent)}
+
+/* ── BoQ polish ─────────────────────────────────────────────────────────── */
+.boq-summary{border-radius:10px;box-shadow:var(--shadow-xs)}
+.boq-series-card{border-radius:10px;transition:transform var(--t),border-color var(--t),box-shadow var(--t)}
+.boq-series-card:hover{transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.boq-grand-total{border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18),inset 0 1px 0 rgba(255,255,255,0.08)}
+.boq-catalogue-drawer{box-shadow:-20px 0 48px rgba(0,0,0,0.18)}
+.boq-zones-banner{border-radius:8px}
+.boq-chip{transition:border-color var(--t-fast),background var(--t-fast)}
+.boq-override-chip{box-shadow:inset 0 0 0 1px color-mix(in oklab,#b45309 30%,transparent)}
+
+/* ── Notifications dropdown ─────────────────────────────────────────────── */
+.topbar .btn.ghost.sm{transition:background var(--t-fast),color var(--t-fast)}
+
+/* ── Scheme mobile card ─────────────────────────────────────────────────── */
+.scheme-mobile-card{border-radius:10px}
+.smc-meta-item{border-radius:8px}
+
+/* ── Settings ───────────────────────────────────────────────────────────── */
+.settings-card{border-radius:10px;box-shadow:var(--shadow-xs)}
+
+/* ── Preview documents ──────────────────────────────────────────────────── */
+.rsr-doc{border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.06)}
+.rsr-title-bar{border-radius:6px;box-shadow:0 2px 6px rgba(31,78,121,0.25),inset 0 1px 0 rgba(255,255,255,0.1)}
+.docx{border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.06) !important}
+.letter-recip{border-radius:6px;padding:8px 10px;transition:border-color var(--t-fast),background var(--t-fast),box-shadow var(--t-fast),color var(--t-fast)}
+.letter-recip:hover{box-shadow:var(--shadow-xs)}
+.letter-recip-addr{line-height:1.35}
+.letter-recip-meta{letter-spacing:0.02em}
+[data-theme="dark"] .letter-recip{background:var(--bg-elev);border-color:var(--line);color:var(--ink)}
+[data-theme="dark"] .letter-recip:hover{background:var(--bg-sunken);border-color:color-mix(in oklab,var(--accent) 40%,var(--line))}
+[data-theme="dark"] .letter-recip.active{background:color-mix(in oklab,var(--accent) 18%,var(--bg-elev));border-color:var(--accent);color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--accent) 40%,transparent)}
+[data-theme="dark"] .letter-recip.active .letter-recip-addr{color:#fff}
+[data-theme="dark"] .letter-recip.active .letter-recip-meta{color:color-mix(in oklab,#fff 75%,var(--accent))}
+[data-theme="dark"] .rsr-side{background:var(--bg-elev)}
+[data-theme="dark"] .rsr-preview-pane{background:var(--bg-sunken)}
+[data-theme="dark"] .rsr-bind{background:var(--bg-elev);border-color:var(--line)}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:0.01ms !important;animation-iteration-count:1 !important;transition-duration:0.01ms !important}
+}
