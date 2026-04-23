@@ -14,8 +14,13 @@ async function downloadTCBoQXlsx(scheme, computed) {
   if (!res.ok) throw new Error('TC BoQ template not found: ' + TC_BOQ_TEMPLATE);
   const buffer = await res.arrayBuffer();
 
-  const wb = window.XLSX.read(new Uint8Array(buffer), {
-    type: 'uint8',
+  // Convert to binary string — works with all SheetJS / xlsx-js-style versions
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+
+  const wb = window.XLSX.read(binary, {
+    type: 'binary',
     cellFormula: true,
     cellStyles: true,
   });
