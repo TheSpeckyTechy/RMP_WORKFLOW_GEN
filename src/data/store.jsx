@@ -82,8 +82,9 @@ window.defaultBoq = () => ({
     markings_area:      0,
     include_line_marks: false,
     line_marks_m:       0,
-    iw_sw_cway:  0, iw_sse_cway: 0, iw_bt_cway: 0,
-    iw_sw_fw:    0, iw_sse_fw:   0, iw_bt_fw:   0,
+    iw_sw_cway:  0, iw_sse_cway: 0, iw_bt_cway: 0, iw_gas_cway: 0,
+    iw_sw_fw:    0, iw_sse_fw:   0, iw_bt_fw:   0, iw_gas_fw:   0,
+    iw_gully_cway: 0,
   },
   custom_lines: [],      // [{uid,id,desc,qty,unit,bandOverride?,series,auto?,notes?}]
   settings: {
@@ -200,6 +201,10 @@ const baseScheme = (overrides) => ({
   haz_other: "Contractor to adhere with latest government guidance relating to site safety.",
   haz_additional: "Contact has been made with each business and resident along the scheme extents. All informed of access restrictions during working hours.",
   cdm_principal_designer: "N/A",
+  // Letter content overrides — when non-empty, these replace the auto-derived
+  // subject / body text in the resident / business letter preview and mail merge.
+  letter_subject_override: "",
+  letter_body_override: "",
   // Utility search tracker — maps utility name to ISO applied date string
   utility_applied: {},
   // Bill of Quantities — new structured model (Stage 3+). See defaultBoq()
@@ -520,8 +525,12 @@ window.WORKBOOK_SCHEMA = [
       "AC6 dense 100/150",
       // AC binder course (kept for legacy — typically not a surface course)
       "AC14 close binder 40/60",
-      // Preventive treatments
+      // Preventive / thin treatments — much cheaper per m² than hot-laid;
+      // selecting one produces very different BoQ line items.
       "Micro-asphalt",
+      "Surface dressing 10mm intermediate",
+      "Surface dressing 10mm premium",
+      "Surface dressing 6mm intermediate",
     ]},
     { key: "surface_depth_mm", label: "Surface Course Depth (mm)", type: "number", mono: true },
     { key: "binder_depth_mm", label: "Binder Course Depth (mm)", type: "number", mono: true },

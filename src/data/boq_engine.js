@@ -23,6 +23,14 @@
     { tag: 'surf_ac14hb_40',     label: 'AC 14 HBC surf 40mm' },
     { tag: 'surf_hra5510_40',    label: 'HRA 55/10C surf 40mm' },
     { tag: 'surf_ac6_30',        label: 'AC 6 dense surf 30mm' },
+    // Preventive / thin treatments — dramatically cheaper per m² than
+    // hot-laid courses. Listing them explicitly here fixes the catastrophic
+    // silent default where Master selections of "Micro-asphalt" used to
+    // resolve to HRA 30/14F (5–6× over-price).
+    { tag: 'surf_micro',         label: 'Micro-asphalt (slurry seal) — preventive' },
+    { tag: 'sd_10mm_int',        label: 'Surface dressing 10mm · intermediate binder' },
+    { tag: 'sd_10mm_prem',       label: 'Surface dressing 10mm · premium binder' },
+    { tag: 'sd_6mm_int',         label: 'Surface dressing 6mm · intermediate binder' },
   ];
 
   const BINDER_OPTIONS = [
@@ -78,6 +86,21 @@
 
   const matchSurfaceTag = (treatmentType) => {
     const t = (treatmentType || '').toLowerCase();
+    // Preventive treatments — matched FIRST so explicit micro/SD selections
+    // aren't swallowed by broader substring checks below.
+    if (t.includes('micro') || t.includes('slurry'))
+      return 'surf_micro';
+    if (t.includes('surface dressing') || t.includes('surface-dressing')) {
+      if (t.includes('6mm') || t.includes('6 mm'))   return 'sd_6mm_int';
+      if (t.includes('prem'))                         return 'sd_10mm_prem';
+      return 'sd_10mm_int';
+    }
+    // HBC variants before plain AC so they match precisely.
+    if (t.includes('ac14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';
+    if (t.includes('ac 14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';
+    if (t.includes('ac10') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac10hb_40';
+    if (t.includes('ac 10') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac10hb_40';
+    // Standard hot-laid courses.
     if (t.includes('hra 30') || t.includes('hra30')) return 'surf_hra3014_40_14';
     if (t.includes('hra 35') || t.includes('hra35')) return 'surf_hra3514_45_14';
     if (t.includes('hra 55') || t.includes('hra55')) return 'surf_hra5510_40';
@@ -172,24 +195,45 @@
       }
     }
 
-    if (q.include_tack)    pushByTag('tack', layerArea(q.tack_area));
-    if (q.include_base)    pushByTag(q.base_tag || 'base_ac32d_100', layerArea(q.base_area));
-    if (q.include_subbase) {
-      const a   = layerArea(q.subbase_area);
-      const vol = Math.round(a * (+q.subbase_depth || 150) / 1000 * 10) / 10;
-      if (vol > 0) pushByTag('subbase_t1', vol);
-    }
-    if (q.include_binder)  pushByTag(q.binder_tag || 'bin_hra5020_60', layerArea(q.binder_area));
+    // Structural layers — zone-driven path emits per-zone lines so deep
+    // inlay zones get binder/base lines while shallow inlay zones don't.
+    // Dedupe at the end folds same-material lines across zones together.
+    const binderTag = q.binder_tag || 'bin_hra5020_60';
+    const baseTag   = q.base_tag   || 'base_ac32d_100';
+    const zonesPath = Array.isArray(q.surface_zones) && q.surface_zones.length;
 
-    // Surface course — zone-driven when Treatment tab has populated zones;
-    // otherwise the single-material manual path.
-    if (Array.isArray(q.surface_zones) && q.surface_zones.length) {
+    if (zonesPath) {
       for (const sz of q.surface_zones) {
-        if (+sz.area > 0 && sz.tag) pushByTag(sz.tag, +sz.area);
+        const a = +sz.area || 0;
+        if (a <= 0) continue;
+        if (sz.tag)             pushByTag(sz.tag, a);        // surface
+        if (q.include_tack)     pushByTag('tack', a);        // tack follows surface
+        if (q.include_binder && sz.needsBinder) pushByTag(binderTag, a);
+        if (q.include_base   && sz.needsBase)   pushByTag(baseTag,   a);
       }
     } else {
+      // Manual (single-material) path.
+      if (q.include_tack)   pushByTag('tack', layerArea(q.tack_area));
+      if (q.include_binder) pushByTag(binderTag, layerArea(q.binder_area));
+      if (q.include_base)   pushByTag(baseTag,   layerArea(q.base_area));
       const sA = layerArea(q.surface_area);
       if (sA > 0) pushByTag(q.surface_tag || 'surf_hra3014_40_14', sA);
+    }
+
+    // Sub-base is scheme-wide (rarely zone-driven — it's a full reconstruction
+    // layer). If zoned, uses the sum of zone areas that need base (ie.
+    // zones deep enough to warrant sub-base).
+    if (q.include_subbase) {
+      let area = 0;
+      if (zonesPath) {
+        area = q.surface_zones
+          .filter(sz => sz.needsBase)
+          .reduce((t, sz) => t + (+sz.area || 0), 0);
+      } else {
+        area = layerArea(q.subbase_area);
+      }
+      const vol = Math.round(area * (+q.subbase_depth || 150) / 1000 * 10) / 10;
+      if (vol > 0) pushByTag('subbase_t1', vol);
     }
 
     // Series 1100 — Kerbs
@@ -206,14 +250,41 @@
     if (q.include_line_marks && +q.line_marks_m  > 0) pushByTag('mark_cont_100',  +q.line_marks_m);
 
     // Series 2700 — Ironwork
-    if (+q.iw_sw_cway  > 0) pushByTag('iw_sw_cway',  +q.iw_sw_cway);
-    if (+q.iw_sse_cway > 0) pushByTag('iw_sse_cway', +q.iw_sse_cway);
-    if (+q.iw_bt_cway  > 0) pushByTag('iw_bt_cway',  +q.iw_bt_cway);
-    if (+q.iw_sw_fw    > 0) pushByTag('iw_sw_fw',    +q.iw_sw_fw);
-    if (+q.iw_sse_fw   > 0) pushByTag('iw_sse_fw',   +q.iw_sse_fw);
-    if (+q.iw_bt_fw    > 0) pushByTag('iw_bt_fw',    +q.iw_bt_fw);
+    if (+q.iw_sw_cway   > 0) pushByTag('iw_sw_cway',   +q.iw_sw_cway);
+    if (+q.iw_sse_cway  > 0) pushByTag('iw_sse_cway',  +q.iw_sse_cway);
+    if (+q.iw_bt_cway   > 0) pushByTag('iw_bt_cway',   +q.iw_bt_cway);
+    if (+q.iw_gas_cway  > 0) pushByTag('iw_gas_cway',  +q.iw_gas_cway);
+    if (+q.iw_sw_fw     > 0) pushByTag('iw_sw_fw',     +q.iw_sw_fw);
+    if (+q.iw_sse_fw    > 0) pushByTag('iw_sse_fw',    +q.iw_sse_fw);
+    if (+q.iw_bt_fw     > 0) pushByTag('iw_bt_fw',     +q.iw_bt_fw);
+    if (+q.iw_gas_fw    > 0) pushByTag('iw_gas_fw',    +q.iw_gas_fw);
+    // Series 500 — Gully grating reset (priced per raised grating unit)
+    if (+q.iw_gully_cway > 0) pushByTag('iw_gully_cway', +q.iw_gully_cway);
 
-    return lines;
+    return dedupeLines(lines);
+  }
+
+  // Collapse auto-lines that share the same (item id, bandOverride) into a
+  // single line with summed quantity. Real JMCA pricing picks the rate band
+  // from the TOTAL line quantity — so 4 zones of 19 + 23 + 31 + 595 m² of
+  // the same AC14 surface course must be one 668 m² line (Band B), not four
+  // separate lines (one Band A and three Band B).
+  //
+  // Dedup key includes bandOverride so a user-forced Band A line never folds
+  // into an auto-banded line of the same material.
+  function dedupeLines(lines) {
+    const bucket = new Map();
+    const order = [];
+    for (const l of lines) {
+      const key = l.id + '\x00' + (l.bandOverride || '');
+      if (bucket.has(key)) {
+        bucket.get(key).qty += +l.qty || 0;
+      } else {
+        bucket.set(key, { ...l });
+        order.push(key);
+      }
+    }
+    return order.map(k => bucket.get(k));
   }
 
   // ── buildBoQLines ──────────────────────────────────────────────────────────
@@ -382,6 +453,19 @@
     const wd = computeWorkingDays(s.date_start, s.date_finish);
 
     const zones = (s.treatments || []).filter(z => +z.area_m2 > 0);
+
+    // Per-zone layer build-up. Designers set `zone.depth_mm` as the TOTAL
+    // excavation depth, not per-layer depths. We derive which structural
+    // layers are needed from the depth relative to the Master's surface +
+    // binder depths:
+    //   depth ≤ surface_depth              → surface only (standard inlay)
+    //   surface < depth ≤ surface+binder   → surface + binder (deep inlay)
+    //   depth > surface + binder           → surface + binder + base
+    const surfaceDepth = +s.surface_depth_mm || 40;
+    const binderDepth  = +s.binder_depth_mm  || 60;
+    const zoneNeedsBinder = z => (+z.depth_mm || 40) > surfaceDepth;
+    const zoneNeedsBase   = z => (+z.depth_mm || 40) > (surfaceDepth + binderDepth);
+
     const millingFromZones = zones.map(z => ({
       depth:     +z.depth_mm || 40,
       area:      +z.area_m2,
@@ -394,13 +478,20 @@
       depth:     +z.depth_mm || 40,
       zoneId:    z.id,
       zoneLabel: z.zone || '',
+      needsBinder: zoneNeedsBinder(z),
+      needsBase:   zoneNeedsBase(z),
     }));
+    // Any zone deep enough to warrant a binder/base drives the scheme-level
+    // toggle on. Designers can still explicitly override via the rail.
+    const anyZoneNeedsBinder = zones.some(zoneNeedsBinder);
+    const anyZoneNeedsBase   = zones.some(zoneNeedsBase);
 
     return {
       carriageway_area:  isFootway ? 0 : (+s.area_m2 || 0),
       footway_area:      isFootway ? (+s.area_m2 || 0) : 0,
       surface_tag:       matchSurfaceTag(s.treatment_type),
-      include_binder:    +s.binder_depth_mm  > 0,
+      include_binder:    anyZoneNeedsBinder || +s.binder_depth_mm  > 0,
+      include_base:      anyZoneNeedsBase,
       include_subbase:   +s.subbase_depth_mm > 0,
       subbase_depth:     +s.subbase_depth_mm || 150,
       milling_depth:     snapMillingDepth(+s.surface_depth_mm || 40),
@@ -409,6 +500,8 @@
       kerb_length:       +s.kerb_length || 0,
       iw_sw_cway:        (+s.iron_mh || 0) + (+s.iron_water || 0),
       iw_bt_cway:        +s.iron_bt  || 0,
+      iw_gas_cway:       +s.iron_gas || 0,
+      iw_gully_cway:     +s.iron_gullies || 0,
       tm_type:           mapSchemeTmType(s.tm_type),
       include_diversion: /diversion/i.test(s.tm_type || ''),
       duration_days:     wd != null ? wd : 5,
@@ -450,6 +543,10 @@
     surf_ac14hb_40:     'AC14 HBC surf 40/60',
     surf_ac10hb_40:     'AC10 HBC surf 40/60',
     surf_ac6_30:        'AC6 dense 100/150',
+    surf_micro:         'Micro-asphalt',
+    sd_10mm_int:        'Surface dressing 10mm intermediate',
+    sd_10mm_prem:       'Surface dressing 10mm premium',
+    sd_6mm_int:         'Surface dressing 6mm intermediate',
   };
 
   // Push an overridden BoQ value back to its Master field. Returns the
@@ -466,6 +563,8 @@
       case 'subbase_depth':    return { subbase_depth_mm: num() };
       case 'milling_depth':    return { surface_depth_mm: num() };
       case 'iw_bt_cway':       return { iron_bt: num() };
+      case 'iw_gas_cway':      return { iron_gas: num() };
+      case 'iw_gully_cway':    return { iron_gullies: num() };
       case 'include_binder':   return { binder_depth_mm: bool() ? (+scheme.binder_depth_mm || 60) : 0 };
       case 'include_subbase':  return { subbase_depth_mm: bool() ? (+scheme.subbase_depth_mm || 150) : 0 };
       case 'surface_tag': {
@@ -497,12 +596,15 @@
     { key:'footway_area',      label:'Footway area',       unit:'m²' },
     { key:'surface_tag',       label:'Surface course' },
     { key:'include_binder',    label:'Binder course' },
+    { key:'include_base',      label:'Base course' },
     { key:'include_subbase',   label:'Sub-base' },
     { key:'subbase_depth',     label:'Sub-base depth',     unit:'mm' },
     { key:'milling_depth',     label:'Milling depth',      unit:'mm' },
     { key:'kerb_length',       label:'Kerb length',        unit:'m' },
     { key:'iw_sw_cway',        label:'SW covers — c’way',  unit:'No' },
     { key:'iw_bt_cway',        label:'BT covers — c’way',  unit:'No' },
+    { key:'iw_gas_cway',       label:'Gas covers — c’way', unit:'No' },
+    { key:'iw_gully_cway',     label:'Gully reset — c’way',unit:'No' },
     { key:'tm_type',           label:'TM type' },
     { key:'include_diversion', label:'Include diversion' },
     { key:'duration_days',     label:'Duration',           unit:'days' },

@@ -21,21 +21,56 @@
 //             window.docx (docx-preview CDN)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const getInitials = name => (name || '').trim().split(/\s+/).map(w => w[0] || '').join('').toUpperCase();
-const makeSchemeRef = s => `${s.project_number || ''}${getInitials(s.reviewed_by)}${getInitials(s.prepared_by)}`;
+const defaultLetterSubject = s => {
+  const road = s.road_name||""; const ext = s.scheme_extent?` (${s.scheme_extent})`:"";
+  return `RESURFACING WORKS \u2014 ${road.toUpperCase()}${ext.toUpperCase()}`;
+};
+
+const defaultLetterBody = s => {
+  const start=s.date_start||"[start date]", finish=s.date_finish||"[finish date]", road=s.road_name||"[road]",
+    ext=s.scheme_extent?` between ${s.scheme_extent}`:"", tm=s.tm_type?s.tm_type.toLowerCase():"temporary traffic management", tmH=s.tm_hours||"07:30 to 15:30";
+  return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${ext}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place during working hours (${tmH}). Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
+};
+
+const resolvedSubject = s => (s.letter_subject_override && s.letter_subject_override.trim()) || defaultLetterSubject(s);
+const resolvedBody    = s => (s.letter_body_override    && s.letter_body_override.trim())    || defaultLetterBody(s);
+
+// ─── Collapsible side panel section ──────────────────────────────────────────
+const Collapsible = ({ title, count, defaultOpen=false, right, children }) => {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <div style={{marginBottom:10,borderBottom:"1px solid var(--line)"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,padding:"8px 0"}}>
+        <button
+          onClick={()=>setOpen(o=>!o)}
+          style={{
+            flex:1,display:"flex",alignItems:"center",gap:6,
+            background:"none",border:0,padding:0,cursor:"pointer",
+            fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
+            textTransform:"uppercase",letterSpacing:"0.08em",textAlign:"left",
+          }}>
+          <span style={{display:"inline-block",width:10,transition:"transform 0.12s",
+            transform:open?"rotate(90deg)":"rotate(0deg)"}}>▸</span>
+          <span>{title}{typeof count==="number"?` (${count})`:""}</span>
+        </button>
+        {right && <div onClick={e=>e.stopPropagation()}>{right}</div>}
+      </div>
+      {open && <div style={{paddingBottom:10}}>{children}</div>}
+    </div>
+  );
+};
+
+// Letter reference: project number + SL + designer initials (skip blank parts).
+// e.g. prepared_by "Jake McAllister" with project "R5008" → "R5008/SL/JM".
+const initialsOf = name => String(name||'').trim().split(/\s+/).map(w => w[0]||'').join('').toUpperCase();
+const buildLetterRef = s => [s.project_number||'', 'SL', initialsOf(s.prepared_by)].filter(p => p && p !== '').join('/');
 
 const LETTER_BINDINGS = [
-  { tag: "<<Our_Ref>>",  derive: s => makeSchemeRef(s) },
-  { tag: "<<Your_Ref>>", derive: s => makeSchemeRef(s) },
+  { tag: "<<Our_Ref>>",  derive: buildLetterRef },
+  { tag: "<<Your_Ref>>", derive: buildLetterRef },
   { tag: "<<Letter_Date>>", derive: s => new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) },
-  { tag: "<<Letter_Subject>>", derive: s => {
-    const road = s.road_name||""; const ext = s.scheme_extent?` (${s.scheme_extent})`:""; return `RESURFACING WORKS \u2014 ${road.toUpperCase()}${ext.toUpperCase()}`;
-  }},
-  { tag: "<<Letter_Body_Text>>", derive: s => {
-    const start=s.date_start||"[start date]", finish=s.date_finish||"[finish date]", road=s.road_name||"[road]",
-      ext=s.scheme_extent?` between ${s.scheme_extent}`:"", tm=s.tm_type?s.tm_type.toLowerCase():"temporary traffic management", tmH=s.tm_hours||"07:30 to 15:30";
-    return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${ext}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place during working hours (${tmH}). Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
-  }},
+  { tag: "<<Letter_Subject>>", derive: resolvedSubject },
+  { tag: "<<Letter_Body_Text>>", derive: resolvedBody },
   { tag: "<<Ward_Councillor_1>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[0]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
   { tag: "<<Ward_Councillor_2>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[1]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
   { tag: "<<Ward_Councillor_3>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[2]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
@@ -56,17 +91,8 @@ async function injectLetterXml(buffer, scheme, recipient) {
   const zip = new window.JSZip();
   await zip.loadAsync(buffer);
 
-  const ext = scheme.scheme_extent ? ` (${scheme.scheme_extent})` : '';
-
-  const bodyText = (() => {
-    const start = scheme.date_start || '[start date]';
-    const finish = scheme.date_finish || '[finish date]';
-    const road = scheme.road_name || '[road]';
-    const extPhrase = scheme.scheme_extent ? ` between ${scheme.scheme_extent}` : '';
-    const tm = scheme.tm_type ? scheme.tm_type.toLowerCase() : 'temporary traffic management';
-    const tmH = scheme.tm_hours || '07:30 to 15:30';
-    return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${extPhrase}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place during working hours (${tmH}). Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
-  })();
+  const subjectText = resolvedSubject(scheme);
+  const bodyText    = resolvedBody(scheme);
 
   const getCouncillor = (idx) => {
     const w = window.WARDS.find(x => x.num === scheme.ward_num);
@@ -77,11 +103,13 @@ async function injectLetterXml(buffer, scheme, recipient) {
 
   // <<TAG>> placeholders are XML-encoded as &lt;&lt;TAG&gt;&gt; in document.xml
   // «TAG» MERGEFIELD visible text uses guillemet characters (U+00AB / U+00BB)
+  const letterRef = buildLetterRef(scheme);
+
   const replacements = [
-    ['&lt;&lt;Our_Ref&gt;&gt;',          xmlEscape(makeSchemeRef(scheme))],
-    ['&lt;&lt;Your_Ref&gt;&gt;',         xmlEscape(makeSchemeRef(scheme))],
+    ['&lt;&lt;Our_Ref&gt;&gt;',           xmlEscape(letterRef)],
+    ['&lt;&lt;Your_Ref&gt;&gt;',          xmlEscape(letterRef)],  // harmless if not in template
     ['&lt;&lt;Letter_Date&gt;&gt;',       xmlEscape(new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'}))],
-    ['&lt;&lt;Letter_Subject&gt;&gt;',    xmlEscape(`RESURFACING WORKS — ${(scheme.road_name||'').toUpperCase()}${ext.toUpperCase()}`)],
+    ['&lt;&lt;Letter_Subject&gt;&gt;',    xmlEscape(subjectText)],
     ['&lt;&lt;Letter_Body_Text&gt;&gt;',  bodyToXml(bodyText)],
     ['&lt;&lt;Ward_Councillor_1&gt;&gt;', xmlEscape(getCouncillor(0))],
     ['&lt;&lt;Ward_Councillor_2&gt;&gt;', xmlEscape(getCouncillor(1))],
@@ -91,6 +119,19 @@ async function injectLetterXml(buffer, scheme, recipient) {
     ['«TOWN_NAME»',             xmlEscape(recipient?.town || 'DUNDEE')],
   ];
 
+  // The template has "Your Ref:" as a static label with an empty value cell
+  // (no <<Your_Ref>> placeholder). Inject the ref into that empty paragraph.
+  const injectYourRefValue = (xml, value) => {
+    const labelIdx = xml.indexOf('Your Ref:');
+    if (labelIdx < 0) return xml;
+    const labelPEnd = xml.indexOf('</w:p>', labelIdx);            // end of label paragraph
+    if (labelPEnd < 0) return xml;
+    const valuePEnd = xml.indexOf('</w:p>', labelPEnd + 6);       // end of empty value paragraph
+    if (valuePEnd < 0) return xml;
+    const run = `<w:r><w:rPr><w:rFonts w:ascii="Arial Narrow" w:hAnsi="Arial Narrow"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr><w:t>${xmlEscape(value)}</w:t></w:r>`;
+    return xml.slice(0, valuePEnd) + run + xml.slice(valuePEnd);
+  };
+
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
   for (const xmlPath of xmlPaths) {
     const file = zip.file(xmlPath);
@@ -99,6 +140,7 @@ async function injectLetterXml(buffer, scheme, recipient) {
     for (const [placeholder, value] of replacements) {
       xml = xml.split(placeholder).join(value);
     }
+    xml = injectYourRefValue(xml, letterRef);
     zip.file(xmlPath, xml);
   }
 
@@ -133,6 +175,71 @@ async function mailMergeLetter(scheme, recipients) {
   a.click(); URL.revokeObjectURL(a.href);
 }
 
+// Render every letter into one multi-page PDF by rendering each recipient's
+// letter off-screen via docx-preview, capturing with html2canvas, and
+// appending pages to a single jsPDF document.
+async function mailMergeLetterPdf(scheme, recipients, onProgress) {
+  if (!recipients.length) throw new Error('No recipients');
+  if (!window.html2canvas || !window.jspdf || !window.docx) {
+    throw new Error('PDF libraries not loaded');
+  }
+  const { jsPDF } = window.jspdf;
+  const templateBuffer = await loadLetterBuffer();
+
+  // Off-screen host. Fixed A4 width at 96dpi keeps html2canvas output
+  // consistent across devices.
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-99999px;top:0;width:794px;background:#fff;pointer-events:none;';
+  document.body.appendChild(host);
+
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pageW = 210, pageH = 297;
+  let isFirstPage = true;
+
+  try {
+    for (let i = 0; i < recipients.length; i++) {
+      onProgress?.(i, recipients.length);
+      host.innerHTML = '';
+      // docx-preview may mutate the buffer — pass a fresh copy each time.
+      const buf = templateBuffer.slice(0);
+      await window.docx.renderAsync(buf, host, null, {
+        className:'docx', inWrapper:true, ignoreWidth:false, ignoreHeight:false,
+        ignoreFonts:false, breakPages:true, experimental:false,
+        trimXmlDeclaration:true, useBase64URL:true,
+      });
+      applyLetter(host, scheme, recipients[i]);
+
+      // Let the browser compute layout before screenshotting.
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      const canvas = await window.html2canvas(host, {
+        scale: 2, backgroundColor: '#ffffff', useCORS: true, allowTaint: true, logging: false,
+      });
+      const imgData = canvas.toDataURL('image/jpeg', 0.9);
+      const imgH = (canvas.height * pageW) / canvas.width;
+
+      // Split a tall letter across as many A4 pages as it needs, and
+      // always start a new page for a new recipient.
+      let y = 0;
+      while (y < imgH) {
+        if (!isFirstPage) pdf.addPage();
+        isFirstPage = false;
+        pdf.addImage(imgData, 'JPEG', 0, -y, pageW, imgH);
+        y += pageH;
+      }
+    }
+  } finally {
+    host.remove();
+  }
+
+  onProgress?.(recipients.length, recipients.length);
+  const slug = (scheme.project_number || scheme.road_name || 'letter').replace(/\s+/g,'_');
+  const name = recipients.length === 1
+    ? `Letter_${slug}_${(recipients[0].address1||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30)}.pdf`
+    : `MailMerge_${slug}_${recipients.length}letters.pdf`;
+  pdf.save(name);
+}
+
 const applyLetter = (root, scheme, recipient) => {
   const recipientBindings = { AddressLine4: recipient?.address1||"", POSTCODE: recipient?.postcode||"", TOWN_NAME: recipient?.town||"DUNDEE" };
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
@@ -156,6 +263,26 @@ const applyLetter = (root, scheme, recipient) => {
     });
     node.parentNode.replaceChild(frag, node);
   });
+
+  // Inject Your Ref value into the empty cell next to the "Your Ref:" label
+  // (the template has no placeholder there).
+  const yourRefValue = buildLetterRef(scheme);
+  const allCells = root.querySelectorAll('td, th');
+  for (const cell of allCells) {
+    if (/^\s*Your Ref:\s*$/.test(cell.textContent||'')) {
+      const nextCell = cell.nextElementSibling;
+      if (!nextCell) break;
+      const target = nextCell.querySelector('p, div') || nextCell;
+      if ((target.textContent||'').trim() === '') {
+        const span = document.createElement('span');
+        span.className = 'pci-bound' + (yourRefValue ? '' : ' pci-missing');
+        span.dataset.key = 'Your_Ref';
+        span.textContent = yourRefValue || '<<Your_Ref>>';
+        target.appendChild(span);
+      }
+      break;
+    }
+  }
 };
 
 const LetterDoc = ({ scheme, recipient }) => {
@@ -174,7 +301,7 @@ const LetterDoc = ({ scheme, recipient }) => {
       } catch(e){ console.error(e); setStatus("error:"+e.message); }
     })();
     return ()=>{cancelled=true;};
-  }, [recipient?.address1, recipient?.name]);
+  }, [recipient?.address1, recipient?.name, scheme.letter_subject_override, scheme.letter_body_override]);
   return (
     <div className="pci-doc-host">
       {status==="loading"&&<div className="pci-loading">Rendering letter…</div>}
@@ -466,17 +593,23 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
   const [selectedIdx, setSelectedIdx] = React.useState(0);
   const [showImport, setShowImport] = React.useState(false);
   const [merging, setMerging] = React.useState(false);
+  const [mergeProgress, setMergeProgress] = React.useState(null);
   const recipient = recipients[selectedIdx];
 
-  const handleMailMerge = async () => {
+  const runMailMerge = async (mode) => {
     setMerging(true);
+    setMergeProgress(mode === 'pdf' ? { done: 0, total: recipients.length } : null);
     try {
-      await mailMergeLetter(scheme, recipients);
+      if (mode === 'pdf') {
+        await mailMergeLetterPdf(scheme, recipients, (done, total) => setMergeProgress({ done, total }));
+      } else {
+        await mailMergeLetter(scheme, recipients);
+      }
       updateScheme(scheme.id, { docs_generated: { ...(scheme.docs_generated||{}), letter: true } });
-      window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `Letter — ${scheme.road_name} (${recipients.length} recipient${recipients.length!==1?'s':''})`, ref: scheme.project_number } }));
+      window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `Letter — ${scheme.road_name} (${recipients.length} recipient${recipients.length!==1?'s':''}, ${mode.toUpperCase()})`, ref: scheme.project_number } }));
     }
     catch(e) { alert('Mail merge failed: ' + e.message); }
-    finally { setMerging(false); }
+    finally { setMerging(false); setMergeProgress(null); }
   };
   const residents = recipients.filter(r=>r.type==="resident");
   const businesses = recipients.filter(r=>r.type==="business");
@@ -496,8 +629,16 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
             </div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            <button className="btn sm" onClick={handleMailMerge} disabled={merging||recipients.length===0}>
-              <Icon.Download /> {merging ? "Generating…" : `Mail merge · ${recipients.length} letter${recipients.length!==1?"s":""}`}
+            <button className="btn sm" onClick={()=>runMailMerge('pdf')} disabled={merging||recipients.length===0}>
+              <Icon.Download /> {merging && mergeProgress
+                ? `Generating PDF · ${mergeProgress.done}/${mergeProgress.total}`
+                : merging
+                  ? "Generating…"
+                  : `Mail merge · ${recipients.length} letter${recipients.length!==1?"s":""} (PDF)`}
+            </button>
+            <button className="btn ghost sm" onClick={()=>runMailMerge('docx')} disabled={merging||recipients.length===0}
+              title="Download as editable DOCX (ZIP for multiple recipients)">
+              DOCX
             </button>
             <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
           </div>
@@ -526,11 +667,7 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
               </div>
 
               {residents.length>0&&(
-                <div style={{marginBottom:14}}>
-                  <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
-                    textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>
-                    Residents ({residents.length})
-                  </div>
+                <Collapsible title="Residents" count={residents.length} defaultOpen={true}>
                   <div className="letter-recip-list">
                     {recipients.map((r,i)=>r.type==="resident"&&(
                       <button key={i} className={"letter-recip "+(i===selectedIdx?"active":"")}
@@ -540,15 +677,11 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
                       </button>
                     ))}
                   </div>
-                </div>
+                </Collapsible>
               )}
 
               {businesses.length>0&&(
-                <div style={{marginBottom:14}}>
-                  <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
-                    textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>
-                    Businesses ({businesses.length})
-                  </div>
+                <Collapsible title="Businesses" count={businesses.length} defaultOpen={false}>
                   <div className="letter-recip-list">
                     {recipients.map((r,i)=>r.type==="business"&&(
                       <button key={i} className={"letter-recip "+(i===selectedIdx?"active":"")}
@@ -558,7 +691,7 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
                       </button>
                     ))}
                   </div>
-                </div>
+                </Collapsible>
               )}
 
               {recipients.length===0&&(
@@ -571,11 +704,40 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
                 </div>
               )}
 
-              <div style={{marginTop:18}}>
-                <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
-                  textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>
-                  Template bindings
+              <Collapsible
+                title="Letter content"
+                defaultOpen={false}
+                right={(scheme.letter_subject_override||scheme.letter_body_override) && (
+                  <button className="btn ghost sm"
+                    title="Reset letter content to the auto-generated default"
+                    onClick={()=>updateScheme(scheme.id,{letter_subject_override:"",letter_body_override:""})}>
+                    ↺ Reset
+                  </button>
+                )}>
+                <label style={{display:"block",fontSize:11,color:"var(--ink-3)",marginBottom:3}}>Subject line</label>
+                <input
+                  style={{width:"100%",marginBottom:10,padding:"6px 8px",fontSize:12,
+                    border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",outline:"none",
+                    fontFamily:"inherit"}}
+                  placeholder={defaultLetterSubject(scheme)}
+                  value={scheme.letter_subject_override||""}
+                  onChange={e=>updateScheme(scheme.id,{letter_subject_override:e.target.value})}
+                />
+                <label style={{display:"block",fontSize:11,color:"var(--ink-3)",marginBottom:3}}>Body text</label>
+                <textarea
+                  style={{width:"100%",minHeight:160,padding:"6px 8px",fontSize:12,
+                    border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",outline:"none",
+                    fontFamily:"inherit",resize:"vertical",lineHeight:1.45}}
+                  placeholder={defaultLetterBody(scheme)}
+                  value={scheme.letter_body_override||""}
+                  onChange={e=>updateScheme(scheme.id,{letter_body_override:e.target.value})}
+                />
+                <div style={{fontSize:10,color:"var(--ink-3)",marginTop:4,lineHeight:1.4}}>
+                  Leave blank to use the auto-generated text shown above. Edits save automatically and flow into the preview and mail-merged DOCX.
                 </div>
+              </Collapsible>
+
+              <Collapsible title="Template bindings" count={LETTER_BINDINGS.length} defaultOpen={false}>
                 <div className="rsr-bind-list">
                   {LETTER_BINDINGS.map(b=>{
                     const val=recipient?b.derive(scheme):"";
@@ -590,7 +752,7 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
                     );
                   })}
                 </div>
-              </div>
+              </Collapsible>
             </div>
           )}
         </div>

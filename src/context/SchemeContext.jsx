@@ -51,6 +51,21 @@ const withBoq = (s) => {
     };
   }
 
+  // ── 1b. New ironwork fields introduced in PR D2 (gas + gully) — default
+  //       to 0 so the rail can render them for legacy rows.
+  const qi2 = boq.quick_inputs || {};
+  if (!('iw_gas_cway' in qi2) || !('iw_gas_fw' in qi2) || !('iw_gully_cway' in qi2)) {
+    boq = {
+      ...boq,
+      quick_inputs: {
+        ...qi2,
+        iw_gas_cway:   +qi2.iw_gas_cway   || 0,
+        iw_gas_fw:     +qi2.iw_gas_fw     || 0,
+        iw_gully_cway: +qi2.iw_gully_cway || 0,
+      },
+    };
+  }
+
   // ── 2. Master-linked overrides. Compare each stored value against the
   //     value the Master would produce now. If they match, the field can
   //     cleanly follow the Master; if they differ, preserve the BoQ value
