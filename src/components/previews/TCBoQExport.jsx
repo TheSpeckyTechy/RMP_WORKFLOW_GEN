@@ -34,15 +34,16 @@ async function downloadTCBoQXlsx(scheme, computed) {
     }
   }
 
-  // 2. Build engine qty map: "tcSeries/itemNum" → qty  (e.g. "7/23" → 500)
+  // 2. Build engine qty map: "series/itemNum" → qty  (e.g. "7/23" → 500)
+  // Engine IDs already use the TC series notation ("7/023", "2700/01", "12/001").
+  // Only normalise the item part by stripping leading zeros via parseInt.
   const qtyMap = {};
   for (const line of (computed.lines || [])) {
     const [series, item] = (line.id || '').split('/');
     if (!series || !item) continue;
-    const tcSeries = Number(series) / 100;
-    const tcItem   = parseInt(item, 10);
-    if (!isFinite(tcSeries) || isNaN(tcItem)) continue;
-    qtyMap[`${tcSeries}/${tcItem}`] = line.qty || 0;
+    const tcItem = parseInt(item, 10);
+    if (isNaN(tcItem)) continue;
+    qtyMap[`${series}/${tcItem}`] = line.qty || 0;
   }
 
   // 3. Resolve "* Input" sheet file paths via workbook + rels

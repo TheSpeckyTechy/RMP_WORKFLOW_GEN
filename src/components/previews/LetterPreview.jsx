@@ -21,8 +21,12 @@
 //             window.docx (docx-preview CDN)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const getInitials = name => (name || '').trim().split(/\s+/).map(w => w[0] || '').join('').toUpperCase();
+const makeSchemeRef = s => `${s.project_number || ''}${getInitials(s.reviewed_by)}${getInitials(s.prepared_by)}`;
+
 const LETTER_BINDINGS = [
-  { tag: "<<Our_Ref>>", derive: s => s.project_number || "" },
+  { tag: "<<Our_Ref>>",  derive: s => makeSchemeRef(s) },
+  { tag: "<<Your_Ref>>", derive: s => makeSchemeRef(s) },
   { tag: "<<Letter_Date>>", derive: s => new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) },
   { tag: "<<Letter_Subject>>", derive: s => {
     const road = s.road_name||""; const ext = s.scheme_extent?` (${s.scheme_extent})`:""; return `RESURFACING WORKS \u2014 ${road.toUpperCase()}${ext.toUpperCase()}`;
@@ -74,7 +78,8 @@ async function injectLetterXml(buffer, scheme, recipient) {
   // <<TAG>> placeholders are XML-encoded as &lt;&lt;TAG&gt;&gt; in document.xml
   // «TAG» MERGEFIELD visible text uses guillemet characters (U+00AB / U+00BB)
   const replacements = [
-    ['&lt;&lt;Our_Ref&gt;&gt;',          xmlEscape(scheme.project_number || '')],
+    ['&lt;&lt;Our_Ref&gt;&gt;',          xmlEscape(makeSchemeRef(scheme))],
+    ['&lt;&lt;Your_Ref&gt;&gt;',         xmlEscape(makeSchemeRef(scheme))],
     ['&lt;&lt;Letter_Date&gt;&gt;',       xmlEscape(new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'}))],
     ['&lt;&lt;Letter_Subject&gt;&gt;',    xmlEscape(`RESURFACING WORKS — ${(scheme.road_name||'').toUpperCase()}${ext.toUpperCase()}`)],
     ['&lt;&lt;Letter_Body_Text&gt;&gt;',  bodyToXml(bodyText)],
