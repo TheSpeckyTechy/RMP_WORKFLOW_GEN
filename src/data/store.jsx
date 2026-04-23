@@ -591,7 +591,7 @@ window.WORKBOOK_SCHEMA = [
     { key: "client_phone", label: "Client Officer Phone", type: "text", mono: true },
     { key: "contractor", label: "Contractor", type: "text" },
     { key: "contractor_ref", label: "Contractor Reference", type: "text", mono: true },
-    { key: "contractor_pe", label: "Contractor Project Engineer", type: "select", options: ["", ...window.TAYSIDE_STAFF.map(s => s.name)] },
+    { key: "contractor_pe", label: "Contractor Project Engineer", type: "tayside-pe" },
     { key: "contractor_ch", label: "Contractor Chargehand", type: "text" },
     { key: "contractor_ooh", label: "Contractor Out-of-Hours", type: "text", mono: true },
     { key: "supervisor_name", label: "Site Supervisor Name", type: "text" },
