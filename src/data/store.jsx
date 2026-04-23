@@ -200,6 +200,10 @@ const baseScheme = (overrides) => ({
   haz_other: "Contractor to adhere with latest government guidance relating to site safety.",
   haz_additional: "Contact has been made with each business and resident along the scheme extents. All informed of access restrictions during working hours.",
   cdm_principal_designer: "N/A",
+  // Letter content overrides — when non-empty, these replace the auto-derived
+  // subject / body text in the resident / business letter preview and mail merge.
+  letter_subject_override: "",
+  letter_body_override: "",
   // Utility search tracker — maps utility name to ISO applied date string
   utility_applied: {},
   // Bill of Quantities — new structured model (Stage 3+). See defaultBoq()

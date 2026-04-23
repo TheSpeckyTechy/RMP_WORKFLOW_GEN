@@ -21,17 +21,25 @@
 //             window.docx (docx-preview CDN)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const defaultLetterSubject = s => {
+  const road = s.road_name||""; const ext = s.scheme_extent?` (${s.scheme_extent})`:"";
+  return `RESURFACING WORKS \u2014 ${road.toUpperCase()}${ext.toUpperCase()}`;
+};
+
+const defaultLetterBody = s => {
+  const start=s.date_start||"[start date]", finish=s.date_finish||"[finish date]", road=s.road_name||"[road]",
+    ext=s.scheme_extent?` between ${s.scheme_extent}`:"", tm=s.tm_type?s.tm_type.toLowerCase():"temporary traffic management", tmH=s.tm_hours||"07:30 to 15:30";
+  return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${ext}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place during working hours (${tmH}). Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
+};
+
+const resolvedSubject = s => (s.letter_subject_override && s.letter_subject_override.trim()) || defaultLetterSubject(s);
+const resolvedBody    = s => (s.letter_body_override    && s.letter_body_override.trim())    || defaultLetterBody(s);
+
 const LETTER_BINDINGS = [
   { tag: "<<Our_Ref>>", derive: s => s.project_number || "" },
   { tag: "<<Letter_Date>>", derive: s => new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) },
-  { tag: "<<Letter_Subject>>", derive: s => {
-    const road = s.road_name||""; const ext = s.scheme_extent?` (${s.scheme_extent})`:""; return `RESURFACING WORKS \u2014 ${road.toUpperCase()}${ext.toUpperCase()}`;
-  }},
-  { tag: "<<Letter_Body_Text>>", derive: s => {
-    const start=s.date_start||"[start date]", finish=s.date_finish||"[finish date]", road=s.road_name||"[road]",
-      ext=s.scheme_extent?` between ${s.scheme_extent}`:"", tm=s.tm_type?s.tm_type.toLowerCase():"temporary traffic management", tmH=s.tm_hours||"07:30 to 15:30";
-    return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${ext}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place during working hours (${tmH}). Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
-  }},
+  { tag: "<<Letter_Subject>>", derive: resolvedSubject },
+  { tag: "<<Letter_Body_Text>>", derive: resolvedBody },
   { tag: "<<Ward_Councillor_1>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[0]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
   { tag: "<<Ward_Councillor_2>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[1]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
   { tag: "<<Ward_Councillor_3>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[2]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
@@ -52,17 +60,8 @@ async function injectLetterXml(buffer, scheme, recipient) {
   const zip = new window.JSZip();
   await zip.loadAsync(buffer);
 
-  const ext = scheme.scheme_extent ? ` (${scheme.scheme_extent})` : '';
-
-  const bodyText = (() => {
-    const start = scheme.date_start || '[start date]';
-    const finish = scheme.date_finish || '[finish date]';
-    const road = scheme.road_name || '[road]';
-    const extPhrase = scheme.scheme_extent ? ` between ${scheme.scheme_extent}` : '';
-    const tm = scheme.tm_type ? scheme.tm_type.toLowerCase() : 'temporary traffic management';
-    const tmH = scheme.tm_hours || '07:30 to 15:30';
-    return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${extPhrase}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place during working hours (${tmH}). Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
-  })();
+  const subjectText = resolvedSubject(scheme);
+  const bodyText    = resolvedBody(scheme);
 
   const getCouncillor = (idx) => {
     const w = window.WARDS.find(x => x.num === scheme.ward_num);
@@ -76,7 +75,7 @@ async function injectLetterXml(buffer, scheme, recipient) {
   const replacements = [
     ['&lt;&lt;Our_Ref&gt;&gt;',          xmlEscape(scheme.project_number || '')],
     ['&lt;&lt;Letter_Date&gt;&gt;',       xmlEscape(new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'}))],
-    ['&lt;&lt;Letter_Subject&gt;&gt;',    xmlEscape(`RESURFACING WORKS — ${(scheme.road_name||'').toUpperCase()}${ext.toUpperCase()}`)],
+    ['&lt;&lt;Letter_Subject&gt;&gt;',    xmlEscape(subjectText)],
     ['&lt;&lt;Letter_Body_Text&gt;&gt;',  bodyToXml(bodyText)],
     ['&lt;&lt;Ward_Councillor_1&gt;&gt;', xmlEscape(getCouncillor(0))],
     ['&lt;&lt;Ward_Councillor_2&gt;&gt;', xmlEscape(getCouncillor(1))],
@@ -169,7 +168,7 @@ const LetterDoc = ({ scheme, recipient }) => {
       } catch(e){ console.error(e); setStatus("error:"+e.message); }
     })();
     return ()=>{cancelled=true;};
-  }, [recipient?.address1, recipient?.name]);
+  }, [recipient?.address1, recipient?.name, scheme.letter_subject_override, scheme.letter_body_override]);
   return (
     <div className="pci-doc-host">
       {status==="loading"&&<div className="pci-loading">Rendering letter…</div>}
@@ -565,6 +564,43 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
                   </button>
                 </div>
               )}
+
+              <div style={{marginTop:18}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                  <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
+                    textTransform:"uppercase",letterSpacing:"0.08em"}}>
+                    Letter content
+                  </div>
+                  {(scheme.letter_subject_override||scheme.letter_body_override) && (
+                    <button className="btn ghost sm"
+                      title="Reset letter content to the auto-generated default"
+                      onClick={()=>updateScheme(scheme.id,{letter_subject_override:"",letter_body_override:""})}>
+                      ↺ Reset
+                    </button>
+                  )}
+                </div>
+                <label style={{display:"block",fontSize:11,color:"var(--ink-3)",marginBottom:3}}>Subject line</label>
+                <input
+                  style={{width:"100%",marginBottom:10,padding:"6px 8px",fontSize:12,
+                    border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",outline:"none",
+                    fontFamily:"inherit"}}
+                  placeholder={defaultLetterSubject(scheme)}
+                  value={scheme.letter_subject_override||""}
+                  onChange={e=>updateScheme(scheme.id,{letter_subject_override:e.target.value})}
+                />
+                <label style={{display:"block",fontSize:11,color:"var(--ink-3)",marginBottom:3}}>Body text</label>
+                <textarea
+                  style={{width:"100%",minHeight:160,padding:"6px 8px",fontSize:12,
+                    border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",outline:"none",
+                    fontFamily:"inherit",resize:"vertical",lineHeight:1.45}}
+                  placeholder={defaultLetterBody(scheme)}
+                  value={scheme.letter_body_override||""}
+                  onChange={e=>updateScheme(scheme.id,{letter_body_override:e.target.value})}
+                />
+                <div style={{fontSize:10,color:"var(--ink-3)",marginTop:4,lineHeight:1.4}}>
+                  Leave blank to use the auto-generated text shown above. Edits save automatically and flow into the preview and mail-merged DOCX.
+                </div>
+              </div>
 
               <div style={{marginTop:18}}>
                 <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)",
