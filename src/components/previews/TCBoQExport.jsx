@@ -112,7 +112,15 @@ async function downloadTCBoQXlsx(scheme, computed) {
     zip.file(path, xml);
   }
 
-  // 5. Generate and download
+  // 5. Force full recalculation on open: set fullCalcOnLoad and drop stale calcChain
+  const wbXmlUpdated = wbXml.replace(
+    /<calcPr\b([^/]*)\/>/,
+    (m, attrs) => attrs.includes('fullCalcOnLoad') ? m : `<calcPr${attrs} fullCalcOnLoad="1"/>`
+  );
+  zip.file('xl/workbook.xml', wbXmlUpdated);
+  zip.remove('xl/calcChain.xml');
+
+  // 6. Generate and download
   const out = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
   const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const a = document.createElement('a');
