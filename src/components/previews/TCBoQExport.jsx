@@ -107,6 +107,11 @@ async function downloadTCBoQXlsx(scheme, computed) {
       return full;
     });
 
+    // Clear stale cached <v> values from formula cells so Protected View
+    // doesn't show Clepington Road data. Excel recalculates on "Enable Editing".
+    // Handles both full formulas (<f>...</f>) and abbreviated shared refs (<f .../>).
+    xml = xml.replace(/(<c\b[^>]*>(?:<f[^>]*>[^<]*<\/f>|<f[^>]*?\/>))<v>[^<]*<\/v>/g, '$1');
+
     zip.file(path, xml);
   }
 
