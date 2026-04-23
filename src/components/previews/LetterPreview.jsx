@@ -178,6 +178,15 @@ async function mailMergeLetter(scheme, recipients) {
 // Render every letter into one multi-page PDF by rendering each recipient's
 // letter off-screen via docx-preview, capturing with html2canvas, and
 // appending pages to a single jsPDF document.
+//
+// Reliability notes for large batches (hundreds of recipients):
+//  - jsPDF is created with compress:true so embedded JPEGs are deflated.
+//  - html2canvas scale is kept modest (1.5) to keep image size manageable.
+//  - We null out canvas/image references and yield to the event loop each
+//    iteration so the browser can reclaim memory and stay responsive.
+//  - Final output goes through a Blob + object URL (instead of pdf.save)
+//    because save() stringifies the whole PDF and can fail silently at
+//    50+ MB in some browsers.
 async function mailMergeLetterPdf(scheme, recipients, onProgress) {
   if (!recipients.length) throw new Error('No recipients');
   if (!window.html2canvas || !window.jspdf || !window.docx) {
@@ -186,13 +195,11 @@ async function mailMergeLetterPdf(scheme, recipients, onProgress) {
   const { jsPDF } = window.jspdf;
   const templateBuffer = await loadLetterBuffer();
 
-  // Off-screen host. Fixed A4 width at 96dpi keeps html2canvas output
-  // consistent across devices.
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-99999px;top:0;width:794px;background:#fff;pointer-events:none;';
   document.body.appendChild(host);
 
-  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdf = new jsPDF({ orientation:'p', unit:'mm', format:'a4', compress:true });
   const pageW = 210, pageH = 297;
   let isFirstPage = true;
 
@@ -212,21 +219,26 @@ async function mailMergeLetterPdf(scheme, recipients, onProgress) {
       // Let the browser compute layout before screenshotting.
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-      const canvas = await window.html2canvas(host, {
-        scale: 2, backgroundColor: '#ffffff', useCORS: true, allowTaint: true, logging: false,
+      let canvas = await window.html2canvas(host, {
+        scale: 1.5, backgroundColor: '#ffffff', useCORS: true, allowTaint: true, logging: false,
       });
-      const imgData = canvas.toDataURL('image/jpeg', 0.9);
+      let imgData = canvas.toDataURL('image/jpeg', 0.82);
       const imgH = (canvas.height * pageW) / canvas.width;
 
-      // Split a tall letter across as many A4 pages as it needs, and
-      // always start a new page for a new recipient.
       let y = 0;
       while (y < imgH) {
         if (!isFirstPage) pdf.addPage();
         isFirstPage = false;
-        pdf.addImage(imgData, 'JPEG', 0, -y, pageW, imgH);
+        pdf.addImage(imgData, 'JPEG', 0, -y, pageW, imgH, undefined, 'FAST');
         y += pageH;
       }
+
+      // Free the frame before starting the next one so we don't accumulate
+      // a canvas + ~1-2 MB data-URL per iteration.
+      canvas.width = 0; canvas.height = 0;
+      canvas = null; imgData = null;
+      // Yield to let the UI update and the GC run.
+      await new Promise(r => setTimeout(r, 0));
     }
   } finally {
     host.remove();
@@ -237,7 +249,15 @@ async function mailMergeLetterPdf(scheme, recipients, onProgress) {
   const name = recipients.length === 1
     ? `Letter_${slug}_${(recipients[0].address1||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30)}.pdf`
     : `MailMerge_${slug}_${recipients.length}letters.pdf`;
-  pdf.save(name);
+
+  // Blob-based save handles large PDFs more reliably than pdf.save().
+  const blob = pdf.output('blob');
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  // Revoke slightly later so Safari/Firefox complete the download before the URL disappears.
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 const applyLetter = (root, scheme, recipient) => {
