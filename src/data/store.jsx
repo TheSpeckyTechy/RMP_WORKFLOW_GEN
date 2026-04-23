@@ -82,8 +82,9 @@ window.defaultBoq = () => ({
     markings_area:      0,
     include_line_marks: false,
     line_marks_m:       0,
-    iw_sw_cway:  0, iw_sse_cway: 0, iw_bt_cway: 0,
-    iw_sw_fw:    0, iw_sse_fw:   0, iw_bt_fw:   0,
+    iw_sw_cway:  0, iw_sse_cway: 0, iw_bt_cway: 0, iw_gas_cway: 0,
+    iw_sw_fw:    0, iw_sse_fw:   0, iw_bt_fw:   0, iw_gas_fw:   0,
+    iw_gully_cway: 0,
   },
   custom_lines: [],      // [{uid,id,desc,qty,unit,bandOverride?,series,auto?,notes?}]
   settings: {
@@ -133,9 +134,9 @@ const baseScheme = (overrides) => ({
   designer_phone: "01382 834028",
   reviewed_by: "Steve Lindsay",
   approved_by: "Steve Lindsay",
-  client_officer: "Ewan MacNaughton",
-  client_email: "ewan.macnaughton@dundeecity.gov.uk",
-  client_phone: "01382 434000",
+  client_officer: "James Mullen",
+  client_email: "James.Mullen@dundeecity.gov.uk",
+  client_phone: "01382 307921",
   contractor: "Tayside Contracts",
   contractor_ref: "",
   contractor_pe: "",
@@ -465,7 +466,7 @@ window.SCHEMES = [
 ];
 
 window.PACK_DOCS = [
-  { key: "front", name: "Front Sheet", type: "DOCX", auto: true },
+  { key: "front", name: "Front Sheet", type: "PDF", auto: true, working: true },
   { key: "pci", name: "PCI / CPP (FM710-10A)", type: "DOCX", auto: true, working: true },
   { key: "rsr", name: "Road Space Request Form", type: "DOCX", auto: true, working: true },
   { key: "letter", name: "Resident / Business Letter", type: "DOCX", auto: true, working: true },
@@ -495,6 +496,15 @@ window.UTILITIES = [
   { name: "Street Lighting", portal: "DCC internal" },
 ];
 
+// Tayside Contracts — project-engineer pool for the Contractor Project Engineer field.
+// Address for all: Contracts House, 1 Soutar Street, Dundee, DD3 8SS
+window.TAYSIDE_STAFF = [
+  { name: "Darren Conway",   role: "Senior Project Engineer",    mobile: "07585 987484", directLine: "",              email: "darren.conway@tayside-contracts.co.uk" },
+  { name: "Garry Robertson", role: "Project Engineer",           mobile: "07771 765668", directLine: "01382 834083", email: "" },
+  { name: "Ross Smith",      role: "Project Engineer",           mobile: "07799 583208", directLine: "01382 834085", email: "ross.smith@tayside-contracts.co.uk" },
+  { name: "Blair Shaw",      role: "Assistant Project Engineer", mobile: "07468 707896", directLine: "01382 834127", email: "" },
+];
+
 // The full Master Workbook schema — all 8 sections, 49 named ranges, in cell order
 window.WORKBOOK_SCHEMA = [
   { section: "1. Scheme Identity", fields: [
@@ -508,8 +518,28 @@ window.WORKBOOK_SCHEMA = [
   ]},
   { section: "2. Treatment Details", fields: [
     { key: "treatment_type", label: "Treatment Type", type: "select", options: [
-      "HRA 30/14F surf 40/60", "HRA 55/10F surf 40/60", "AC14 close binder 40/60",
-      "AC10 Taycoat 100/150", "AC6 dense 100/150", "SMA 10 surf 40/60", "Micro-asphalt"
+      // HRA — hot rolled asphalt surface courses
+      "HRA 30/14F surf 40/60",
+      "HRA 35/14F surf 40/60",
+      "HRA 55/10F surf 40/60",
+      // SMA — stone mastic asphalt
+      "SMA 10 surf 40/60",
+      "SMA 6 surf 100/150",
+      // AC — asphalt concrete surface courses
+      "AC14 close surf 40/60",
+      "AC14 HBC surf 40/60",
+      "AC10 close surf 40/60",
+      "AC10 HBC surf 40/60",
+      "AC10 Taycoat 100/150",
+      "AC6 dense 100/150",
+      // AC binder course (kept for legacy — typically not a surface course)
+      "AC14 close binder 40/60",
+      // Preventive / thin treatments — much cheaper per m² than hot-laid;
+      // selecting one produces very different BoQ line items.
+      "Micro-asphalt",
+      "Surface dressing 10mm intermediate",
+      "Surface dressing 10mm premium",
+      "Surface dressing 6mm intermediate",
     ]},
     { key: "surface_depth_mm", label: "Surface Course Depth (mm)", type: "number", mono: true },
     { key: "binder_depth_mm", label: "Binder Course Depth (mm)", type: "number", mono: true },
@@ -561,7 +591,7 @@ window.WORKBOOK_SCHEMA = [
     { key: "client_phone", label: "Client Officer Phone", type: "text", mono: true },
     { key: "contractor", label: "Contractor", type: "text" },
     { key: "contractor_ref", label: "Contractor Reference", type: "text", mono: true },
-    { key: "contractor_pe", label: "Contractor Project Engineer", type: "text" },
+    { key: "contractor_pe", label: "Contractor Project Engineer", type: "tayside-pe" },
     { key: "contractor_ch", label: "Contractor Chargehand", type: "text" },
     { key: "contractor_ooh", label: "Contractor Out-of-Hours", type: "text", mono: true },
     { key: "supervisor_name", label: "Site Supervisor Name", type: "text" },

@@ -171,6 +171,16 @@ LEGACY_TAG_MAP = {
     "iw_sw_fw":            "2700/01",
     "iw_sse_fw":           "2700/13",
     "iw_bt_fw":            "2700/33",
+    # SGN / gas covers (added in PR D2 — previously unreachable)
+    "iw_gas_cway":         "2700/83",
+    "iw_gas_fw":           "2700/73",
+    # Gully grating reset — Series 500 (added in PR D2)
+    "iw_gully_cway":       "5/195",
+    # Preventive / thin surface treatments (previously orphaned)
+    "surf_micro":          "11/201",
+    "sd_10mm_int":         "7/084",
+    "sd_10mm_prem":        "7/085",
+    "sd_6mm_int":          "7/086",
 }
 
 ITEM_ID_RE = re.compile(r"^\d+/\d+[A-Z]?$")

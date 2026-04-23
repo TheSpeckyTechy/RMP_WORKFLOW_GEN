@@ -9,7 +9,7 @@
 // Common Address Gazetteer CSV export, parses it client-side, and lets the
 // user search, filter, and select addresses to add as scheme recipients.
 //
-// Template file: templates/Residential_Letter_Template (1) (2).docx
+// Template file: templates/Residential_Letter_Template (1).docx
 //
 // Components:
 //   LetterDoc      — renders one letter for a given recipient
@@ -77,7 +77,7 @@ const LETTER_BINDINGS = [
 ];
 
 const loadLetterBuffer = async () => {
-  const res = await fetch("templates/Residential_Letter_Template%20(1).docx", { cache: 'no-cache' });
+  const res = await fetch("templates/Residential_Letter_Template (1).docx", { cache: 'no-cache' });
   if (!res.ok) throw new Error('Letter template not found');
   return res.arrayBuffer();
 };

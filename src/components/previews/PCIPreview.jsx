@@ -272,14 +272,14 @@ window.__downloadPCI = async (scheme) => {
     a.download = `PCI_CPP_${scheme.project_number}.docx`;
     a.click();
     URL.revokeObjectURL(url);
-    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number } }));
+    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number, fn: '__downloadPCI', schemeId: scheme.id } }));
   } catch (e) { console.warn('PCI download failed', e); }
 };
 
 window.__downloadPCIPdf = async (scheme) => {
   try {
     await downloadPCIPdf(scheme);
-    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP PDF — ${scheme.road_name}`, ref: scheme.project_number } }));
+    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP PDF — ${scheme.road_name}`, ref: scheme.project_number, fn: '__downloadPCIPdf', schemeId: scheme.id } }));
   } catch (e) { console.warn('PCI PDF download failed', e); }
 };
 

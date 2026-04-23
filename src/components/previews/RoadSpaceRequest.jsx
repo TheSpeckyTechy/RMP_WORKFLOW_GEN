@@ -212,14 +212,14 @@ const RSRModal = ({ scheme, onClose }) => {
 window.__downloadRSR = async (scheme) => {
   try {
     await downloadRSR(scheme);
-    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR — ${scheme.road_name}`, ref: scheme.project_number } }));
+    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR — ${scheme.road_name}`, ref: scheme.project_number, fn: '__downloadRSR', schemeId: scheme.id } }));
   } catch (e) { console.warn('RSR download failed', e); }
 };
 
 window.__downloadRSRPdf = async (scheme) => {
   try {
     await downloadRSRPdf(scheme);
-    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR PDF — ${scheme.road_name}`, ref: scheme.project_number } }));
+    window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR PDF — ${scheme.road_name}`, ref: scheme.project_number, fn: '__downloadRSRPdf', schemeId: scheme.id } }));
   } catch (e) { console.warn('RSR PDF download failed', e); }
 };
 

@@ -51,6 +51,21 @@ const withBoq = (s) => {
     };
   }
 
+  // ── 1b. New ironwork fields introduced in PR D2 (gas + gully) — default
+  //       to 0 so the rail can render them for legacy rows.
+  const qi2 = boq.quick_inputs || {};
+  if (!('iw_gas_cway' in qi2) || !('iw_gas_fw' in qi2) || !('iw_gully_cway' in qi2)) {
+    boq = {
+      ...boq,
+      quick_inputs: {
+        ...qi2,
+        iw_gas_cway:   +qi2.iw_gas_cway   || 0,
+        iw_gas_fw:     +qi2.iw_gas_fw     || 0,
+        iw_gully_cway: +qi2.iw_gully_cway || 0,
+      },
+    };
+  }
+
   // ── 2. Master-linked overrides. Compare each stored value against the
   //     value the Master would produce now. If they match, the field can
   //     cleanly follow the Master; if they differ, preserve the BoQ value
@@ -78,6 +93,66 @@ const initSchemes = () => {
   const extras = lsGetIds().filter(id => !defaultIds.has(id)).map(id => lsGet(id)).filter(Boolean).map(withBoq);
   return [...extras, ...base];
 };
+
+// Keep scheme.treatments[] and the zone_a1-a5_* Master-mirror fields in sync
+// as a single source of truth. Called from updateScheme before the write.
+//
+// Rules:
+//   - If `updates` includes `treatments`, it wins — rebuild zone_a1-5 from it.
+//   - Else if `updates` includes any zone_aN_* field, rebuild treatments from
+//     the resulting 5 slots.
+//   - Otherwise return updates unchanged.
+//
+// This means a Master Workbook edit to zone_a1_area_m2 flows into
+// scheme.treatments automatically, and a Treatment-tab zone edit refreshes
+// the mirror. The engine's deriveQuickInputsFromScheme reads treatments[],
+// so downstream BoQ auto-lines pick up the change on the next render.
+const ZONE_FIELD_RE = /^zone_a[1-5]_(description|area_m2|depth_mm|treatment)$/;
+
+function syncZoneMirror(current, updates) {
+  const touchesTreatments = Object.prototype.hasOwnProperty.call(updates, 'treatments');
+  const touchesZoneField  = Object.keys(updates).some(k => ZONE_FIELD_RE.test(k));
+  if (!touchesTreatments && !touchesZoneField) return updates;
+
+  const merged = { ...current, ...updates };
+  let zones;
+
+  if (touchesTreatments) {
+    zones = Array.isArray(merged.treatments) ? merged.treatments : [];
+  } else {
+    // Reconstruct from the 5 slots, preserving ids from existing treatments[]
+    // so per-zone identity survives Master-side edits.
+    const existing = Array.isArray(current.treatments) ? current.treatments : [];
+    zones = [];
+    for (let i = 1; i <= 5; i++) {
+      const desc      = merged[`zone_a${i}_description`];
+      const area      = +merged[`zone_a${i}_area_m2`]  || 0;
+      const depth     = +merged[`zone_a${i}_depth_mm`] || 0;
+      const treatment = merged[`zone_a${i}_treatment`];
+      const hasData   = (desc && String(desc).trim()) || area > 0 || depth > 0 || (treatment && String(treatment).trim());
+      if (!hasData) continue;
+      const prev = existing[i - 1] || {};
+      zones.push({
+        id:             prev.id || (1000 + i),
+        zone:           desc || prev.zone || '',
+        area_m2:        area,
+        depth_mm:       depth || prev.depth_mm || 40,
+        treatment_type: treatment || prev.treatment_type || '',
+      });
+    }
+  }
+
+  // Rebuild the Master-side mirror so both shapes always reflect `zones`.
+  const patched = { ...updates, treatments: zones };
+  for (let i = 1; i <= 5; i++) {
+    const z = zones[i - 1];
+    patched[`zone_a${i}_description`] = z ? (z.zone || '')           : '';
+    patched[`zone_a${i}_area_m2`]     = z ? (+z.area_m2 || 0)        : 0;
+    patched[`zone_a${i}_depth_mm`]    = z ? (+z.depth_mm || 0)       : 0;
+    patched[`zone_a${i}_treatment`]   = z ? (z.treatment_type || '') : '';
+  }
+  return patched;
+}
 
 // ── Supabase helpers ─────────────────────────────────────────────────────────
 const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
@@ -117,7 +192,8 @@ const SchemeProvider = ({ children }) => {
   const updateScheme = (id, updates) => {
     const current = latestSchemes.current.find(s => s.id === id);
     if (!current) return;
-    const merged = { ...current, ...updates };
+    const normalised = syncZoneMirror(current, updates);
+    const merged = { ...current, ...normalised };
     lsSet(id, merged);
     setSchemes(prev => prev.map(s => s.id === id ? merged : s));
     sbUpsertFn(id, merged, setSyncStatus, () => setLastSynced(new Date()));

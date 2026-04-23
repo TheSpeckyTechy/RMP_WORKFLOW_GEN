@@ -1869,7 +1869,14 @@ window.BOQ_LEGACY_TAG_MAP = {
   "iw_bt_cway": "2700/43",
   "iw_sw_fw": "2700/01",
   "iw_sse_fw": "2700/13",
-  "iw_bt_fw": "2700/33"
+  "iw_bt_fw": "2700/33",
+  "iw_gas_cway": "2700/83",
+  "iw_gas_fw": "2700/73",
+  "iw_gully_cway": "5/195",
+  "surf_micro": "11/201",
+  "sd_10mm_int": "7/084",
+  "sd_10mm_prem": "7/085",
+  "sd_6mm_int": "7/086"
 };
 
 

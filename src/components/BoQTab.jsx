@@ -183,6 +183,9 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
   const set = (k, v) => onChange({ ...inputs, [k]: v });
   const isOver = (k) => !!(overrides && overrides[k]);
 
+  // Zones drive the pavement lines when the Treatment tab has populated them.
+  const zonesActive = Array.isArray(inputs.surface_zones) && inputs.surface_zones.length > 0;
+
   // Lookup labels for display-only rendering of linked tag / enum values.
   const surfaceLabel = (tag) => (MAT.SURFACE_OPTIONS.find(o => o.tag === tag) || {}).label || tag || '—';
   const tmLabel      = (t)   => ({
@@ -243,16 +246,40 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
         </div>
       )}
 
-      <LinkedField label="Surface course" overridden={isOver('surface_tag')}
-        derivedValue={inputs.surface_tag} renderDisplay={surfaceLabel}
-        onOverride={()=>onOverride('surface_tag', inputs.surface_tag)}
-        onRelink={()=>onRelink('surface_tag')}>
-        <BQSelect value={inputs.surface_tag} onChange={v=>set('surface_tag',v)} label="" options={MAT.SURFACE_OPTIONS} />
-      </LinkedField>
-      <BQAreaOverride value={inputs.surface_area} onChange={v=>set('surface_area',v)} defaultArea={inputs.carriageway_area} />
+      {zonesActive ? (
+        <div className="boq-zones-banner" title="Treatment tab drives the surface + milling lines">
+          <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--accent)',marginBottom:6}}>
+            📐 Driven by {inputs.surface_zones.length} Treatment Zone{inputs.surface_zones.length === 1 ? '' : 's'}
+          </div>
+          {inputs.surface_zones.map((z, i) => (
+            <div key={i} style={{fontSize:11,color:'var(--ink-2)',lineHeight:1.5,display:'flex',justifyContent:'space-between',gap:8}}>
+              <span style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                <span className="mono" style={{fontSize:10,color:'var(--ink-3)',marginRight:4}}>{z.zoneLabel || ('Zone ' + (i+1))}</span>
+                {surfaceLabel(z.tag)}
+              </span>
+              <span className="mono" style={{fontSize:10,color:'var(--ink-3)',flexShrink:0}}>
+                {(+z.area || 0).toLocaleString()} m² · {z.depth} mm
+              </span>
+            </div>
+          ))}
+          <div style={{fontSize:10,color:'var(--ink-3)',marginTop:8,fontStyle:'italic'}}>
+            Edit materials and areas in the Treatment tab.
+          </div>
+        </div>
+      ) : (
+        <>
+          <LinkedField label="Surface course" overridden={isOver('surface_tag')}
+            derivedValue={inputs.surface_tag} renderDisplay={surfaceLabel}
+            onOverride={()=>onOverride('surface_tag', inputs.surface_tag)}
+            onRelink={()=>onRelink('surface_tag')}>
+            <BQSelect value={inputs.surface_tag} onChange={v=>set('surface_tag',v)} label="" options={MAT.SURFACE_OPTIONS} />
+          </LinkedField>
+          <BQAreaOverride value={inputs.surface_area} onChange={v=>set('surface_area',v)} defaultArea={inputs.carriageway_area} />
+        </>
+      )}
 
       <BQToggle value={inputs.include_milling} onChange={v=>set('include_milling',v)} label="Include milling" />
-      {inputs.include_milling && (
+      {inputs.include_milling && !zonesActive && (
         <BQMillingList
           entries={inputs.milling_entries || [{ depth: inputs.milling_depth || 40, area: null }]}
           onChange={v=>set('milling_entries',v)}
@@ -284,7 +311,12 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
           <BQAreaOverride value={inputs.binder_area} onChange={v=>set('binder_area',v)} defaultArea={inputs.carriageway_area} />
         </>
       )}
-      <BQToggle value={inputs.include_base} onChange={v=>set('include_base',v)} label="Base course" />
+      <LinkedField label="Base course" overridden={isOver('include_base')}
+        derivedValue={inputs.include_base}
+        onOverride={()=>onOverride('include_base', inputs.include_base)}
+        onRelink={()=>onRelink('include_base')}>
+        <BQToggle value={inputs.include_base} onChange={v=>set('include_base',v)} label="Base course" />
+      </LinkedField>
       {inputs.include_base && (
         <>
           <BQSelect value={inputs.base_tag} onChange={v=>set('base_tag',v)} label="Base type" options={MAT.BASE_OPTIONS} />
@@ -339,6 +371,31 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
           <BQToggle value={inputs.include_diversion} onChange={v=>set('include_diversion',v)} label="Include diversion route" />
         </LinkedField>
       )}
+      {inputs.tm_type === 'give_take' && (
+        <div style={{
+          fontSize:10, color:'var(--ink-2)', lineHeight:1.5,
+          background:'var(--bg-sunken)', border:'1px dashed var(--line)',
+          borderRadius:'var(--radius-sm)', padding:'8px 10px', marginBottom:9,
+        }}>
+          <strong style={{fontWeight:600}}>No TM lines emitted.</strong> Give &amp;
+          Take is an informal passing-place method with no formal signage or
+          dedicated traffic-control operatives. If the scheme still needs a
+          small provisional sum for site supervision, add it manually from the
+          catalogue.
+        </div>
+      )}
+      {inputs.tm_type === 'partial_closure' && (
+        <div style={{
+          fontSize:10, color:'var(--ink-2)', lineHeight:1.5,
+          background:'var(--bg-sunken)', border:'1px dashed var(--line)',
+          borderRadius:'var(--radius-sm)', padding:'8px 10px', marginBottom:9,
+        }}>
+          Partial Road Closure currently uses the full-closure day rate as
+          the nearest JMCA equivalent. If the running-lane maintenance on
+          your scheme warrants a different rate, add the appropriate
+          Series 100 line from the catalogue and adjust manually.
+        </div>
+      )}
 
       {/* 04 Ironwork */}
       <BQSectionLabel n="04" label="Ironwork (Accommodation Works)" />
@@ -359,7 +416,20 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
           <BQNum value={inputs.iw_bt_cway} onChange={v=>set('iw_bt_cway',v)} label="" unit="No" />
         </LinkedField>
         <BQNum value={inputs.iw_bt_fw}    onChange={v=>set('iw_bt_fw',v)}    label="BT — F'way"  unit="No" />
+        <LinkedField label="Gas — C'way" overridden={isOver('iw_gas_cway')}
+          derivedValue={inputs.iw_gas_cway} renderDisplay={v=>(+v||0)+' No'}
+          onOverride={()=>onOverride('iw_gas_cway', inputs.iw_gas_cway)}
+          onRelink={()=>onRelink('iw_gas_cway')}>
+          <BQNum value={inputs.iw_gas_cway} onChange={v=>set('iw_gas_cway',v)} label="" unit="No" />
+        </LinkedField>
+        <BQNum value={inputs.iw_gas_fw}   onChange={v=>set('iw_gas_fw',v)}   label="Gas — F'way" unit="No" />
       </div>
+      <LinkedField label="Gullies — reset (carriageway)" overridden={isOver('iw_gully_cway')}
+        derivedValue={inputs.iw_gully_cway} renderDisplay={v=>(+v||0)+' No'}
+        onOverride={()=>onOverride('iw_gully_cway', inputs.iw_gully_cway)}
+        onRelink={()=>onRelink('iw_gully_cway')}>
+        <BQNum value={inputs.iw_gully_cway} onChange={v=>set('iw_gully_cway',v)} label="" unit="No" />
+      </LinkedField>
 
       {/* 05 Footways & Kerbs */}
       <BQSectionLabel n="05" label="Footways & Kerbs" />
@@ -689,9 +759,10 @@ const BoQTab = ({ schemeId }) => {
 
   const commit = (patch) => updateScheme(schemeId, { boq: { ...boq, ...patch } });
 
-  const [quickDirty, setQuickDirty]   = React.useState(false);
-  const [drawerOpen, setDrawerOpen]   = React.useState(false);
-  const [downloading, setDownloading] = React.useState(false);
+  const [quickDirty, setQuickDirty]     = React.useState(false);
+  const [drawerOpen, setDrawerOpen]     = React.useState(false);
+  const [downloading, setDownloading]   = React.useState(false);
+  const [downloadingTC, setDownloadingTC] = React.useState(false);
 
   // Effective quick inputs = Master-derived values merged with user
   // overrides. This is the single shape the rail renders and the engine
@@ -752,6 +823,24 @@ const BoQTab = ({ schemeId }) => {
     setQuickDirty(true);
   };
 
+  // Push an overridden BoQ value up to its Master field. Clears the
+  // override flag afterwards so the field follows the Master again.
+  const pushToMaster = (key, value) => {
+    const patch = E.schemePatchForOverride(key, value, scheme);
+    if (!patch) return;
+    // Merge scheme patch + cleared override in a single updateScheme call so
+    // the subsequent re-render sees a consistent state.
+    const overrides = { ...(boq.overrides || {}) };
+    delete overrides[key];
+    const quick_inputs = { ...(boq.quick_inputs || {}) };
+    delete quick_inputs[key];
+    updateScheme(schemeId, {
+      ...patch,
+      boq: { ...boq, overrides, quick_inputs },
+    });
+    setQuickDirty(true);
+  };
+
   const editLine = (uid, patch) => {
     commit({ custom_lines: boq.custom_lines.map(l => l.uid === uid ? { ...l, ...patch } : l) });
   };
@@ -791,6 +880,18 @@ const BoQTab = ({ schemeId }) => {
 
   const handleSettings = (settings) => commit({ settings });
 
+  const handleDownloadTC = async () => {
+    if (!window.__downloadTCBoQ) { alert('TC BoQ module not loaded'); return; }
+    setDownloadingTC(true);
+    try {
+      await window.__downloadTCBoQ(scheme, computed);
+      updateScheme(schemeId, { docs_generated: { ...(scheme.docs_generated||{}), boq_tc: true } });
+    } catch (e) {
+      console.error(e);
+      alert('Download failed: ' + e.message);
+    } finally { setDownloadingTC(false); }
+  };
+
   const handleDownload = async () => {
     if (!window.exportBoQXlsx) { alert('Export module not loaded'); return; }
     setDownloading(true);
@@ -818,7 +919,10 @@ const BoQTab = ({ schemeId }) => {
           onSettingsChange={handleSettings}
           onDownload={handleDownload}
           downloading={downloading}
+          onDownloadTC={handleDownloadTC}
+          downloadingTC={downloadingTC}
           onRelink={relinkField}
+          onPushToMaster={pushToMaster}
         />
       )}
 
@@ -854,3 +958,13 @@ const BoQTab = ({ schemeId }) => {
 };
 
 window.BoQTab = BoQTab;
+
+// Standalone BoQ export usable by GenerateModal without the tab being mounted.
+window.__exportBoQForScheme = function(scheme) {
+  if (!window.exportBoQXlsx || !window.BOQ_ENGINE) throw new Error('BoQ engine not loaded');
+  const E = window.BOQ_ENGINE;
+  const boq = scheme.boq || (window.defaultBoq ? window.defaultBoq() : {});
+  const effective = E.effectiveQuickInputs(scheme, boq);
+  const computed  = E.buildBoQLines({ ...boq, quick_inputs: effective }, scheme);
+  window.exportBoQXlsx(scheme, { ...boq, quick_inputs: effective }, computed);
+};
