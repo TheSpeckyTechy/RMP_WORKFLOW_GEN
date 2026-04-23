@@ -23,6 +23,9 @@
   .page-actions{flex-wrap:wrap}
   .kbd{display:none}
   .mwb-head{flex-direction:column;gap:8px;align-items:flex-start}
+  .treatment-layout{grid-template-columns:1fr!important}
+  .zone-body{grid-template-columns:1fr!important}
+  .ward-copy-layout{grid-template-columns:1fr!important}
   .settings-view{max-width:100%}
   .rsr-doc{max-width:100%}
   .pci-docx-mount{max-width:100%}
@@ -43,6 +46,8 @@
   .pack-grid{grid-template-columns:1fr 1fr}
   .portal-links{grid-template-columns:repeat(2,1fr)}
   .schemes th:nth-child(n+3),.schemes td:nth-child(n+3){display:none}
+  .mwb-row{grid-template-columns:1fr}
+  .mwb-key{font-size:9px}
 }
 @media(max-width:320px){
   .gate-card{width:96vw}

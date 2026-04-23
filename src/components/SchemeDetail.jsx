@@ -181,7 +181,7 @@ const TreatmentTab = ({ schemeId }) => {
         <div className="section-head">
           <div className="section-title"><span className="section-num">01</span> Site conditions</div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:24, alignItems:"start" }}>
+        <div className="treatment-layout" style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:24, alignItems:"start" }}>
 
           {/* Left: factor questions */}
           <div>
@@ -246,7 +246,7 @@ const TreatmentTab = ({ schemeId }) => {
                 {zones.length > 1 && <button className="btn ghost sm" onClick={() => rmZone(zone.id)}><Icon.X /></button>}
               </div>
               {/* Zone body: two columns */}
-              <div style={{ display:"grid", gridTemplateColumns:"200px 1fr", gap:0 }}>
+              <div className="zone-body" style={{ display:"grid", gridTemplateColumns:"200px 1fr", gap:0 }}>
                 {/* Left: inputs */}
                 <div style={{ padding:"14px", borderRight:"1px solid var(--line)", display:"flex", flexDirection:"column", gap:12 }}>
                   <div className="field"><label>Area (m²)</label><input type="number" className="mono" value={zone.area_m2} onChange={e => updZone(zone.id, {area_m2:+e.target.value})} /></div>
@@ -261,7 +261,7 @@ const TreatmentTab = ({ schemeId }) => {
                     <div style={{ fontSize:11, color:"var(--ink-2)", lineHeight:1.6, borderTop:"1px solid var(--accent)", paddingTop:8, marginTop:6 }}>{rec.notes}</div>
                   </div>
                   <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-                    <select value={zone.treatment_type} onChange={e => updZone(zone.id, {treatment_type:e.target.value})} style={{ flex:1, minWidth:180 }}>
+                    <select value={zone.treatment_type} onChange={e => updZone(zone.id, {treatment_type:e.target.value})} style={{ flex:1 }}>
                       <option value="">— Use recommended —</option>
                       {TREATMENTS.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
@@ -303,7 +303,7 @@ const WardTab = ({ schemeId }) => {
     return entries;
   },[scheme.ward_num]);
   return (
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24}}>
+    <div className="ward-copy-layout" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24}}>
       <div className="form-section">
         <div className="section-head"><div className="section-title"><span className="section-num">W</span> Ward selection</div></div>
         <div className="ward-picker">{window.WARDS.map(w=><button key={w.num} className={"ward-btn "+(w.num===scheme.ward_num?"active":"")} onClick={()=>setWardNum(w.num)}><span className="ward-num">W{w.num.toString().padStart(2,"0")}</span><span className="ward-name">{w.name}</span></button>)}</div>
@@ -362,7 +362,7 @@ const UtilitiesTab = ({ scheme }) => {
               window.UTILITIES.forEach(u => { next[u.name] = e.target.checked ? (applied[u.name] || today) : ""; });
               updateScheme(scheme.id, { utility_applied: next });
             }}
-            style={{width:15,height:15,accentColor:"var(--accent)",cursor:"pointer",flexShrink:0}} />
+            style={{width:20,height:20,accentColor:"var(--accent)",cursor:"pointer",flexShrink:0}} />
           <span>Utility</span>
         </div>
         <div>Applied</div><div>Expiry</div><div>Status</div>
@@ -373,7 +373,7 @@ const UtilitiesTab = ({ scheme }) => {
           <div key={i} className="util-row util-row--tracker">
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <input type="checkbox" checked={!!r.applied} onChange={()=>toggleApplied(i)}
-                style={{width:15,height:15,accentColor:"var(--accent)",cursor:"pointer",flexShrink:0}} />
+                style={{width:20,height:20,accentColor:"var(--accent)",cursor:"pointer",flexShrink:0}} />
               <div>
                 <div className="util-name">{r.name}</div>
                 <div className="util-portal">{r.portal}</div>

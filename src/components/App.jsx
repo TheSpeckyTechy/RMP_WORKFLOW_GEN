@@ -310,7 +310,7 @@ const NewSchemeModal = ({ onClose, onCreate }) => {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e=>e.stopPropagation()} style={{width:480}}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-head">
           <div style={{fontWeight:600,fontSize:15}}>New Scheme</div>
           <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
@@ -321,7 +321,7 @@ const NewSchemeModal = ({ onClose, onCreate }) => {
               <label>Road Name <span style={{color:"var(--red)"}}>*</span></label>
               <input ref={nameRef} type="text" placeholder="e.g. Lochee Road" value={form.road_name} onChange={e=>set("road_name",e.target.value)} />
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div className="field-row">
               <div className="field">
                 <label>Project Number <span style={{color:"var(--red)"}}>*</span></label>
                 <input type="text" placeholder="e.g. R5042" value={form.project_number} onChange={e=>set("project_number",e.target.value)} className="mono" />
@@ -333,7 +333,7 @@ const NewSchemeModal = ({ onClose, onCreate }) => {
                 </select>
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div className="field-row">
               <div className="field">
                 <label>Scheme Type</label>
                 <select value={form.scheme_type} onChange={e=>set("scheme_type",e.target.value)}>
