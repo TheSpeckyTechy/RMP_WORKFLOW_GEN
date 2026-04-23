@@ -15,7 +15,7 @@ async function downloadTCBoQXlsx(scheme, computed) {
   const buffer = await res.arrayBuffer();
 
   const wb = window.XLSX.read(new Uint8Array(buffer), {
-    type: 'uint8',
+    type: 'array',
     cellFormula: true,
     cellStyles: true,
   });
