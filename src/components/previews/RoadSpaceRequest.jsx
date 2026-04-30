@@ -138,7 +138,8 @@ async function downloadRSRPdf(scheme) {
   document.body.appendChild(container);
   try {
     const root = ReactDOM.createRoot(container);
-    root.render(React.createElement(RoadSpaceRequestDoc, { scheme }));
+    const displayScheme = { ...scheme, treatment_type: scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type };
+    root.render(React.createElement(RoadSpaceRequestDoc, { scheme: displayScheme }));
     await new Promise(r => setTimeout(r, 400));
     await window.htmlToPdf(
       container.firstChild || container,
@@ -185,7 +186,7 @@ const RSRModal = ({ scheme, onClose }) => {
           </div>
         </div>
         <div className="rsr-body">
-          <div className="rsr-preview-pane"><RoadSpaceRequestDoc scheme={scheme} /></div>
+          <div className="rsr-preview-pane"><RoadSpaceRequestDoc scheme={{...scheme, treatment_type: scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type}} /></div>
           <div className="rsr-side">
             <div className="rsr-side-title">Field bindings</div>
             <div className="rsr-bind-list">
