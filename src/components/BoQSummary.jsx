@@ -122,7 +122,7 @@ const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onDownl
           {scheme.area_m2 > 0 && <><span>·</span><span className="mono">{(+scheme.area_m2).toLocaleString()} m²</span></>}
           {scheme.date_start && <><span>·</span><span className="mono">{scheme.date_start}{scheme.date_finish ? ` → ${scheme.date_finish}` : ''}</span></>}
           {workingDays && <><span>·</span><span className="mono">{workingDays} wd</span></>}
-          {scheme.treatment_type && <><span>·</span><span>{scheme.treatment_type}</span></>}
+          {scheme.treatment_type && <><span>·</span><span>{scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type}</span></>}
         </div>
       </div>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
@@ -434,6 +434,12 @@ const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downl
   return (
     <div className="boq-summary">
       <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} downloading={downloading} onDownloadTC={onDownloadTC} downloadingTC={downloadingTC} onRelink={onRelink} onPushToMaster={onPushToMaster} />
+      {computed.hasCustomTreatment && (
+        <div className="boq-custom-notice">
+          <strong>Custom treatment</strong> — surface course items not auto-generated.
+          Add Series 700 or custom items manually using the controls below.
+        </div>
+      )}
       <CostBreakdownBar groups={computed.groups} subtotal={computed.subtotal} />
       <SeriesCardGrid groups={computed.groups} subtotal={computed.subtotal} />
       <GrandTotalPanel computed={computed} boq={boq} onSettingsChange={onSettingsChange} />

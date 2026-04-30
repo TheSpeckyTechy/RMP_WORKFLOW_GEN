@@ -217,7 +217,7 @@ const TreatmentTab = ({ schemeId }) => {
   const scorePct   = Math.min(100, Math.round((score / MAX_SCORE) * 100));
 
   // ── Treatment zones ──────────────────────────────────────────────────────────
-  const TREATMENTS = ["HRA 30/14F surf 40/60","HRA 55/10F surf 40/60","AC14 close binder 40/60","AC10 Taycoat 100/150","AC6 dense 100/150","SMA 10 surf 40/60","Micro-asphalt"];
+  const TREATMENTS = ["HRA 30/14F surf 40/60","HRA 55/10F surf 40/60","AC14 close binder 40/60","AC10 Taycoat 100/150","AC6 dense 100/150","SMA 10 surf 40/60","Micro-asphalt","Other"];
   const zones    = (scheme.treatments && scheme.treatments.length > 0) ? scheme.treatments : [{ id:1, zone:"Main carriageway", area_m2:+scheme.area_m2||0, depth_mm:+scheme.total_depth_mm||40, treatment_type:"" }];
   const setZones = (z) => {
     const zoneUpdates = {};
@@ -361,6 +361,12 @@ const TreatmentTab = ({ schemeId }) => {
                       <option value="">— Use recommended —</option>
                       {TREATMENTS.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
+                    {zone.treatment_type === 'Other' && (
+                      <input type="text" placeholder="Describe custom treatment"
+                        value={zone.custom_description || ''}
+                        onChange={e => updZone(zone.id, {custom_description:e.target.value})}
+                        style={{flex:2,minWidth:200}} />
+                    )}
                     <button className="btn sm primary" onClick={() => applyZone(zone)}>
                       {idx===0 ? "Accept & apply to workbook" : "Apply to workbook"}
                     </button>

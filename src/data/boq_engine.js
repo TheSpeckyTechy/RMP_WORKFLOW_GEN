@@ -108,7 +108,7 @@
     if (t.includes('ac 14')  || t.includes('ac14'))  return 'surf_ac14_40';
     if (t.includes('ac 10')  || t.includes('ac10'))  return 'surf_ac10_40';
     if (t.includes('ac 6')   || t.includes('ac6'))   return 'surf_ac6_30';
-    return 'surf_hra3014_40_14';
+    return null;
   };
 
   // Given an item id like '7/027' / '2700/43', return its series number.
@@ -217,7 +217,7 @@
       if (q.include_binder) pushByTag(binderTag, layerArea(q.binder_area));
       if (q.include_base)   pushByTag(baseTag,   layerArea(q.base_area));
       const sA = layerArea(q.surface_area);
-      if (sA > 0) pushByTag(q.surface_tag || 'surf_hra3014_40_14', sA);
+      if (sA > 0 && q.surface_tag) pushByTag(q.surface_tag, sA);
     }
 
     // Sub-base is scheme-wide (rarely zone-driven — it's a full reconstruction
@@ -377,6 +377,7 @@
       vat,
       totalIncVat,
       areaBandOverride: areaBand,
+      hasCustomTreatment: !matchSurfaceTag(scheme.treatment_type),
     };
   }
 

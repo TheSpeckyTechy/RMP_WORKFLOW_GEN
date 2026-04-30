@@ -290,6 +290,7 @@ const LetterDoc = ({ scheme, recipient, onPageCount }) => {
   const [status, setStatus] = React.useState("loading");
   React.useEffect(() => {
     let cancelled=false;
+    if (onPageCount) onPageCount(null);
     (async()=>{
       try {
         const buf=await loadLetterBuffer();
@@ -298,7 +299,7 @@ const LetterDoc = ({ scheme, recipient, onPageCount }) => {
         await window.docx.renderAsync(buf,ref.current,null,{className:"docx",inWrapper:true,ignoreWidth:false,ignoreHeight:false,ignoreFonts:false,breakPages:true,experimental:false,trimXmlDeclaration:true,useBase64URL:true});
         if(cancelled)return;
         applyLetter(ref.current,scheme,recipient);
-        if (onPageCount && ref.current) {
+        if (onPageCount) {
           const pages = ref.current.querySelectorAll('.docx-page-wrapper, .docx-page, section[class*="page"]');
           onPageCount(Math.max(1, pages.length));
         }
@@ -601,8 +602,6 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
   const [mergeProgress, setMergeProgress] = React.useState(null);
   const [pageCount, setPageCount] = React.useState(null);
   const recipient = recipients[selectedIdx];
-
-  React.useEffect(() => { setPageCount(null); }, [selectedIdx]);
 
   const runMailMerge = async (mode) => {
     setMerging(true);
