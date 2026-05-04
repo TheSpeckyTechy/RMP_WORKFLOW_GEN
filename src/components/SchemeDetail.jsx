@@ -74,6 +74,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
   const { getScheme, updateScheme, deleteScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
   const [tab, setTab] = React.useState("workbook");
+  const [showSketch, setShowSketch] = React.useState(false);
   const isMobile = React.useMemo(()=>window.innerWidth<=768,[]);
   const [mobileExpanded, setMobileExpanded] = React.useState(false);
   const workbookFieldCount = window.WORKBOOK_SCHEMA.flatMap(s=>s.fields).filter(f=>f.type!=="subheader"&&f.type!=="zone-label").length;
@@ -121,6 +122,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
           </p>
         </div>
         <div style={{display:"flex",gap:8}}>
+          {scheme.sketch_pdf && <button className="btn ghost" onClick={()=>setShowSketch(true)} title="View pre-design sketch">📄 View sketch</button>}
           <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>
           {onDuplicate && <button className="btn ghost sm" title="Duplicate scheme" onClick={()=>onDuplicate(scheme)}><Icon.Copy /></button>}
@@ -172,6 +174,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
       {tab==="utilities"&&<UtilitiesTab scheme={scheme} />}
       {tab==="boq"&&<BoQTab schemeId={schemeId} />}
       {tab==="pack"&&<PackTab scheme={scheme} onGenerate={onGenerate} onPreview={onPreview} onTabSwitch={setTab} />}
+      {showSketch && <SketchModal pdf={scheme.sketch_pdf} road={scheme.road_name} onClose={()=>setShowSketch(false)} />}
     </>
   );
 };
@@ -738,5 +741,22 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
     </div>
   );
 };
+
+const SketchModal = ({ pdf, road, onClose }) => (
+  <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal sketch-modal" onClick={e=>e.stopPropagation()}>
+      <div className="modal-head">
+        <div style={{fontWeight:600,fontSize:15}}>Pre-design sketch · {road}</div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <a className="btn sm" href={`templates/${pdf}`} download={pdf} title="Download sketch PDF"><Icon.Download /> Download</a>
+          <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
+        </div>
+      </div>
+      <div className="sketch-body">
+        <iframe src={`templates/${pdf}`} title={`Sketch — ${road}`} className="sketch-frame" />
+      </div>
+    </div>
+  </div>
+);
 
 window.SchemeDetail = SchemeDetail;
