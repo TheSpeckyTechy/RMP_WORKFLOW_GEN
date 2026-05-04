@@ -1,0 +1,201 @@
+/* ─── sd-panels.css ───────────────────────────────────────────────────────────
+   Surface Dressing tab — panel widgets. Ported from the standalone Surface
+   Dressing Designer with class names left as `.sd-*` (no collision in RMP).
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Local theme tokens — fall back gracefully if not defined globally */
+.sd-tab {
+  --sd-copper: var(--accent, #c6572c);
+  --sd-copper-soft: var(--accent-wash, rgba(198, 87, 44, 0.12));
+  --sd-purple: #7d6f8d;
+  --sd-purple-soft: rgba(125, 111, 141, 0.12);
+  --sd-danger: var(--red, #c0392b);
+  --sd-warn: #e0a458;
+  --sd-text: var(--ink, #1c1a23);
+  --sd-text-muted: var(--ink-2, #666);
+  --sd-text-dim: var(--ink-3, #888);
+  --sd-border: var(--line, #e5e5e8);
+  --sd-bg: var(--bg, #ffffff);
+  --sd-panel: var(--bg-elev, #fafafa);
+  --sd-panel-2: var(--bg-sunken, #f3f3f5);
+  --sd-radius: var(--radius, 8px);
+  --sd-radius-sm: var(--radius-sm, 4px);
+  --sd-sans: 'Inter', system-ui, sans-serif;
+}
+
+.sd-tab .sd-panel {
+  background: var(--sd-panel);
+  border: 1px solid var(--sd-border);
+  border-radius: var(--sd-radius);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.sd-tab .sd-panel-title {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--sd-text);
+  margin-bottom: 12px;
+}
+
+.sd-tab .sd-step-num {
+  background: var(--sd-copper);
+  color: white;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.sd-tab .sd-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.sd-tab .sd-row    { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sd-tab .sd-row-3  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.sd-tab .sd-row-4  { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+@media (max-width: 900px) { .sd-tab .sd-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) {
+  .sd-tab .sd-row, .sd-tab .sd-row-3, .sd-tab .sd-row-4 { grid-template-columns: 1fr; }
+}
+
+.sd-tab .sd-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.sd-tab .sd-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--sd-text-dim); font-weight: 500;
+}
+.sd-tab .sd-input,
+.sd-tab .sd-select,
+.sd-tab .sd-textarea {
+  width: 100%;
+  background: var(--sd-bg);
+  border: 1px solid var(--sd-border);
+  color: var(--sd-text);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  border-radius: var(--sd-radius-sm);
+  outline: none;
+}
+.sd-tab .sd-input:focus,
+.sd-tab .sd-select:focus,
+.sd-tab .sd-textarea:focus { border-color: var(--sd-copper); }
+.sd-tab .sd-textarea { resize: vertical; min-height: 60px; }
+.sd-tab .sd-hint     { font-size: 11px; color: var(--sd-text-muted); }
+
+.sd-tab .sd-result {
+  background: var(--sd-bg);
+  border: 1px solid var(--sd-border);
+  padding: 11px;
+  border-radius: var(--sd-radius-sm);
+  margin-top: 8px;
+}
+.sd-tab .sd-result-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--sd-text-dim); margin-bottom: 4px; }
+.sd-tab .sd-result-value { font-family: var(--sd-sans); font-size: 20px; font-weight: 600; color: var(--sd-text); }
+.sd-tab .sd-result-sub   { font-size: 11px; color: var(--sd-text-muted); margin-top: 2px; }
+
+.sd-tab .sd-suitability-box   { padding: 14px; border-radius: var(--sd-radius-sm); margin-top: 10px; border-left: 4px solid; }
+.sd-tab .sd-suitability-title { font-family: var(--sd-sans); font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.sd-tab .sd-suitability-desc  { font-size: 12px; color: var(--sd-text-muted); }
+
+.sd-tab .sd-recommendation {
+  background: var(--sd-purple-soft);
+  border: 1px solid var(--sd-purple);
+  padding: 14px;
+  border-radius: var(--sd-radius-sm);
+  margin-top: 10px;
+}
+.sd-tab .sd-recommendation-title { font-family: var(--sd-sans); color: var(--sd-purple); font-weight: 700; font-size: 14px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.sd-tab .sd-recommendation-text  { font-size: 12px; color: var(--sd-text); line-height: 1.5; }
+
+.sd-tab .sd-warning {
+  background: rgba(229, 115, 115, 0.10);
+  border-left: 3px solid var(--sd-danger);
+  padding: 11px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--sd-text);
+  border-radius: var(--sd-radius-sm);
+}
+.sd-tab .sd-info {
+  background: var(--sd-copper-soft);
+  border-left: 3px solid var(--sd-copper);
+  padding: 11px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--sd-text);
+  border-radius: var(--sd-radius-sm);
+}
+
+.sd-tab .sd-checkbox-label {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 12px; color: var(--sd-text-muted); cursor: pointer;
+  line-height: 1.4; margin-top: 4px;
+}
+.sd-tab .sd-checkbox-label input { margin-top: 2px; accent-color: var(--sd-copper); }
+
+/* Seasonal grid */
+.sd-tab .sd-season-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; margin-top: 8px; }
+.sd-tab .sd-season-cell {
+  padding: 6px 2px; text-align: center; font-size: 10px; font-weight: 600;
+  cursor: pointer; border: 1px solid transparent; border-radius: 2px;
+  user-select: none;
+}
+.sd-tab .sd-season-cell.active { border-color: var(--sd-copper); outline: 1px solid var(--sd-copper); }
+
+/* Pricing table */
+.sd-tab .sd-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+.sd-tab .sd-table th, .sd-tab .sd-table td { padding: 6px 8px; border: 1px solid var(--sd-border); text-align: left; }
+.sd-tab .sd-table th { background: var(--sd-panel-2); color: var(--sd-copper); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.sd-tab .sd-pricing-table tbody tr        { cursor: pointer; }
+.sd-tab .sd-pricing-table tbody tr:hover  { background: var(--sd-purple-soft); }
+.sd-tab .sd-pricing-table tr.selected     { background: var(--sd-copper-soft); }
+
+.sd-tab .sd-pricing-headline {
+  background: var(--sd-bg);
+  border: 2px solid var(--sd-copper);
+  padding: 16px;
+  border-radius: var(--sd-radius-sm);
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.sd-tab .sd-pricing-big { font-family: var(--sd-sans); font-size: 24px; font-weight: 700; color: var(--sd-copper); }
+
+.sd-tab .sd-actions { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
+.sd-tab .sd-btn {
+  background: var(--sd-copper); color: white; border: none;
+  padding: 8px 16px; font-size: 13px; font-family: inherit;
+  border-radius: var(--sd-radius-sm); cursor: pointer; font-weight: 500;
+}
+.sd-tab .sd-btn:hover { filter: brightness(1.05); }
+.sd-tab .sd-btn-secondary {
+  background: var(--sd-panel-2); color: var(--sd-text); border: 1px solid var(--sd-border);
+}
+
+/* Modal — Series 700 rate editor */
+.sd-rate-modal-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.sd-rate-modal {
+  background: var(--sd-bg);
+  border: 1px solid var(--sd-border);
+  border-radius: var(--sd-radius);
+  width: 100%; max-width: 720px;
+  max-height: 90vh; overflow: auto;
+  padding: 18px;
+}
+.sd-rate-modal h3 { margin: 0 0 12px; font-size: 15px; }
+.sd-rate-modal table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.sd-rate-modal th, .sd-rate-modal td { padding: 5px 6px; border-bottom: 1px solid var(--sd-border); text-align: left; }
+.sd-rate-modal input { width: 70px; padding: 3px 5px; font-family: inherit; font-size: 11px; }
+
+/* Hide chrome when proforma is on screen */
+.sd-tab .sd-no-print { /* placeholder — only used to opt out of print */ }
