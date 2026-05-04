@@ -35,6 +35,20 @@ const exportRegister = (list) => {
   XLSX.writeFile(wb, `RMP_Register_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
 
+const parseStartDate = (s) => {
+  if (!s) return Infinity;
+  const parts = s.split('/');
+  if (parts.length !== 3) return Infinity;
+  return new Date(+parts[2], +parts[1] - 1, +parts[0]).getTime();
+};
+
+const isUrgentScheme = (s) => {
+  const ms = parseStartDate(s.date_start);
+  if (!isFinite(ms)) return false;
+  const now = Date.now();
+  return ms > now && ms - now <= 42 * 24 * 60 * 60 * 1000;
+};
+
 const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
   const { schemes, resetAllSchemes } = React.useContext(window.SchemeContext);
   const handleReset = () => {
@@ -43,7 +57,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
     }
   };
   const statusFiltered = filter === "all" ? schemes : schemes.filter(s => s.status === filter);
-  const list = search
+  const list = (search
     ? statusFiltered.filter(s => {
         const q = search.toLowerCase();
         return (s.project_number||"").toLowerCase().includes(q) ||
@@ -52,9 +66,10 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
                (s.scheme_extent||"").toLowerCase().includes(q) ||
                (s.treatment_type||"").toLowerCase().includes(q);
       })
-    : statusFiltered;
+    : statusFiltered).slice().sort((a, b) => parseStartDate(a.date_start) - parseStartDate(b.date_start));
   const totals = {
     live: schemes.filter(s => s.status !== "archived").length,
+    urgent: schemes.filter(s => isUrgentScheme(s)).length,
     tender: schemes.filter(s => s.status !== "archived").reduce((a,s) => a + (+s.tender_total||0), 0),
     m2: schemes.filter(s => s.status !== "archived").reduce((a,s) => a + (+s.area_m2||0), 0),
     ready: schemes.filter(s => s.packProgress === s.packTotal && s.status !== "archived").length,
@@ -77,8 +92,8 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
         </div>
       </div>
       <div className="stats">
-        <div className="stat"><div className="stat-label">Live schemes</div><div className="stat-value">{totals.live}</div><div className="stat-meta"><span className="up">▲ 2</span> vs last quarter</div></div>
-        <div className="stat"><div className="stat-label">Combined tender value</div><div className="stat-value">{fmtGBP(totals.tender)}</div><div className="stat-meta">FY 2025/26 + 2026/27</div></div>
+        <div className="stat"><div className="stat-label">Live schemes</div><div className="stat-value">{totals.live}</div><div className="stat-meta">FY 2025/26 + 2026/27</div></div>
+        <div className="stat"><div className="stat-label">Starts within 6 weeks</div><div className="stat-value" style={totals.urgent>0?{color:'var(--amber)'}:{}}>{totals.urgent}</div><div className="stat-meta">{totals.urgent>0?'⚡ Action required':'All future schemes have time'}</div></div>
         <div className="stat"><div className="stat-label">Total area</div><div className="stat-value">{totals.m2.toLocaleString()}<span className="unit">m²</span></div><div className="stat-meta">across {totals.live} roads</div></div>
         <div className="stat"><div className="stat-label">Packs ready to issue</div><div className="stat-value">{totals.ready}<span className="unit">/ {totals.live}</span></div><div className="stat-meta">auto-generated from workbook</div></div>
       </div>
@@ -88,17 +103,22 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
       </div>
       <div className="table-wrap">
         <table className="schemes">
-          <thead><tr><th>Ref</th><th>Scheme</th><th>Ward</th><th>Treatment</th><th>Area</th><th>Tender</th><th>Pack</th><th>Complete</th><th>Status</th><th style={{width:30}}></th></tr></thead>
+          <thead><tr><th>Ref</th><th>Scheme</th><th>Start</th><th>Ward</th><th>Treatment</th><th>Area</th><th>Tender</th><th>Pack</th><th>Complete</th><th>Status</th><th style={{width:30}}></th></tr></thead>
           <tbody>
             {list.map(s => {
               const ward = window.WARDS.find(w => w.num === s.ward_num);
               const pct = (s.packProgress / s.packTotal) * 100;
               const score = schemeScore(s);
               const scoreColor = score === 100 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red,#c0392b)';
+              const urgent = isUrgentScheme(s);
               return (
-                <tr key={s.id} onClick={() => onOpen(s.id)}>
+                <tr key={s.id} onClick={() => onOpen(s.id)} style={urgent ? {background:'var(--amber-wash)'} : {}}>
                   <td><span className="row-ref mono">{s.project_number}</span>{s.flags&&s.flags.length>0&&<span style={{marginLeft:6,color:"var(--amber)",display:"inline-flex",verticalAlign:"middle"}}><Icon.Alert /></span>}</td>
-                  <td><div className="row-name">{s.road_name}</div><div className="row-sub">{s.scheme_extent}</div></td>
+                  <td>
+                    <div className="row-name">{s.road_name}{urgent && <span className="urgent-chip">⚡ Urgent</span>}</div>
+                    <div className="row-sub">{s.scheme_extent}</div>
+                  </td>
+                  <td className="mono" style={{fontSize:11,whiteSpace:'nowrap'}}>{s.date_start||'—'}</td>
                   <td><span className="mono" style={{fontSize:11,color:"var(--ink-3)"}}>W{ward?.num}</span> <span style={{fontSize:12}}>{ward?.name}</span></td>
                   <td style={{fontSize:12,color:"var(--ink-2)"}}>{s.treatment_type}<div className="row-sub">{s.total_depth_mm}mm · {s.scheme_type}</div></td>
                   <td className="mono" style={{fontSize:12}}>{(+s.area_m2).toLocaleString()} m²</td>
