@@ -456,6 +456,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
    regardless of theme trigger. */
 .docx,.docx-wrapper,.rsr-doc,.doc-preview .sheet{color-scheme:light}
 
+/* Sketch preview modal */
+.modal.sketch-modal{width:min(96vw,900px);height:min(92vh,860px)}
+.sketch-body{flex:1;overflow:hidden;background:var(--bg-sunken)}
+.sketch-frame{width:100%;height:100%;border:none;display:block}
+
 /* Inline error toast — themeable surface for validation messages */
 .inline-error{background:#fff0f0;border:1px solid #fca5a5}
 [data-theme="dark"] .inline-error{background:rgba(248,113,113,0.14);border:1px solid rgba(248,113,113,0.4)}
