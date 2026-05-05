@@ -38,6 +38,7 @@ const GenerateModal = ({ scheme, onClose }) => {
     { l: "Populating PCI / CPP", meta: "DOCX" },
     { l: "Populating Road Space Request Form", meta: "DOCX" },
     { l: "Building Master Workbook export", meta: "XLSX" },
+    { l: "Compiling BoQ Summary", meta: "PDF" },
   ];
   React.useEffect(() => {
     if (step >= steps.length) { setDone(true); return; }
@@ -53,6 +54,19 @@ const GenerateModal = ({ scheme, onClose }) => {
       try { if (window.__downloadPCI) await window.__downloadPCI(scheme); } catch {}
       try { if (window.__downloadPCIPdf) await window.__downloadPCIPdf(scheme); } catch {}
       try { if (window.__workbookExport) window.__workbookExport(); } catch {}
+      // BoQ Summary PDF — compiled live from the scheme's BoQ state. If
+      // the BoQ tab hasn't been opened yet for this scheme, compute on
+      // the fly using the engine's effective inputs.
+      try {
+        if (window.exportBoQSummaryPDF && window.BOQ_ENGINE && scheme.boq) {
+          const E = window.BOQ_ENGINE;
+          const eff = E.effectiveQuickInputs(scheme, scheme.boq);
+          const computed = E.buildBoQLines({ ...scheme.boq, quick_inputs: eff }, scheme);
+          if (computed.groups.length > 0) {
+            window.exportBoQSummaryPDF(scheme, { ...scheme.boq, quick_inputs: eff }, computed);
+          }
+        }
+      } catch (e) { console.warn('BoQ Summary PDF skipped:', e.message); }
       setExporting(false);
       setExported(true);
     })();
