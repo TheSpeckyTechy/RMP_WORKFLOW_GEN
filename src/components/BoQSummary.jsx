@@ -89,7 +89,7 @@ const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
   );
 };
 
-const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onRelink, onPushToMaster }) => {
+const ProjectHeader = ({ scheme, boq, computed, onDownload, onDownloadPdf, downloading, onRelink, onPushToMaster }) => {
   const [panelOpen, setPanelOpen] = React.useState(false);
   const workingDays = (() => {
     if (!scheme.date_start || !scheme.date_finish) return null;
@@ -127,6 +127,12 @@ const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onRelin
           <div style={{fontSize:10,color:'var(--ink-3)',textTransform:'uppercase',letterSpacing:'0.07em'}}>Total inc VAT</div>
           <div className="mono" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em'}}>{_E.fmtGBP(computed.totalIncVat)}</div>
         </div>
+        {onDownloadPdf && (
+          <button className="btn" onClick={onDownloadPdf} disabled={downloading || !computed.groups.length}
+            title="Download a single-page Summary PDF for the handover pack">
+            <Icon.Download /> Summary PDF
+          </button>
+        )}
         <button className="btn accent" onClick={onDownload} disabled={downloading || !computed.groups.length}>
           <Icon.Download /> {downloading ? 'Generating…' : 'Download .xlsx'}
         </button>
@@ -417,10 +423,10 @@ const RatesFooter = ({ computed, boq }) => {
 };
 
 // ── BoQSummary (top-level, exported) ─────────────────────────────────────────
-const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading, onRelink, onPushToMaster }) => {
+const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, onDownloadPdf, downloading, onRelink, onPushToMaster }) => {
   return (
     <div className="boq-summary">
-      <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} downloading={downloading} onRelink={onRelink} onPushToMaster={onPushToMaster} />
+      <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} onDownloadPdf={onDownloadPdf} downloading={downloading} onRelink={onRelink} onPushToMaster={onPushToMaster} />
       <CostBreakdownBar groups={computed.groups} subtotal={computed.subtotal} />
       <SeriesCardGrid groups={computed.groups} subtotal={computed.subtotal} />
       <GrandTotalPanel computed={computed} boq={boq} onSettingsChange={onSettingsChange} />

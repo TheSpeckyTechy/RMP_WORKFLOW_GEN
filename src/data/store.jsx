@@ -398,6 +398,7 @@ window.PACK_DOCS = [
   { key: "rsr", name: "Road Space Request Form", type: "DOCX", auto: true, working: true },
   { key: "letter", name: "Resident / Business Letter", type: "DOCX", auto: true, working: true },
   { key: "boq", name: "Bill of Quantities", type: "XLSX", auto: true, working: true },
+  { key: "boq_summary", name: "BoQ Summary", type: "PDF", auto: true, working: true },
   { key: "drawings", name: "Resurfacing & Ironwork Plans", type: "DWG", auto: false },
   { key: "tm", name: "Traffic Management Plans", type: "PDF", auto: false },
   { key: "utilities", name: "Utility Searches Pack", type: "PDF", auto: false },
