@@ -621,6 +621,34 @@ async function downloadFrontPdf(scheme) {
 // Expose at file scope so GenerateModal can use it without PackTab being mounted.
 window.__downloadFrontPdf = downloadFrontPdf;
 
+// ─── Pack file upload helpers ─────────────────────────────────────────────────
+
+const readPDFasDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload  = () => resolve(reader.result);
+  reader.onerror = () => reject(new Error('Failed to read file'));
+  reader.readAsDataURL(file);
+});
+
+const PackFileModal = ({ packFile, docName, onClose }) => (
+  <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal sketch-modal" onClick={e => e.stopPropagation()}>
+      <div className="modal-head">
+        <div style={{fontWeight:600,fontSize:15}}>{docName} — {packFile.name}</div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <a className="btn sm" href={packFile.data} download={packFile.name} title="Download file">
+            <Icon.Download /> Download
+          </a>
+          <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
+        </div>
+      </div>
+      <div className="sketch-body">
+        <iframe src={packFile.data} title={docName} className="sketch-frame" />
+      </div>
+    </div>
+  </div>
+);
+
 // ─── Doc Preview (thumbnail per document type) ────────────────────────────────
 
 const DocPreview = ({ docKey, scheme }) => {
@@ -652,25 +680,20 @@ const DocPreview = ({ docKey, scheme }) => {
     if(!breakdown.length) breakdown=[{l:'(not generated yet)',v:'—'}];
     return <div><div style={{fontWeight:700,fontSize:6}}>BILL OF QUANTITIES</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0",fontWeight:b.bold?700:400}}><span>{b.l}</span><span>{b.v}</span></div>)}</div>;
   }
-  if(docKey==="utilities"){
-    const pdfs = scheme.utility_pdfs || [];
-    if (!pdfs.length) {
-      return <div style={{color:"#aaa",fontSize:5,textAlign:"center",paddingTop:20}}>[UTILITIES]<br/>Upload utility drawings (PDF)</div>;
-    }
+  const packFile = scheme[`pack_file_${docKey}`];
+  if (packFile) {
     return (
-      <div>
-        <div style={{fontWeight:700,fontSize:6,marginBottom:3}}>Utility Drawings</div>
-        <div style={{fontSize:4,color:"#666",marginBottom:4}}>{pdfs.length} PDF{pdfs.length===1?"":"s"} attached</div>
-        {pdfs.slice(0, 8).map((p, i) => (
-          <div key={i} style={{fontSize:4,padding:"1px 0",borderBottom:"1px solid #eee",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-            <span style={{color:"#dc2626",fontWeight:700}}>PDF</span> {p.name}
-          </div>
-        ))}
-        {pdfs.length > 8 && <div style={{fontSize:4,color:"#666",marginTop:2}}>+{pdfs.length - 8} more</div>}
+      <div style={{textAlign:'center',paddingTop:10,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
+        </svg>
+        <div style={{fontSize:5,fontWeight:700,color:'#dc2626',letterSpacing:'0.05em'}}>PDF</div>
+        <div style={{fontSize:4,color:'#555',lineHeight:1.3,wordBreak:'break-all',maxWidth:'90%'}}>{packFile.name}</div>
       </div>
     );
   }
-  return <div style={{color:"#aaa",fontSize:5,textAlign:"center",paddingTop:20}}>[{docKey.toUpperCase()}]<br/>Manual upload required</div>;
+  return <div style={{color:"#aaa",fontSize:5,textAlign:"center",paddingTop:20}}>[{docKey.toUpperCase()}]<br/>Upload PDF below</div>;
 };
 
 // ─── Pack Tab ─────────────────────────────────────────────────────────────────
@@ -681,6 +704,30 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
   const packReady = window.PACK_DOCS.filter(d => docsGen[d.key]).length;
   const packTotal = window.PACK_DOCS.length;
   const [generatingFront, setGeneratingFront] = React.useState(false);
+  const [viewingPackFile, setViewingPackFile] = React.useState(null);
+
+  const handlePackFileUpload = async (docKey, file) => {
+    if (file.size > 20 * 1024 * 1024) {
+      alert('File is too large — maximum 20 MB per document.');
+      return;
+    }
+    try {
+      const data = await readPDFasDataUrl(file);
+      updateScheme(scheme.id, {
+        [`pack_file_${docKey}`]: { data, name: file.name },
+        docs_generated: { ...docsGen, [docKey]: true },
+      });
+    } catch (e) {
+      alert('Upload failed: ' + e.message);
+    }
+  };
+
+  const clearPackFile = (docKey) => {
+    updateScheme(scheme.id, {
+      [`pack_file_${docKey}`]: null,
+      docs_generated: { ...docsGen, [docKey]: false },
+    });
+  };
 
   // Register __downloadFront so GenerateModal can call it too (PR C).
   React.useEffect(() => {
@@ -700,42 +747,6 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
     updateScheme(scheme.id, { docs_generated: { ...docsGen, [key]: !docsGen[key] } });
   };
 
-  const utilityPdfs = scheme.utility_pdfs || [];
-
-  const handleUtilityUpload = async (e) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = "";
-    if (!files.length) return;
-    const read = (f) => new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve({ name: f.name, dataUrl: r.result, size: f.size, uploadedAt: Date.now() });
-      r.onerror = reject;
-      r.readAsDataURL(f);
-    });
-    try {
-      const added = await Promise.all(files.map(read));
-      const merged = [...utilityPdfs, ...added];
-      updateScheme(scheme.id, {
-        utility_pdfs: merged,
-        docs_generated: { ...docsGen, utilities: true },
-      });
-    } catch {
-      alert("Could not read one of the PDFs — please try again.");
-    }
-  };
-
-  const removeUtilityPdf = (idx) => {
-    const filtered = utilityPdfs.filter((_, i) => i !== idx);
-    updateScheme(scheme.id, {
-      utility_pdfs: filtered,
-      docs_generated: { ...docsGen, utilities: filtered.length > 0 },
-    });
-  };
-
-  const openUtilityPdf = (p) => {
-    const w = window.open();
-    if (w) w.document.write(`<title>${p.name}</title><iframe src="${p.dataUrl}" style="border:0;width:100vw;height:100vh"></iframe>`);
-  };
 
   const handleWorkingClick = (d) => {
     if (d.key === 'boq')   return onTabSwitch('boq');
@@ -780,41 +791,51 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
                     onClick={() => handleWorkingClick(d)}>
                     {workingLabel(d)} {!isGenerating && <Icon.Arrow />}
                   </button>
-                ) : d.key === 'utilities' ? (
-                  <label className="btn sm ghost" style={{marginLeft:"auto",cursor:"pointer"}}>
-                    <input type="file" accept="application/pdf" multiple style={{display:"none"}} onChange={handleUtilityUpload} />
-                    Upload PDF{utilityPdfs.length ? ` (${utilityPdfs.length})` : ""}
-                  </label>
-                ) : (
-                  <label style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,fontSize:11,cursor:"pointer",userSelect:"none",color:"var(--ink-3)"}}>
-                    <input type="checkbox" checked={done} onChange={()=>toggleManual(d.key)} style={{width:"auto"}} />
-                    Received
-                  </label>
-                )}
+                ) : (() => {
+                  const packFile = scheme[`pack_file_${d.key}`];
+                  return (
+                    <div style={{marginLeft:"auto",display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
+                      {packFile ? (
+                        <>
+                          <button className="btn sm ghost"
+                            onClick={() => setViewingPackFile({ packFile, docName: d.name })}>
+                            <Icon.Eye /> View
+                          </button>
+                          <button className="btn sm ghost" style={{color:"var(--red)"}}
+                            title="Remove uploaded file"
+                            onClick={() => clearPackFile(d.key)}>
+                            <Icon.Trash />
+                          </button>
+                        </>
+                      ) : (
+                        <label style={{cursor:"pointer",display:"inline-flex"}}>
+                          <input type="file" accept=".pdf,application/pdf" style={{display:"none"}}
+                            onChange={e => { const f = e.target.files[0]; if (f) handlePackFileUpload(d.key, f); e.target.value = ''; }} />
+                          <span className="btn sm ghost"><Icon.Upload /> Upload PDF</span>
+                        </label>
+                      )}
+                      <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,cursor:"pointer",userSelect:"none",color:"var(--ink-3)"}}>
+                        <input type="checkbox" checked={done} onChange={()=>toggleManual(d.key)} style={{width:"auto"}} />
+                        Received
+                      </label>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );
         })}
       </div>
-      {utilityPdfs.length > 0 && (
-        <div style={{marginTop:14,padding:"12px 14px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)"}}>
-          <div style={{fontSize:12,fontWeight:600,marginBottom:8}}>Utility drawings · {utilityPdfs.length} attached</div>
-          <div style={{display:"flex",flexDirection:"column",gap:4}}>
-            {utilityPdfs.map((p, i) => (
-              <div key={i} style={{display:"flex",alignItems:"center",gap:10,fontSize:12,padding:"4px 0",borderBottom:i===utilityPdfs.length-1?"none":"1px solid var(--line)"}}>
-                <span style={{color:"#dc2626",fontFamily:"var(--font-mono)",fontSize:10,fontWeight:700,letterSpacing:"0.05em"}}>PDF</span>
-                <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
-                <span style={{color:"var(--ink-3)",fontFamily:"var(--font-mono)",fontSize:11}}>{(p.size/1024).toFixed(0)} KB</span>
-                <button className="btn sm ghost" onClick={() => openUtilityPdf(p)}>Open</button>
-                <button className="btn sm ghost" onClick={() => removeUtilityPdf(i)} title="Remove">×</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
       <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
-        <strong>Connected templates:</strong> Front Sheet, RSR, PCI / CPP, and Resident Letter are live — click the action button to download and mark as ready. Utility searches can be uploaded as PDFs directly on the tile; other manual docs (drawings, TM) can be marked received via the checkbox.
+        <strong>Connected templates:</strong> Front Sheet, RSR, PCI / CPP, and Resident Letter are live — click the action button to download and mark as ready. <strong>Drawings, TM plans, and utility searches</strong> — upload PDFs directly here (max 20 MB each); they're stored in the browser and can be viewed or replaced at any time.
       </div>
+      {viewingPackFile && (
+        <PackFileModal
+          packFile={viewingPackFile.packFile}
+          docName={viewingPackFile.docName}
+          onClose={() => setViewingPackFile(null)}
+        />
+      )}
     </div>
   );
 };
