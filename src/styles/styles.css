@@ -456,6 +456,15 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
    regardless of theme trigger. */
 .docx,.docx-wrapper,.rsr-doc,.doc-preview .sheet{color-scheme:light}
 
+/* RSR image upload slots */
+.rsr-image-upload{cursor:pointer;transition:border-color 0.15s,background 0.15s;border:1px dashed #aaa;position:relative}
+.rsr-image-upload:hover{border-color:var(--accent);background:#f0f7ff}
+.rsr-upload-hint{font-size:9px;font-weight:400;color:var(--ink-3);text-transform:none;letter-spacing:0}
+.rsr-image-replace{position:absolute;bottom:6px;right:8px;font-size:10px;background:rgba(0,0,0,0.55);color:white;padding:2px 7px;border-radius:10px;pointer-events:none}
+.rsr-image-bind{border:1px dashed var(--line);border-radius:var(--radius-sm);padding:8px;margin-bottom:8px;cursor:pointer;transition:border-color 0.15s}
+.rsr-image-bind:hover{border-color:var(--accent);background:var(--accent-wash)}
+.rsr-image-bind-empty{padding:14px 8px;text-align:center;font-size:11px;color:var(--ink-3);font-style:italic}
+
 /* Sketch preview modal */
 .modal.sketch-modal{width:min(96vw,900px);height:min(92vh,860px)}
 .sketch-body{flex:1;overflow:hidden;background:var(--bg-sunken)}
