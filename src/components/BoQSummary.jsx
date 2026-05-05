@@ -98,7 +98,7 @@ const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
   );
 };
 
-const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onDownloadTC, downloadingTC, onRelink, onPushToMaster }) => {
+const ProjectHeader = ({ scheme, boq, computed, onDownload, onDownloadPdf, downloading, onDownloadTC, downloadingTC, onRelink, onPushToMaster }) => {
   const [panelOpen, setPanelOpen] = React.useState(false);
   const workingDays = (() => {
     if (!scheme.date_start || !scheme.date_finish) return null;
@@ -140,6 +140,12 @@ const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onDownl
           title="Download TC JMCA Bill of Quantities with scheme quantities filled in">
           <Icon.Download /> {downloadingTC ? 'Generating…' : 'Download TC BoQ'}
         </button>
+        {onDownloadPdf && (
+          <button className="btn" onClick={onDownloadPdf} disabled={downloading || !computed.groups.length}
+            title="Download a single-page Summary PDF for the handover pack">
+            <Icon.Download /> Summary PDF
+          </button>
+        )}
         <button className="btn accent" onClick={onDownload} disabled={downloading || !computed.groups.length}>
           <Icon.Download /> {downloading ? 'Generating…' : 'Download .xlsx'}
         </button>
@@ -430,10 +436,10 @@ const RatesFooter = ({ computed, boq }) => {
 };
 
 // ── BoQSummary (top-level, exported) ─────────────────────────────────────────
-const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading, onDownloadTC, downloadingTC, onRelink, onPushToMaster }) => {
+const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, onDownloadPdf, downloading, onDownloadTC, downloadingTC, onRelink, onPushToMaster }) => {
   return (
     <div className="boq-summary">
-      <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} downloading={downloading} onDownloadTC={onDownloadTC} downloadingTC={downloadingTC} onRelink={onRelink} onPushToMaster={onPushToMaster} />
+      <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} onDownloadPdf={onDownloadPdf} downloading={downloading} onDownloadTC={onDownloadTC} downloadingTC={downloadingTC} onRelink={onRelink} onPushToMaster={onPushToMaster} />
       {computed.hasCustomTreatment && (
         <div className="boq-custom-notice">
           <strong>Custom treatment</strong> — surface course items not auto-generated.

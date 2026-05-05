@@ -904,9 +904,25 @@ const BoQTab = ({ schemeId }) => {
     } finally { setDownloading(false); }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!window.exportBoQSummaryPDF) { alert('PDF module not loaded'); return; }
+    setDownloading(true);
+    try {
+      window.exportBoQSummaryPDF(scheme, { ...boq, quick_inputs: effective }, computed);
+      updateScheme(schemeId, { docs_generated: { ...(scheme.docs_generated||{}), boq_summary: true } });
+    } catch (e) {
+      console.error(e);
+      alert('PDF download failed: ' + e.message);
+    } finally { setDownloading(false); }
+  };
+
   React.useEffect(() => {
-    window.__downloadBoQ = handleDownload;
-    return () => { window.__downloadBoQ = null; };
+    window.__downloadBoQ        = handleDownload;
+    window.__downloadBoQSummary = handleDownloadPdf;
+    return () => {
+      window.__downloadBoQ        = null;
+      window.__downloadBoQSummary = null;
+    };
   }, [scheme, boq, computed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -918,6 +934,7 @@ const BoQTab = ({ schemeId }) => {
           computed={computed}
           onSettingsChange={handleSettings}
           onDownload={handleDownload}
+          onDownloadPdf={handleDownloadPdf}
           downloading={downloading}
           onDownloadTC={handleDownloadTC}
           downloadingTC={downloadingTC}
