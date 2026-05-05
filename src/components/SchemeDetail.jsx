@@ -638,28 +638,19 @@ const DocPreview = ({ docKey, scheme }) => {
   if(docKey==="rsr") return <div><div style={{background:"#1f4e79",color:"white",fontSize:5,padding:"2px 3px",fontWeight:700,textAlign:"center"}}>TEMPORARY ROAD CLOSURES</div><div style={{fontSize:4,marginTop:2,marginBottom:3,textAlign:"center",fontStyle:"italic",color:"#555"}}>Info sheet — Network Management</div><div style={{fontSize:4,color:"#1f4e79",fontWeight:700,marginTop:3}}>1. Applicant Details</div><div style={{fontSize:4}}>Applicant: {scheme.prepared_by}<br/>Road: {scheme.road_name}<br/>Ref: {scheme.project_number}</div></div>;
   if(docKey==="pci") return <div><div style={{fontWeight:700,fontSize:6}}>PCI / CPP · FM710-10A</div><div style={{fontSize:5,marginTop:4}}>Pre-Construction Information</div><div style={{height:2,background:"#eee",margin:"4px 0"}}></div><div style={{fontSize:5}}>Site: {scheme.road_name}<br/>Ref: {scheme.project_number}</div></div>;
   if(docKey==="letter") return <div><div style={{fontSize:5}}>Dear Resident,</div><div style={{fontSize:5,marginTop:3}}>Works on {scheme.road_name} from {scheme.date_start}...</div><div style={{fontSize:4,marginTop:6,color:"#666"}}>Copies to ward councillors ({scheme.ward_selected})</div></div>;
-  if(docKey==="boq" || docKey==="boq_summary"){
+  if(docKey==="boq"){
     // Read real series subtotals from scheme.boq when available; fall back to a
     // labelled placeholder if the designer hasn't touched the BoQ tab yet.
     const E=window.BOQ_ENGINE;
     let breakdown=[];
-    let computed=null;
     if(scheme.boq && E){
       const eff = E.effectiveQuickInputs ? E.effectiveQuickInputs(scheme, scheme.boq) : scheme.boq.quick_inputs;
-      computed = E.buildBoQLines({...scheme.boq, quick_inputs: eff}, scheme);
+      const computed = E.buildBoQLines({...scheme.boq, quick_inputs: eff}, scheme);
       breakdown=computed.groups.map(g=>({l:`Series ${g.num}`,v:E.fmtGBP(g.subtotal)}));
       if(computed.totalIncVat) breakdown.push({l:'Total inc VAT',v:E.fmtGBP(computed.totalIncVat),bold:true});
     }
     if(!breakdown.length) breakdown=[{l:'(not generated yet)',v:'—'}];
-    const title = docKey==="boq_summary" ? "BoQ SUMMARY (PDF)" : "BILL OF QUANTITIES";
-    // Mini cost-bar mirror of the on-screen Summary, only for the PDF preview.
-    const palette={100:'#c65d2e',200:'#7a5a3a',300:'#2e7a8a',400:'#4a6fa5',500:'#5b5ea8',600:'#3d7a5c',700:'#b85c1a',1100:'#8a6a2a',1200:'#4a8a3d',2700:'#6b4a8a',3000:'#3d8a6d',6400:'#8a3d5c'};
-    const bar = (docKey==="boq_summary" && computed && computed.subtotal>0)
-      ? <div style={{display:'flex',height:3,marginBottom:3,borderRadius:1,overflow:'hidden'}}>
-          {computed.groups.map(g=><div key={g.num} style={{width:`${(g.subtotal/computed.subtotal)*100}%`,background:palette[g.num]||'#888'}} />)}
-        </div>
-      : null;
-    return <div><div style={{fontWeight:700,fontSize:6}}>{title}</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{bar}{breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0",fontWeight:b.bold?700:400}}><span>{b.l}</span><span>{b.v}</span></div>)}</div>;
+    return <div><div style={{fontWeight:700,fontSize:6}}>BILL OF QUANTITIES</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0",fontWeight:b.bold?700:400}}><span>{b.l}</span><span>{b.v}</span></div>)}</div>;
   }
   if(docKey==="utilities"){
     const pdfs = scheme.utility_pdfs || [];
@@ -748,32 +739,13 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
 
   const handleWorkingClick = (d) => {
     if (d.key === 'boq')   return onTabSwitch('boq');
-    if (d.key === 'boq_summary') {
-      // Compile the Summary PDF straight from scheme state — works whether
-      // or not the BoQ tab has been opened in this session.
-      const E = window.BOQ_ENGINE;
-      if (!E || !window.exportBoQSummaryPDF || !scheme.boq) {
-        alert('BoQ has not been generated yet — open the BoQ tab first.');
-        return;
-      }
-      const eff = E.effectiveQuickInputs ? E.effectiveQuickInputs(scheme, scheme.boq) : scheme.boq.quick_inputs;
-      const computed = E.buildBoQLines({ ...scheme.boq, quick_inputs: eff }, scheme);
-      if (!computed.groups.length) {
-        alert('No priced lines yet — fill out the BoQ tab before exporting the Summary.');
-        return;
-      }
-      window.exportBoQSummaryPDF(scheme, { ...scheme.boq, quick_inputs: eff }, computed);
-      updateScheme(scheme.id, { docs_generated: { ...docsGen, boq_summary: true } });
-      return;
-    }
     if (d.key === 'front') return window.__downloadFront && window.__downloadFront();
     onPreview(scheme, d.key);
   };
 
   const workingLabel = (d) => {
-    if (d.key === 'boq')          return 'Open BoQ';
-    if (d.key === 'boq_summary')  return 'Download PDF';
-    if (d.key === 'front')        return generatingFront ? 'Generating…' : 'Download PDF';
+    if (d.key === 'boq')   return 'Open BoQ';
+    if (d.key === 'front') return generatingFront ? 'Generating…' : 'Download PDF';
     return 'Preview';
   };
 
