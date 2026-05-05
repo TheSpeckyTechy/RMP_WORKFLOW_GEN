@@ -82,7 +82,6 @@ const GenerateModal = ({ scheme, onClose }) => {
     { l: "Generating Road Space Request", meta: "DOCX + PDF" },
     { l: "Generating Master Workbook", meta: "XLSX" },
     { l: "Generating Bill of Quantities", meta: "XLSX" },
-    { l: "Compiling BoQ Summary", meta: "PDF" },
     { l: "Generating Front Sheet", meta: "PDF" },
   ];
   React.useEffect(() => {
@@ -105,18 +104,6 @@ const GenerateModal = ({ scheme, onClose }) => {
         else if (window.__exportBoQForScheme) window.__exportBoQForScheme(scheme);
         else errs.push('BoQ XLSX');
       } catch (e) { errs.push('BoQ XLSX'); console.error('BoQ XLSX failed', e); }
-      try {
-        // BoQ Summary PDF — compiled live from scheme state. Skipped silently
-        // when there's no priced data yet rather than failing the whole pack.
-        if (window.exportBoQSummaryPDF && window.BOQ_ENGINE && scheme.boq) {
-          const E = window.BOQ_ENGINE;
-          const eff = E.effectiveQuickInputs ? E.effectiveQuickInputs(scheme, scheme.boq) : scheme.boq.quick_inputs;
-          const computed = E.buildBoQLines({ ...scheme.boq, quick_inputs: eff }, scheme);
-          if (computed.groups.length > 0) {
-            window.exportBoQSummaryPDF(scheme, { ...scheme.boq, quick_inputs: eff }, computed);
-          }
-        }
-      } catch (e) { errs.push('BoQ Summary PDF'); console.error('BoQ Summary PDF failed', e); }
       try {
         if (window.__downloadFront) await window.__downloadFront();
         else if (window.__downloadFrontPdf) await window.__downloadFrontPdf(scheme);
