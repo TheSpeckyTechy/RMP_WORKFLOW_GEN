@@ -456,6 +456,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
    regardless of theme trigger. */
 .docx,.docx-wrapper,.rsr-doc,.doc-preview .sheet{color-scheme:light}
 
+/* RSR editable field inputs in side panel */
+.rsr-field-input{width:100%;margin-top:3px;padding:4px 6px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg);color:var(--ink);font-size:11px;font-family:var(--font-sans);resize:vertical}
+.rsr-field-input:focus{outline:none;border-color:var(--accent)}
+.rsr-bind.missing .rsr-field-input{border-color:var(--amber)}
+
 /* RSR image upload slots */
 .rsr-image-upload{cursor:pointer;transition:border-color 0.15s,background 0.15s;border:1px dashed #aaa;position:relative}
 .rsr-image-upload:hover{border-color:var(--accent);background:#f0f7ff}

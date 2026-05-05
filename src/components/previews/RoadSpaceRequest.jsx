@@ -192,11 +192,32 @@ async function downloadRSRPdf(scheme) {
   }
 }
 
+const RSR_FIELD_META = {
+  prepared_by:    { label: "Applicant name" },
+  designer_email: { label: "Applicant email" },
+  designer_phone: { label: "Applicant phone" },
+  contractor:     { label: "Contractor name" },
+  contractor_pe:  { label: "Contractor contact" },
+  contractor_ooh: { label: "Out-of-hours" },
+  road_name:      { label: "Road name" },
+  project_number: { label: "Project number" },
+  ward_selected:  { label: "Ward" },
+  grid_ref:       { label: "Grid reference" },
+  scheme_extent:  { label: "Exact location", multi: true },
+  treatment_type: { label: "Reason for closure" },
+  date_start:     { label: "Start date", hint: "DD/MM/YYYY" },
+  date_finish:    { label: "Finish date", hint: "DD/MM/YYYY" },
+  tm_hours:       { label: "Working hours", multi: true },
+  date_prepared:  { label: "Date prepared", hint: "DD/MM/YYYY" },
+};
+
 const RSRModal = ({ scheme, onClose }) => {
   const { updateScheme } = React.useContext(window.SchemeContext);
-  const bindings = ["prepared_by","designer_email","designer_phone","contractor","contractor_pe","contractor_ooh","road_name","project_number","ward_selected","grid_ref","scheme_extent","treatment_type","date_start","date_finish","tm_hours","date_prepared"];
+  const bindings = Object.keys(RSR_FIELD_META);
   const missing = bindings.filter(k => !scheme[k] && scheme[k] !== 0);
   const [downloading, setDownloading] = React.useState(false);
+
+  const set = (k, v) => updateScheme(scheme.id, { [k]: v });
 
   const handleUpload = async (field, file) => {
     try {
@@ -238,16 +259,23 @@ const RSRModal = ({ scheme, onClose }) => {
             <RoadSpaceRequestDoc scheme={displayScheme} onUpload={handleUpload} />
           </div>
           <div className="rsr-side">
-            <div className="rsr-side-title">Field bindings</div>
+            <div className="rsr-side-title">Edit fields</div>
             <div className="rsr-bind-list">
               {bindings.map(b => {
-                const val = scheme[b]; const filled = val!==undefined&&val!==" "&&val!==null;
+                const meta = RSR_FIELD_META[b];
+                const val = scheme[b] || '';
+                const filled = !!scheme[b];
                 return (
                   <div key={b} className={"rsr-bind "+(filled?"":"missing")}
                     onMouseEnter={()=>document.querySelectorAll(`[data-field="${b}"]`).forEach(el=>el.classList.add("hover"))}
                     onMouseLeave={()=>document.querySelectorAll(`[data-field="${b}"]`).forEach(el=>el.classList.remove("hover"))}>
-                    <div className="rsr-bind-key mono">{b}</div>
-                    <div className="rsr-bind-val">{filled?String(val):"—"}</div>
+                    <div className="rsr-bind-key mono">{meta.label}</div>
+                    {meta.multi
+                      ? <textarea className="rsr-field-input" rows={2} value={val} placeholder={meta.hint||meta.label}
+                          onChange={e=>set(b,e.target.value)} />
+                      : <input className="rsr-field-input" type="text" value={val} placeholder={meta.hint||meta.label}
+                          onChange={e=>set(b,e.target.value)} />
+                    }
                   </div>
                 );
               })}

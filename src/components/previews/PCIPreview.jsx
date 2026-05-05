@@ -44,6 +44,84 @@ function resolveValue(scheme, path) {
   return String(val);
 }
 
+// ── Auto-description builder ──────────────────────────────────────────────────
+const pciWorkingDays = (dmyA, dmyB) => {
+  const p = s => { const [d,m,y]=(s||'').split('/'); return new Date(+y,+m-1,+d); };
+  const a=p(dmyA), b=p(dmyB);
+  if(isNaN(a)||isNaN(b)) return null;
+  return Math.max(1, Math.round((b-a)/86400000*5/7));
+};
+
+const buildAutoDescription = (scheme) => {
+  const lines = [];
+  const ext = scheme.scheme_extent ? ` (${scheme.scheme_extent})` : '';
+  const treatment = scheme.treatment_type === 'Other'
+    ? (scheme.treatment_description || 'specialist treatment')
+    : (scheme.treatment_type || 'carriageway works');
+
+  // Opening
+  lines.push(`${scheme.scheme_type || 'Carriageway'} resurfacing of ${scheme.road_name}${ext}.`);
+
+  // Programme
+  const days = pciWorkingDays(scheme.date_start, scheme.date_finish);
+  const dateRange = [scheme.date_start, scheme.date_finish].filter(Boolean).join(' to ');
+  if (days) lines.push(`Works programme: ${days} working day${days!==1?'s':''}${dateRange ? ` (${dateRange})` : ''}.`);
+
+  // Treatment zones
+  const zones = (scheme.treatments||[]).filter(z => +z.area_m2 > 0);
+  if (zones.length > 1) {
+    lines.push('\nTreatment zones:');
+    zones.forEach(z => {
+      const t = z.treatment_type === 'Other' ? (z.treatment_description || 'specialist') : (z.treatment_type || treatment);
+      lines.push(`• ${z.zone}: ${(+z.area_m2).toLocaleString()} m² at ${z.depth_mm}mm — ${t}.`);
+    });
+    const total = zones.reduce((s,z)=>s+(+z.area_m2),0);
+    lines.push(`Total scheme area: ${total.toLocaleString()} m².`);
+  } else {
+    const area = +scheme.area_m2;
+    if (area > 0) lines.push(`Total scheme area: ${area.toLocaleString()} m².`);
+    if (+scheme.surface_depth_mm > 0) lines.push(`Surface course: ${treatment} at ${scheme.surface_depth_mm}mm nominal depth.`);
+    if (+scheme.binder_depth_mm > 0)  lines.push(`Binder course: ${scheme.binder_depth_mm}mm.`);
+  }
+
+  // Traffic management
+  if (scheme.tm_type) {
+    let tm = `\nTraffic management: ${scheme.tm_type}`;
+    if (+scheme.tm_phases > 1) tm += ` (${scheme.tm_phases} phases)`;
+    if (scheme.tm_hours)       tm += `. Working hours: ${scheme.tm_hours}`;
+    if (scheme.tm_diversion_by) tm += `. Diversion by: ${scheme.tm_diversion_by}`;
+    lines.push(tm + '.');
+  }
+
+  // Ironwork
+  const iron = [];
+  if (+scheme.iron_mh     > 0) iron.push(`${scheme.iron_mh} no. manhole cover${+scheme.iron_mh>1?'s':''} to be reset`);
+  if (+scheme.iron_water  > 0) iron.push(`${scheme.iron_water} no. water authority cover${+scheme.iron_water>1?'s':''} to be reset`);
+  if (+scheme.iron_gas    > 0) iron.push(`${scheme.iron_gas} no. gas cover${+scheme.iron_gas>1?'s':''} to be reset`);
+  if (+scheme.iron_bt     > 0) iron.push(`${scheme.iron_bt} no. BT/comms cover${+scheme.iron_bt>1?'s':''} to be reset`);
+  if (+scheme.iron_gullies> 0) iron.push(`${scheme.iron_gullies} no. gully grating${+scheme.iron_gullies>1?'s':''} to be adjusted to new surface level`);
+  lines.push(iron.length > 0
+    ? `\nIronwork: ${iron.join('; ')}.`
+    : '\nIronwork: None identified — confirm on site prior to works commencing.');
+
+  // Kerbs
+  if (+scheme.kerb_length > 0)
+    lines.push(`Kerb works: approximately ${scheme.kerb_length} m of kerb to be replaced / adjusted.`);
+
+  // Lining
+  lines.push(`Road markings: ${scheme.lining_req === 'Yes'
+    ? 'Full reinstatement of road markings required on completion of surfacing.'
+    : 'No road marking reinstatement required.'}`);
+
+  // Justification
+  if (scheme.pci_justification)
+    lines.push(`\nJustification: ${scheme.pci_justification}`);
+
+  return lines.join('\n');
+};
+
+window.buildPCIAutoDescription = buildAutoDescription;
+
 function buildPCIFields(scheme) {
   const ext = scheme.scheme_extent ? `: ${scheme.scheme_extent}` : '';
   return {
@@ -71,7 +149,7 @@ function buildPCIFields(scheme) {
     CONTRACTOR_EMAIL:        scheme.contractor_email || '',
     CONTRACTOR_OUT_OF_HOURS: scheme.contractor_ooh || '',
     OUT_OF_HOURS_CONTACT:    scheme.contractor_ooh || '',
-    DESCRIPTION_OF_WORK:     scheme.pci_description || '',
+    DESCRIPTION_OF_WORK:     scheme.pci_description || buildAutoDescription(scheme),
     OCCUPIER_TENANT_DETAILS: scheme.pci_occupiers || '',
     SECURITY_ARRANGEMENTS:   scheme.pci_site_security || '',
   };
@@ -244,7 +322,53 @@ const PCIModal = ({ schemeId, onClose }) => {
           <div className="rsr-side">
             <div className="rsr-side-title">Field Bindings</div>
             <div className="rsr-bind-list">
-              {PCI_FIELDS.map(f => {
+
+              {/* Editable: Description of Work */}
+              <div className={"rsr-bind "+(scheme.pci_description?"":"missing")}>
+                <div className="rsr-bind-key mono">DESCRIPTION_OF_WORK</div>
+                <div style={{display:'flex',gap:4,marginBottom:4}}>
+                  <button className="btn ghost sm" style={{fontSize:11,padding:'2px 8px'}}
+                    onClick={() => updateScheme(schemeId, { pci_description: buildAutoDescription(scheme) })}>
+                    ⟳ Auto-generate
+                  </button>
+                  {scheme.pci_description && (
+                    <button className="btn ghost sm" style={{fontSize:11,padding:'2px 8px'}}
+                      onClick={() => updateScheme(schemeId, { pci_description: '' })}>
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
+                <textarea className="rsr-field-input" rows={8}
+                  placeholder="Leave blank to use auto-generated text"
+                  value={scheme.pci_description || ''}
+                  onChange={e => updateScheme(schemeId, { pci_description: e.target.value })} />
+                {!scheme.pci_description && (
+                  <div style={{fontSize:11,color:'var(--ink-3)',marginTop:2}}>
+                    Auto-generated from scheme data (click ⟳ to preview &amp; lock)
+                  </div>
+                )}
+              </div>
+
+              {/* Editable: Occupier / Tenant Details */}
+              <div className={"rsr-bind "+(scheme.pci_occupiers?"":"missing")}>
+                <div className="rsr-bind-key mono">OCCUPIER_TENANT_DETAILS</div>
+                <textarea className="rsr-field-input" rows={3}
+                  placeholder="e.g. Residential tenants on Guthrie Terrace — letter drop required"
+                  value={scheme.pci_occupiers || ''}
+                  onChange={e => updateScheme(schemeId, { pci_occupiers: e.target.value })} />
+              </div>
+
+              {/* Editable: Security Arrangements */}
+              <div className={"rsr-bind "+(scheme.pci_site_security?"":"missing")}>
+                <div className="rsr-bind-key mono">SECURITY_ARRANGEMENTS</div>
+                <textarea className="rsr-field-input" rows={3}
+                  placeholder="e.g. Coned exclusion zone maintained at all times. Overnight barriers and lights required."
+                  value={scheme.pci_site_security || ''}
+                  onChange={e => updateScheme(schemeId, { pci_site_security: e.target.value })} />
+              </div>
+
+              <div className="rsr-side-title" style={{marginTop:12}}>Read-only Bindings</div>
+              {PCI_FIELDS.filter(f => !['pci_description','pci_occupiers','pci_site_security'].includes(f.path)).map(f => {
                 const val = resolveValue(scheme, f.path);
                 return (
                   <div key={f.tag} className={"rsr-bind "+(val?"":"missing")}>
