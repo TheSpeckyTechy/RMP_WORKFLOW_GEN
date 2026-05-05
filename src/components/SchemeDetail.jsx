@@ -149,39 +149,132 @@ const UtilitiesTab = ({ scheme }) => {
 
 // ─── Doc Preview (thumbnail per document type) ────────────────────────────────
 
-const DocPreview = ({ docKey, scheme }) => {
+const DocPreview = ({ docKey, scheme, upload }) => {
   if(docKey==="front") return <div><div style={{fontWeight:700,fontSize:6,marginBottom:2}}>DUNDEE CITY COUNCIL</div><div style={{fontSize:5,marginBottom:4,color:"#666"}}>Road Maintenance Partnership</div><div style={{fontWeight:700,fontSize:7,margin:"6px 0"}}>{scheme.road_name}</div><div style={{fontSize:5,color:"#666"}}>Project {scheme.project_number} · {scheme.financial_year}</div><div style={{height:30,border:"1px dashed #ccc",margin:"6px 0"}}></div><div style={{fontSize:5}}>Area: {scheme.area_m2} m²<br/>Tender: £{(+scheme.tender_total||0).toLocaleString()}<br/>Start: {scheme.date_start}</div></div>;
   if(docKey==="rsr") return <div><div style={{background:"#1f4e79",color:"white",fontSize:5,padding:"2px 3px",fontWeight:700,textAlign:"center"}}>TEMPORARY ROAD CLOSURES</div><div style={{fontSize:4,marginTop:2,marginBottom:3,textAlign:"center",fontStyle:"italic",color:"#555"}}>Info sheet — Network Management</div><div style={{fontSize:4,color:"#1f4e79",fontWeight:700,marginTop:3}}>1. Applicant Details</div><div style={{fontSize:4}}>Applicant: {scheme.prepared_by}<br/>Road: {scheme.road_name}<br/>Ref: {scheme.project_number}</div></div>;
   if(docKey==="pci") return <div><div style={{fontWeight:700,fontSize:6}}>PCI / CPP · FM710-10A</div><div style={{fontSize:5,marginTop:4}}>Pre-Construction Information</div><div style={{height:2,background:"#eee",margin:"4px 0"}}></div><div style={{fontSize:5}}>Site: {scheme.road_name}<br/>Ref: {scheme.project_number}</div></div>;
   if(docKey==="letter") return <div><div style={{fontSize:5}}>Dear Resident,</div><div style={{fontSize:5,marginTop:3}}>Works on {scheme.road_name} from {scheme.date_start}...</div><div style={{fontSize:4,marginTop:6,color:"#666"}}>Copies to ward councillors ({scheme.ward_selected})</div></div>;
   if(docKey==="boq") return <div><div style={{fontWeight:700,fontSize:6}}>BILL OF QUANTITIES</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{["Series 100","Series 500","Series 900","Series 1000","Series 3000"].map((s,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0"}}><span>{s}</span><span>£{(Math.random()*20000+5000).toFixed(0)}</span></div>)}</div>;
-  return <div style={{color:"#aaa",fontSize:5,textAlign:"center",paddingTop:20}}>[{docKey.toUpperCase()}]<br/>Manual upload required</div>;
+  if(upload) return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:4}}>
+      <div style={{fontWeight:700,fontSize:9,color:"var(--red)",letterSpacing:"0.06em",fontFamily:"var(--font-mono)"}}>PDF</div>
+      <div style={{fontSize:4,color:"#555",textAlign:"center",wordBreak:"break-all",maxWidth:"90%"}}>{upload.name}</div>
+      <div style={{fontSize:4,color:"var(--green)",fontWeight:600,marginTop:2}}>✓ Uploaded</div>
+    </div>
+  );
+  return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:3,color:"#bbb"}}>
+      <div style={{fontSize:14}}>↑</div>
+      <div style={{fontSize:4,textAlign:"center",color:"#aaa"}}>Click to upload<br/>{docKey.toUpperCase()}</div>
+    </div>
+  );
 };
 
-// ─── Pack Tab ─────────────────────────────────────────────────────────────────
+// ─── PDF Preview Modal ────────────────────────────────────────────────────────
 
-const PackTab = ({ scheme, onGenerate, onPreview }) => (
-  <div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:15,fontWeight:600}}>Handover pack · {scheme.project_number} · {scheme.road_name}</div><div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{scheme.packProgress} of {scheme.packTotal} items ready</div></div>
-      <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
-    </div>
-    <div className="pack-grid">
-      {window.PACK_DOCS.map((d,i)=>{
-        const done=i<5, isWorking=d.working;
-        return (
-          <div key={d.key} className="doc-card">
-            <div className="doc-preview"><div className="sheet"><DocPreview docKey={d.key} scheme={scheme} /></div>{isWorking&&<div style={{position:"absolute",top:10,right:10,background:"var(--accent)",color:"white",fontFamily:"var(--font-mono)",fontSize:9,padding:"3px 6px",borderRadius:2,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Live</div>}</div>
-            <div className="doc-info"><div className="doc-name">{d.name}</div><div className="doc-meta"><span>{d.type}</span><span>{d.auto?"Auto":"Manual upload"}</span></div></div>
-            <div className="doc-status"><span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span><button className="btn sm ghost" style={{marginLeft:"auto"}} onClick={()=>isWorking&&onPreview(scheme,d.key)}>Preview {isWorking&&<Icon.Arrow />}</button></div>
-          </div>
-        );
-      })}
-    </div>
-    <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
-      <strong>Connected templates:</strong> Road Space Request Form, PCI / CPP, and Resident Letter are live — click Preview on any card.
+const PDFModal = ({ name, url, onClose }) => (
+  <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal" style={{width:"min(96vw,960px)",height:"min(92vh,840px)",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+      <div className="modal-head">
+        <div style={{fontWeight:600,fontSize:14}}>{name}</div>
+        <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
+      </div>
+      <div style={{flex:1,overflow:"hidden",background:"var(--bg-sunken)"}}>
+        <iframe src={url} style={{width:"100%",height:"100%",border:"none"}} title={name} />
+      </div>
     </div>
   </div>
 );
+
+// ─── Pack Tab ─────────────────────────────────────────────────────────────────
+
+const PackTab = ({ scheme, onGenerate, onPreview }) => {
+  const { updateScheme } = React.useContext(window.SchemeContext);
+  const [pdfModal, setPdfModal] = React.useState(null);
+  const [draggingKey, setDraggingKey] = React.useState(null);
+  const fileRefs = React.useRef({});
+
+  const handleUpload = (docKey, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const uploads = { ...(scheme.uploads||{}), [docKey]: { url: e.target.result, name: file.name } };
+      updateScheme(scheme.id, { uploads });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploads = scheme.uploads || {};
+  const manualDone = window.PACK_DOCS.filter(d => !d.auto).filter(d => uploads[d.key]).length;
+  const totalReady = 5 + manualDone;
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:600}}>Handover pack · {scheme.project_number} · {scheme.road_name}</div>
+          <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{totalReady} of {window.PACK_DOCS.length} items ready</div>
+        </div>
+        <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
+      </div>
+      <div className="pack-grid">
+        {window.PACK_DOCS.map((d)=>{
+          const upload = uploads[d.key];
+          const done = d.auto || !!upload;
+          const isDragging = draggingKey === d.key;
+          return (
+            <div key={d.key} className="doc-card">
+              <div
+                className="doc-preview"
+                style={!d.auto ? {cursor:"pointer", outline: isDragging ? "2px solid var(--accent)" : "none"} : {}}
+                onClick={()=>{ if(!d.auto && !upload) fileRefs.current[d.key]?.click(); }}
+                onDragOver={e=>{ if(!d.auto){ e.preventDefault(); setDraggingKey(d.key); }}}
+                onDragLeave={()=>setDraggingKey(null)}
+                onDrop={e=>{ e.preventDefault(); setDraggingKey(null); if(!d.auto) handleUpload(d.key, e.dataTransfer.files[0]); }}
+              >
+                <div className="sheet"><DocPreview docKey={d.key} scheme={scheme} upload={upload} /></div>
+                {d.working&&<div style={{position:"absolute",top:10,right:10,background:"var(--accent)",color:"white",fontFamily:"var(--font-mono)",fontSize:9,padding:"3px 6px",borderRadius:2,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Live</div>}
+                {!d.auto && !upload && (
+                  <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",
+                    background:isDragging?"var(--accent-wash)":"rgba(255,255,255,0.55)",transition:"background 0.15s"}}>
+                    <button className="btn sm primary" onClick={e=>{ e.stopPropagation(); fileRefs.current[d.key]?.click(); }}>
+                      ↑ Upload
+                    </button>
+                  </div>
+                )}
+                {upload && (
+                  <div style={{position:"absolute",top:8,right:8,background:"var(--green)",color:"white",fontFamily:"var(--font-mono)",
+                    fontSize:8,padding:"2px 5px",borderRadius:2,letterSpacing:"0.06em",fontWeight:600}}>
+                    ✓
+                  </div>
+                )}
+                <input ref={el=>fileRefs.current[d.key]=el} type="file" accept=".pdf,.dwg,.png,.jpg"
+                  style={{display:"none"}} onChange={e=>handleUpload(d.key, e.target.files[0])} />
+              </div>
+              <div className="doc-info">
+                <div className="doc-name">{d.name}</div>
+                <div className="doc-meta"><span>{d.type}</span><span>{d.auto?"Auto":"Manual upload"}</span></div>
+              </div>
+              <div className="doc-status">
+                <span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span>
+                <button className="btn sm ghost" style={{marginLeft:"auto"}} onClick={()=>{
+                  if(d.working) onPreview(scheme, d.key);
+                  else if(upload) setPdfModal({ name: d.name, url: upload.url });
+                  else fileRefs.current[d.key]?.click();
+                }}>
+                  {upload ? <>View <Icon.Arrow /></> : d.working ? <>Preview <Icon.Arrow /></> : "Upload"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
+        <strong>Connected templates:</strong> Road Space Request Form, PCI / CPP, and Resident Letter are live — click Preview on any card. Manual documents can be uploaded by clicking or dragging a file onto the card.
+      </div>
+      {pdfModal && <PDFModal name={pdfModal.name} url={pdfModal.url} onClose={()=>setPdfModal(null)} />}
+    </div>
+  );
+};
 
 window.SchemeDetail = SchemeDetail;
