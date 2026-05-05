@@ -34,7 +34,7 @@ const compressImage = (file, maxWidth = 1000) => new Promise((resolve, reject) =
   img.src = url;
 });
 
-const RoadSpaceRequestDoc = ({ scheme, onImageClick }) => {
+const RoadSpaceRequestDoc = ({ scheme, onUpload }) => {
   const Bound = ({ k, children, fallback }) => {
     const v = scheme[k];
     const show = v!==undefined&&v!=="" ? (children||v) : (fallback||`[${k}]`);
@@ -42,18 +42,26 @@ const RoadSpaceRequestDoc = ({ scheme, onImageClick }) => {
   };
   const ImageSlot = ({ field, label }) => {
     const src = scheme[field];
+    if (onUpload) {
+      return (
+        <label className="rsr-image rsr-image-upload" style={{display:"block",cursor:"pointer",position:"relative"}}>
+          <input type="file" accept="image/*" style={{display:"none"}}
+            onChange={e => { const f = e.target.files[0]; if (f) onUpload(field, f); e.target.value=''; }} />
+          <div className="rsr-image-label">{label}<span className="rsr-upload-hint"> · click to upload</span></div>
+          {src
+            ? <><img src={src} alt={label} style={{width:"100%",height:"auto",display:"block"}} /><div className="rsr-image-replace">↺ Replace</div></>
+            : <div className="rsr-image-body">Click to upload photo or map</div>
+          }
+        </label>
+      );
+    }
     return (
-      <div
-        className={"rsr-image" + (onImageClick ? " rsr-image-upload" : "")}
-        onClick={onImageClick ? () => onImageClick(field) : undefined}
-        title={onImageClick ? "Click to upload image" : undefined}
-      >
-        <div className="rsr-image-label">{label}{onImageClick && !src && <span className="rsr-upload-hint"> · click to upload</span>}</div>
+      <div className="rsr-image">
+        <div className="rsr-image-label">{label}</div>
         {src
           ? <img src={src} alt={label} style={{width:"100%",height:"auto",display:"block"}} />
-          : <div className="rsr-image-body">{onImageClick ? "Click to upload photo or map" : "Paste site image here"}</div>
+          : <div className="rsr-image-body">Paste site image here</div>
         }
-        {onImageClick && src && <div className="rsr-image-replace">↺ Replace</div>}
       </div>
     );
   };
@@ -189,21 +197,11 @@ const RSRModal = ({ scheme, onClose }) => {
   const bindings = ["prepared_by","designer_email","designer_phone","contractor","contractor_pe","contractor_ooh","road_name","project_number","ward_selected","grid_ref","scheme_extent","treatment_type","date_start","date_finish","tm_hours","date_prepared"];
   const missing = bindings.filter(k => !scheme[k] && scheme[k] !== 0);
   const [downloading, setDownloading] = React.useState(false);
-  const fileInputRef = React.useRef(null);
-  const pendingFieldRef = React.useRef(null);
 
-  const handleImageClick = (field) => {
-    pendingFieldRef.current = field;
-    fileInputRef.current.value = '';
-    fileInputRef.current.click();
-  };
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file || !pendingFieldRef.current) return;
+  const handleUpload = async (field, file) => {
     try {
       const dataUrl = await compressImage(file);
-      updateScheme(scheme.id, { [pendingFieldRef.current]: dataUrl });
+      updateScheme(scheme.id, { [field]: dataUrl });
     } catch(err) { alert('Image upload failed: ' + err.message); }
   };
 
@@ -223,7 +221,6 @@ const RSRModal = ({ scheme, onClose }) => {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal rsr-modal" onClick={e => e.stopPropagation()}>
-        <input ref={fileInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFileChange} />
         <div className="modal-head">
           <div>
             <div style={{fontWeight:600,fontSize:15}}>Road Space Request Form · Preview</div>
@@ -238,7 +235,7 @@ const RSRModal = ({ scheme, onClose }) => {
         </div>
         <div className="rsr-body">
           <div className="rsr-preview-pane">
-            <RoadSpaceRequestDoc scheme={displayScheme} onImageClick={handleImageClick} />
+            <RoadSpaceRequestDoc scheme={displayScheme} onUpload={handleUpload} />
           </div>
           <div className="rsr-side">
             <div className="rsr-side-title">Field bindings</div>
@@ -258,12 +255,14 @@ const RSRModal = ({ scheme, onClose }) => {
             <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--line)"}}>
               <div className="rsr-side-title">Images</div>
               {[{field:"rsr_image_1",label:"Image 1 — Site location"},{field:"rsr_image_2",label:"Image 2 — Diversion drawing"}].map(({field,label})=>(
-                <div key={field} className="rsr-image-bind" onClick={()=>handleImageClick(field)}>
+                <label key={field} className="rsr-image-bind" style={{display:"block",cursor:"pointer"}}>
+                  <input type="file" accept="image/*" style={{display:"none"}}
+                    onChange={e => { const f = e.target.files[0]; if(f) handleUpload(field,f); e.target.value=''; }} />
                   {scheme[field]
                     ? <img src={scheme[field]} alt={label} style={{width:"100%",borderRadius:3,display:"block",marginBottom:4}} />
                     : <div className="rsr-image-bind-empty">+ Upload {label}</div>}
                   <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{label}</div>
-                </div>
+                </label>
               ))}
             </div>
             {missing.length>0&&<div style={{fontSize:11,color:"var(--amber)",marginTop:10,padding:8,background:"var(--amber-wash)",borderRadius:4}}><Icon.Alert /> {missing.length} field{missing.length>1?"s":""} empty</div>}
