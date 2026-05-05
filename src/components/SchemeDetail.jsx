@@ -388,30 +388,139 @@ const DocPreview = ({ docKey, scheme }) => {
   return <div style={{color:"#aaa",fontSize:5,textAlign:"center",paddingTop:20}}>[{docKey.toUpperCase()}]<br/>Manual upload required</div>;
 };
 
+// ─── Manual upload helpers ────────────────────────────────────────────────────
+
+const UPLOAD_ACCEPT = { drawings: ".pdf,.dwg", tm: ".pdf", utilities: ".pdf" };
+const UPLOAD_LABEL  = { drawings: "PDF / DWG", tm: "PDF", utilities: "PDF" };
+
+const fmtFileSize = (bytes) => {
+  if(!bytes) return "";
+  if(bytes < 1024) return bytes + " B";
+  if(bytes < 1024*1024) return Math.round(bytes/1024) + " KB";
+  return (bytes/(1024*1024)).toFixed(1) + " MB";
+};
+
+const readAsDataUrl = (file) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result);
+  r.onerror = () => reject(r.error);
+  r.readAsDataURL(file);
+});
+
+const UploadedSheet = ({ upload }) => {
+  const ext = (upload.name.split(".").pop() || "FILE").toUpperCase();
+  const isPdf = ext === "PDF";
+  return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:6,padding:8,textAlign:"center"}}>
+      <div style={{fontFamily:"var(--font-mono)",fontWeight:700,fontSize:11,letterSpacing:"0.08em",color:isPdf?"#c0392b":"#1f4e79",border:"1.5px solid currentColor",padding:"4px 10px",borderRadius:3}}>{ext}</div>
+      <div style={{fontSize:6,color:"#222",wordBreak:"break-all",lineHeight:1.3,maxWidth:"100%"}}>{upload.name}</div>
+      <div style={{fontSize:5,color:"#888",fontFamily:"var(--font-mono)"}}>{fmtFileSize(upload.size)}</div>
+    </div>
+  );
+};
+
 // ─── Pack Tab ─────────────────────────────────────────────────────────────────
 
-const PackTab = ({ scheme, onGenerate, onPreview }) => (
-  <div>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-      <div><div style={{fontSize:15,fontWeight:600}}>Handover pack · {scheme.project_number} · {scheme.road_name}</div><div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{scheme.packProgress} of {scheme.packTotal} items ready</div></div>
-      <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
+const PackTab = ({ scheme, onGenerate, onPreview }) => {
+  const { updateScheme } = React.useContext(window.SchemeContext);
+  const fileInputs = React.useRef({});
+  const uploads = scheme.uploads || {};
+
+  const handleFile = async (docKey, file) => {
+    if(!file) return;
+    try {
+      const dataUrl = await readAsDataUrl(file);
+      updateScheme(scheme.id, {
+        uploads: { ...uploads, [docKey]: { name: file.name, size: file.size, type: file.type, dataUrl, uploadedAt: new Date().toISOString() } }
+      });
+    } catch(err) {
+      alert("Could not read file: " + (err && err.message ? err.message : err));
+    }
+  };
+
+  const handleRemove = (docKey) => {
+    const next = { ...uploads };
+    delete next[docKey];
+    updateScheme(scheme.id, { uploads: next });
+  };
+
+  const openUpload = (upload) => {
+    const w = window.open("", "_blank");
+    if(!w) { alert("Pop-ups blocked. Allow pop-ups for this site to preview uploads."); return; }
+    w.document.write(`<!doctype html><title>${upload.name.replace(/[<>&]/g,"")}</title><style>html,body,iframe{margin:0;padding:0;border:0;width:100%;height:100%;background:#222}</style><iframe src="${upload.dataUrl}"></iframe>`);
+    w.document.close();
+  };
+
+  const autoDoneCount = window.PACK_DOCS.filter((d,i) => d.auto && i < 5).length;
+  const manualDoneCount = window.PACK_DOCS.filter(d => !d.auto && uploads[d.key]).length;
+  const total = window.PACK_DOCS.length;
+  const done = autoDoneCount + manualDoneCount;
+
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:600}}>Handover pack · {scheme.project_number} · {scheme.road_name}</div>
+          <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{done} of {total} items ready</div>
+        </div>
+        <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
+      </div>
+      <div className="pack-grid">
+        {window.PACK_DOCS.map((d,i) => {
+          const isWorking = d.working;
+          const upload = uploads[d.key];
+          const ready = d.auto ? i < 5 : !!upload;
+          const accept = UPLOAD_ACCEPT[d.key] || ".pdf";
+          const label = UPLOAD_LABEL[d.key] || "file";
+          return (
+            <div key={d.key} className="doc-card">
+              <div className="doc-preview">
+                <div className="sheet">
+                  {upload ? <UploadedSheet upload={upload} /> : <DocPreview docKey={d.key} scheme={scheme} />}
+                </div>
+                {isWorking && <div style={{position:"absolute",top:10,right:10,background:"var(--accent)",color:"white",fontFamily:"var(--font-mono)",fontSize:9,padding:"3px 6px",borderRadius:2,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Live</div>}
+                {upload && <div style={{position:"absolute",top:10,right:10,background:"var(--green)",color:"white",fontFamily:"var(--font-mono)",fontSize:9,padding:"3px 6px",borderRadius:2,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Uploaded</div>}
+              </div>
+              <div className="doc-info">
+                <div className="doc-name">{d.name}</div>
+                <div className="doc-meta"><span>{d.type}</span><span>{d.auto ? "Auto" : "Manual upload"}</span></div>
+              </div>
+              <div className="doc-status">
+                <span className={"pill "+(ready?"ready":"review")}>{ready?"ready":"pending"}</span>
+                {d.auto ? (
+                  <button className="btn sm ghost" style={{marginLeft:"auto"}} onClick={()=>isWorking&&onPreview(scheme,d.key)}>Preview {isWorking&&<Icon.Arrow />}</button>
+                ) : (
+                  <>
+                    <input
+                      type="file"
+                      accept={accept}
+                      ref={el => { fileInputs.current[d.key] = el; }}
+                      style={{display:"none"}}
+                      onChange={e => { const f = e.target.files && e.target.files[0]; handleFile(d.key, f); e.target.value = ""; }}
+                    />
+                    {upload ? (
+                      <span style={{marginLeft:"auto",display:"inline-flex",gap:4}}>
+                        <button className="btn sm ghost" onClick={()=>openUpload(upload)}>Preview</button>
+                        <button className="btn sm ghost" onClick={()=>fileInputs.current[d.key]&&fileInputs.current[d.key].click()}>Replace</button>
+                        <button className="btn sm ghost" title="Remove" aria-label="Remove uploaded file" onClick={()=>handleRemove(d.key)}><Icon.X /></button>
+                      </span>
+                    ) : (
+                      <button className="btn sm" style={{marginLeft:"auto"}} onClick={()=>fileInputs.current[d.key]&&fileInputs.current[d.key].click()}>
+                        <Icon.Plus /> Upload {label}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
+        <strong>Connected templates:</strong> Road Space Request Form, PCI / CPP, and Resident Letter are live — click Preview on any card. Drawings, TM plans, and utility searches accept manual PDF uploads.
+      </div>
     </div>
-    <div className="pack-grid">
-      {window.PACK_DOCS.map((d,i)=>{
-        const done=i<5, isWorking=d.working;
-        return (
-          <div key={d.key} className="doc-card">
-            <div className="doc-preview"><div className="sheet"><DocPreview docKey={d.key} scheme={scheme} /></div>{isWorking&&<div style={{position:"absolute",top:10,right:10,background:"var(--accent)",color:"white",fontFamily:"var(--font-mono)",fontSize:9,padding:"3px 6px",borderRadius:2,letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:600}}>Live</div>}</div>
-            <div className="doc-info"><div className="doc-name">{d.name}</div><div className="doc-meta"><span>{d.type}</span><span>{d.auto?"Auto":"Manual upload"}</span></div></div>
-            <div className="doc-status"><span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span><button className="btn sm ghost" style={{marginLeft:"auto"}} onClick={()=>isWorking&&onPreview(scheme,d.key)}>Preview {isWorking&&<Icon.Arrow />}</button></div>
-          </div>
-        );
-      })}
-    </div>
-    <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
-      <strong>Connected templates:</strong> Road Space Request Form, PCI / CPP, and Resident Letter are live — click Preview on any card.
-    </div>
-  </div>
-);
+  );
+};
 
 window.SchemeDetail = SchemeDetail;
