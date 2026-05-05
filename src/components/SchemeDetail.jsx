@@ -672,9 +672,10 @@ const DocPreview = ({ docKey, scheme }) => {
     const E=window.BOQ_ENGINE;
     let breakdown=[];
     if(scheme.boq && E){
-      const c=E.buildBoQLines(scheme.boq,scheme);
-      breakdown=c.groups.map(g=>({l:`Series ${g.num}`,v:E.fmtGBP(g.subtotal)}));
-      if(c.totalIncVat) breakdown.push({l:'Total inc VAT',v:E.fmtGBP(c.totalIncVat),bold:true});
+      const eff = E.effectiveQuickInputs ? E.effectiveQuickInputs(scheme, scheme.boq) : scheme.boq.quick_inputs;
+      const computed = E.buildBoQLines({...scheme.boq, quick_inputs: eff}, scheme);
+      breakdown=computed.groups.map(g=>({l:`Series ${g.num}`,v:E.fmtGBP(g.subtotal)}));
+      if(computed.totalIncVat) breakdown.push({l:'Total inc VAT',v:E.fmtGBP(computed.totalIncVat),bold:true});
     }
     if(!breakdown.length) breakdown=[{l:'(not generated yet)',v:'—'}];
     return <div><div style={{fontWeight:700,fontSize:6}}>BILL OF QUANTITIES</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0",fontWeight:b.bold?700:400}}><span>{b.l}</span><span>{b.v}</span></div>)}</div>;
@@ -745,6 +746,7 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
   const toggleManual = (key) => {
     updateScheme(scheme.id, { docs_generated: { ...docsGen, [key]: !docsGen[key] } });
   };
+
 
   const handleWorkingClick = (d) => {
     if (d.key === 'boq')   return onTabSwitch('boq');
