@@ -415,10 +415,30 @@ window.__getPCIPdfBuffer = async (scheme) => {
     let buffer = await loadDocxBuffer(PCI_TEMPLATE);
     buffer = await injectValues(buffer, scheme);
     if (window.docx && window.docx.renderAsync) {
+      // inWrapper:true + breakPages:true causes docx-preview to emit each
+      // DOCX page as its own <section> element — we then capture each section
+      // individually so PDF page breaks match the document's actual page breaks.
       await window.docx.renderAsync(buffer, container, null, {
-        className: 'docx-preview', inWrapper: false, useBase64URL: true,
+        className: 'docx-preview', inWrapper: true, breakPages: true, useBase64URL: true,
       });
     }
+    const sections = Array.from(container.querySelectorAll('section')).filter(s => s.offsetHeight > 50);
+    if (sections.length > 0) {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      for (let i = 0; i < sections.length; i++) {
+        if (i > 0) pdf.addPage();
+        const canvas = await window.html2canvas(sections[i], {
+          scale: 2, backgroundColor: '#ffffff', useCORS: true, allowTaint: true, logging: false,
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.9);
+        const imgW = 210;
+        const imgH = (canvas.height / canvas.width) * imgW;
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+      }
+      return pdf.output('arraybuffer');
+    }
+    // Fallback if docx-preview didn't produce section elements
     return await window.htmlToPdfBuffer(container);
   } finally {
     document.body.removeChild(container);
