@@ -12,6 +12,53 @@
 //             window.WARDS, window.TAYSIDE_STAFF, window.Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Live preview summary — reads scheme + boq state and projects what the BoQ
+// would total RIGHT NOW (auto-lines regenerated on the fly). Lets the user see
+// the cost / dominant series jump as they edit Master fields, catching the
+// silent-default bug class (e.g. wrong surface tag prices a Micro-asphalt
+// scheme as HRA at 5–6× the right cost) before export.
+const MasterPreviewBar = ({ scheme }) => {
+  const E = window.BOQ_ENGINE;
+  const computed = React.useMemo(() => {
+    if (!E) return null;
+    const boq = scheme.boq || (window.defaultBoq ? window.defaultBoq() : { quick_inputs: {}, custom_lines: [], settings: {}, overrides: {} });
+    const effective = E.effectiveQuickInputs(scheme, boq);
+    const autoLines = E.regenAutoLines(effective);
+    const userLines = (boq.custom_lines || []).filter(l => !l.auto);
+    const merged    = { ...boq, quick_inputs: effective, custom_lines: [...autoLines, ...userLines] };
+    return E.buildBoQLines(merged, scheme);
+  }, [scheme]);
+
+  if (!computed) return null;
+
+  const cwArea  = +scheme.carriageway_area_m2 || +(scheme.boq?.quick_inputs?.carriageway_area) || 0;
+  const total   = +computed.totalIncVat || 0;
+  const perM2   = cwArea > 0 ? total / cwArea : 0;
+  const dominant = (computed.groups || []).slice().sort((a, b) => (+b.subtotal || 0) - (+a.subtotal || 0))[0];
+
+  const Stat = ({ label, value, sub }) => (
+    <div className="mwb-preview-stat">
+      <div className="mwb-preview-label">{label}</div>
+      <div className="mwb-preview-value mono">{value}</div>
+      {sub && <div className="mwb-preview-sub">{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div className="mwb-preview" title="Live projection of the current BoQ totals — updates as you edit Master fields. Refine in the BoQ tab.">
+      <Stat label="BoQ total (incl. VAT)" value={E.fmtGBP(total)} />
+      <Stat label="£ per m²" value={cwArea > 0 ? E.fmtGBP(perM2) : '—'} sub={cwArea > 0 ? `${cwArea.toLocaleString()} m²` : 'no carriageway area'} />
+      <Stat label="Lines" value={String((computed.lines || []).length)} sub={`${(computed.groups || []).length} series`} />
+      <div className="mwb-preview-stat mwb-preview-dominant">
+        <div className="mwb-preview-label">Dominant series</div>
+        <div className="mwb-preview-value">
+          {dominant ? <span><span className="mono" style={{color:'var(--ink-3)',marginRight:6}}>S{dominant.num}</span>{dominant.title}</span> : <span style={{color:'var(--ink-3)'}}>—</span>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MasterWorkbook = ({ schemeId }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
@@ -248,6 +295,7 @@ const MasterWorkbook = ({ schemeId }) => {
           <button className="btn sm" onClick={exportXlsx}><Icon.Download /> Export .xlsx</button>
         </div>
       </div>
+      <MasterPreviewBar scheme={scheme} />
       <div className="mwb-legend">
         <span><span className="swatch input" /> Input cell</span>
         <span><span className="swatch calc" /> Calculated</span>

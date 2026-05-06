@@ -482,6 +482,19 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
   :root:not([data-theme="light"]) .inline-error{background:rgba(248,113,113,0.14);border:1px solid rgba(248,113,113,0.4)}
 }
 
+/* Master Workbook — live BoQ preview bar shown above the legend.
+   Projects what the BoQ would total RIGHT NOW so the user can see the cost /
+   dominant series jump as they edit Master fields (catches the silent-
+   default bug class before export). */
+.mwb-preview{display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:12px 0;background:var(--bg-elev);border-bottom:1px solid var(--line);align-items:stretch}
+.mwb-preview-stat{padding:0 20px;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0}
+.mwb-preview-stat:last-child{border-right:none}
+.mwb-preview-label{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--ink-3);font-weight:500}
+.mwb-preview-value{font-size:16px;font-weight:600;line-height:1.2;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mwb-preview-sub{font-size:10px;color:var(--ink-3);font-family:var(--font-mono)}
+.mwb-preview-dominant .mwb-preview-value{font-size:13px;font-weight:500}
+@media (max-width:768px){.mwb-preview{grid-template-columns:repeat(2,1fr)}.mwb-preview-stat:nth-child(2){border-right:none}.mwb-preview-stat:nth-child(1),.mwb-preview-stat:nth-child(2){border-bottom:1px solid var(--line);padding-bottom:10px}.mwb-preview-stat:nth-child(3),.mwb-preview-stat:nth-child(4){padding-top:10px}}
+
 /* Topbar sync-state chip — combines coloured dot with live "Synced · 4s ago"
    label so the user can see at a glance whether their work is safe. */
 .sync-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;background:var(--bg-sunken);border:1px solid var(--line);border-radius:14px;font-size:11px;color:var(--ink-3);font-family:var(--font-mono);white-space:nowrap;flex-shrink:0;line-height:1;transition:background 0.12s,border-color 0.12s,color 0.12s}
