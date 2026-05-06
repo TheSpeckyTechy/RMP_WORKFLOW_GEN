@@ -621,6 +621,24 @@ async function downloadFrontPdf(scheme) {
 // Expose at file scope so GenerateModal can use it without PackTab being mounted.
 window.__downloadFrontPdf = downloadFrontPdf;
 
+window.__getFrontPdfBuffer = async (scheme) => {
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
+  document.body.appendChild(container);
+  try {
+    const root = ReactDOM.createRoot(container);
+    root.render(React.createElement(FrontSheetDoc, { scheme }));
+    await new Promise(r => setTimeout(r, 500));
+    const buf = await window.htmlToPdfBuffer(container.firstChild || container);
+    root.unmount();
+    return buf;
+  } finally {
+    document.body.removeChild(container);
+  }
+};
+
+window.FrontSheetDoc = FrontSheetDoc;
+
 // ─── Pack file upload helpers ─────────────────────────────────────────────────
 
 const readPDFasDataUrl = (file) => new Promise((resolve, reject) => {
@@ -787,10 +805,33 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
               <div className="doc-status">
                 <span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span>
                 {isWorking ? (
-                  <button className="btn sm ghost" style={{marginLeft:"auto"}} disabled={isGenerating}
-                    onClick={() => handleWorkingClick(d)}>
-                    {workingLabel(d)} {!isGenerating && <Icon.Arrow />}
-                  </button>
+                  <div style={{marginLeft:"auto",display:"flex",gap:4,alignItems:"center"}}>
+                    <button className="btn sm ghost" disabled={isGenerating}
+                      onClick={() => handleWorkingClick(d)}>
+                      {workingLabel(d)} {!isGenerating && <Icon.Arrow />}
+                    </button>
+                    {d.key === 'boq' && (() => {
+                      const boqFile = scheme['pack_file_boq'];
+                      return boqFile ? (
+                        <>
+                          <button className="btn sm ghost"
+                            onClick={() => setViewingPackFile({ packFile: boqFile, docName: 'Bill of Quantities' })}>
+                            <Icon.Eye /> PDF
+                          </button>
+                          <button className="btn sm ghost" style={{color:"var(--red)"}}
+                            title="Remove uploaded PDF" onClick={() => clearPackFile('boq')}>
+                            <Icon.Trash />
+                          </button>
+                        </>
+                      ) : (
+                        <label style={{cursor:"pointer",display:"inline-flex"}}>
+                          <input type="file" accept=".pdf,application/pdf" style={{display:"none"}}
+                            onChange={e => { const f = e.target.files[0]; if (f) handlePackFileUpload('boq', f); e.target.value = ''; }} />
+                          <span className="btn sm ghost"><Icon.Upload /> PDF</span>
+                        </label>
+                      );
+                    })()}
+                  </div>
                 ) : (() => {
                   const packFile = scheme[`pack_file_${d.key}`];
                   return (
