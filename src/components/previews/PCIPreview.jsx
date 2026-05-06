@@ -558,7 +558,7 @@ const PCIModal = ({ schemeId, onClose }) => {
 
         <div className="rsr-body">
           <div className="rsr-preview-pane">
-            <PCIPackDoc scheme={scheme} />
+            <PCIDoc scheme={scheme} />
           </div>
           <div className="rsr-side">
             <div className="rsr-side-title">Field Bindings</div>
