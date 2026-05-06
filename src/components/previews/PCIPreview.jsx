@@ -318,8 +318,6 @@ const PCIPackDoc = ({ scheme }) => {
   );
 };
 
-window.PCIPackDoc = PCIPackDoc;
-
 async function loadDocxBuffer(url) {
   const res = await fetch(url, { cache: 'no-cache' });
   if (!res.ok) throw new Error('Template not found: ' + url);
