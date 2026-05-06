@@ -461,15 +461,18 @@
   }
 
   // Convert a DD/MM/YYYY → DD/MM/YYYY date pair to working days, counting
-  // each Mon–Fri inclusively from start to finish. Returns:
+  // each qualifying day inclusively from start to finish. Returns:
   //   - null  if either date is missing or unparseable, or finish < start.
-  //   - n ≥ 1 working days otherwise (Sat/Sun excluded; min 1 even if both
-  //           dates fall on a weekend, since a real job has at least 1 day).
+  //   - n ≥ 1 working days otherwise (min 1 even if the entire range falls
+  //           on excluded days).
   //
+  // `pattern` selects which days count:
+  //   - 'weekday'   (default) — Mon–Fri only. Sat/Sun excluded.
+  //   - 'seven_day'           — every day counts (used when crews work
+  //                             through weekends, e.g. nightshift programmes).
   // Bank holidays are NOT excluded — that would need a Scotland-specific
-  // calendar lookup. If schemes regularly span Christmas / New Year breaks,
-  // add a holiday-skip pass here as a follow-up.
-  function computeWorkingDays(start, finish) {
+  // calendar lookup.
+  function computeWorkingDays(start, finish, pattern) {
     if (!start || !finish) return null;
     const parse = s => {
       const [d, m, y] = String(s).split('/');
@@ -478,14 +481,23 @@
     };
     const a = parse(start), b = parse(finish);
     if (!a || !b || b < a) return null;
+    const sevenDay = isSevenDayPattern(pattern);
     let days = 0;
     const cur = new Date(a);
     while (cur <= b) {
       const dow = cur.getDay();
-      if (dow !== 0 && dow !== 6) days++;
+      if (sevenDay || (dow !== 0 && dow !== 6)) days++;
       cur.setDate(cur.getDate() + 1);
     }
     return Math.max(1, days);
+  }
+
+  // Stored value of working_pattern is the human-readable label from the
+  // Master dropdown. Match defensively so future label tweaks don't break
+  // the engine: anything that mentions "7", "sun", or "weekend" is 7-day.
+  function isSevenDayPattern(pattern) {
+    const t = String(pattern || '').toLowerCase();
+    return /\b7\b|sun|weekend/.test(t);
   }
 
   // Core derivation — everything that the BoQ can look up from the Master.
@@ -495,7 +507,7 @@
   function deriveQuickInputsFromScheme(scheme) {
     const s = scheme || {};
     const isFootway = s.scheme_type === 'Footway';
-    const wd = computeWorkingDays(s.date_start, s.date_finish);
+    const wd = computeWorkingDays(s.date_start, s.date_finish, s.working_pattern);
 
     const zones = (s.treatments || []).filter(z => +z.area_m2 > 0);
 
@@ -549,10 +561,9 @@
       iw_gully_cway:     +s.iron_gullies || 0,
       tm_type:           mapSchemeTmType(s.tm_type),
       include_diversion: /diversion/i.test(s.tm_type || ''),
-      // Fall back to 1 day (not 5) when dates are missing/invalid so that a
-      // bare date_start (or no dates) doesn't masquerade as a real one-week
-      // duration. The user should fill date_finish to drive a real count;
-      // until they do the BoQ TM line uses 1 day, which is clearly a stub.
+      // Fall back to 1 day (not 5) when dates are missing/invalid so a bare
+      // date_start (or no dates) doesn't masquerade as a real one-week
+      // duration. Filling date_finish drives a real count.
       duration_days:     wd != null ? wd : 1,
       // Zone-driven shapes. When zones.length > 0 these win over the
       // scalar surface_tag / milling_entries values above.
@@ -667,7 +678,7 @@
     fmtGBP, fmtQty, fmtPct, uid, snapMillingDepth, matchSurfaceTag, seriesOf,
     regenAutoLines, buildBoQLines,
     deriveQuickInputsFromScheme, effectiveQuickInputs,
-    mapSchemeTmType, computeWorkingDays,
+    mapSchemeTmType, computeWorkingDays, isSevenDayPattern,
     schemePatchForOverride,
     LINKED_FIELDS,
   };
