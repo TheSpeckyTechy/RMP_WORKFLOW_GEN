@@ -96,6 +96,42 @@ const MasterZoneStrip = ({ scheme }) => {
   );
 };
 
+// Cheap pre-export sanity check. Surfaces the small handful of fields whose
+// absence makes the generated pack visibly broken (blank placeholders,
+// divide-by-zero £/m², "Ward W— —" headers). Each issue is a short string
+// rendered as a chip; if there are none the banner shows the all-clear.
+const masterIssues = (scheme) => {
+  const issues = [];
+  if (!String(scheme.road_name || '').trim())                                    issues.push('Road name');
+  if (!String(scheme.project_number || '').trim())                               issues.push('Project number');
+  if (!(+scheme.carriageway_area_m2 > 0))                                        issues.push('Carriageway area');
+  if (!scheme.ward_num || !String(scheme.ward_selected || '').trim())            issues.push('Ward');
+  if (!Array.isArray(scheme.treatments) || scheme.treatments.length === 0)       issues.push('Treatment zones');
+  if (!String(scheme.contractor || '').trim())                                   issues.push('Contractor');
+  return issues;
+};
+
+const MasterValidationBanner = ({ scheme }) => {
+  const issues = masterIssues(scheme);
+  if (issues.length === 0) {
+    return (
+      <div className="mwb-validate ok">
+        <span className="mwb-validate-dot" />
+        <span className="mwb-validate-label">Ready to export — all required Master fields populated.</span>
+      </div>
+    );
+  }
+  return (
+    <div className="mwb-validate warn">
+      <span className="mwb-validate-dot" />
+      <span className="mwb-validate-label">{issues.length} field{issues.length === 1 ? '' : 's'} missing — generated pack will have blank placeholders:</span>
+      <span className="mwb-validate-chips">
+        {issues.map(i => <span key={i} className="mwb-validate-chip">{i}</span>)}
+      </span>
+    </div>
+  );
+};
+
 const MasterWorkbook = ({ schemeId }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
@@ -334,6 +370,7 @@ const MasterWorkbook = ({ schemeId }) => {
       </div>
       <MasterPreviewBar scheme={scheme} />
       <MasterZoneStrip scheme={scheme} />
+      <MasterValidationBanner scheme={scheme} />
       <div className="mwb-legend">
         <span><span className="swatch input" /> Input cell</span>
         <span><span className="swatch calc" /> Calculated</span>
