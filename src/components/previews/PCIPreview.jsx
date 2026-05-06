@@ -155,6 +155,171 @@ function buildPCIFields(scheme) {
   };
 }
 
+// ── Custom HTML renderer for pack PDF compilation ─────────────────────────────
+// Renders the PCI/CPP form as two A4-sized HTML pages (794×1123px each).
+// Each page is captured independently by __getPCIPdfBuffer so page breaks and
+// margins match the physical template exactly.
+const PCIPackDoc = ({ scheme }) => {
+  const f = buildPCIFields(scheme);
+
+  const PAGE = {
+    width: '794px', minHeight: '1123px', background: 'white',
+    padding: '52px 52px 48px 66px',
+    fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '9.5pt',
+    color: '#000', boxSizing: 'border-box',
+  };
+
+  const SEC_HEAD = {
+    background: '#003087', color: 'white', padding: '4px 8px',
+    fontSize: '9pt', fontWeight: 'bold', marginBottom: 0,
+  };
+
+  const TBL = { width: '100%', borderCollapse: 'collapse', marginBottom: '10px', tableLayout: 'fixed' };
+
+  const TDL = {
+    border: '1px solid #aaa', padding: '4px 7px', width: '38%',
+    verticalAlign: 'top', background: '#f0f0f0',
+    fontSize: '8.5pt', fontWeight: 'bold', lineHeight: '1.4',
+  };
+
+  const TDV = {
+    border: '1px solid #aaa', padding: '4px 7px', verticalAlign: 'top',
+    fontSize: '9pt', lineHeight: '1.4', wordBreak: 'break-word',
+  };
+
+  const TDV_ML = { ...TDV, whiteSpace: 'pre-wrap' };
+
+  const R = (label, value) => (
+    <tr>
+      <td style={TDL}>{label}</td>
+      <td style={TDV}>{value || ''}</td>
+    </tr>
+  );
+
+  return (
+    <div style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+
+      {/* ── PAGE 1 — Project / Designer / Client / Contractor ───── */}
+      <div data-pci-page="1" style={PAGE}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #003087', paddingBottom: '10px', marginBottom: '14px' }}>
+          <div>
+            <div style={{ fontSize: '13pt', fontWeight: 'bold', color: '#003087', lineHeight: 1.2 }}>Dundee City Council</div>
+            <div style={{ fontSize: '10pt', color: '#003087' }}>Roads &amp; Transportation</div>
+            <div style={{ fontSize: '8pt', color: '#555', marginTop: '4px' }}>Road Maintenance Partnership</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '10pt', fontWeight: 'bold', color: '#003087' }}>FM701-10A</div>
+            <div style={{ fontSize: '8pt', color: '#666' }}>Rev 1</div>
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+          <div style={{ fontSize: '12pt', fontWeight: 'bold', textDecoration: 'underline', color: '#003087' }}>
+            Pre Construction Information &amp; Construction Phase Plan
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '4px' }}>
+          <div style={SEC_HEAD}>Part 1 — Project Information</div>
+          <table style={TBL}><tbody>
+            {R('Project Title', f.PROJECT_TITLE)}
+            {R('Project Number', f.PROJECT_NUMBER)}
+            {R('Project Address', f.PROJECT_ADDRESS)}
+            {R('Proposed Start Date', f.START_DATE)}
+            {R('Proposed Finish Date', f.FINISH_DATE)}
+          </tbody></table>
+        </div>
+
+        <div style={{ marginBottom: '4px' }}>
+          <div style={SEC_HEAD}>Part 2 — Designer Details</div>
+          <table style={TBL}><tbody>
+            {R('Designer Name', f.DESIGNER_NAME)}
+            {R('Head of Service', f.DESIGNER_HEAD_OF)}
+            {R('Telephone', f.DESIGNER_TELEPHONE)}
+            {R('Email', f.DESIGNER_EMAIL)}
+          </tbody></table>
+        </div>
+
+        <div style={{ marginBottom: '4px' }}>
+          <div style={SEC_HEAD}>Part 3 — Client Details</div>
+          <table style={TBL}><tbody>
+            {R('Client Name & Address', f.CLIENT_NAME_ADDRESS)}
+            {R('Client Officer', f.CLIENT_OFFICER)}
+            {R('Telephone', f.CLIENT_TELEPHONE)}
+            {R('Email', f.CLIENT_EMAIL)}
+            {R('Department', f.DEPARTMENT)}
+            {R('CDM Principal Designer', f.CDM_PRINCIPAL_DESIGNER)}
+            {R('CDM Head Of', f.CDM_HEAD_OF)}
+            {R('Client Ref / Work Order', f.CLIENT_REF_WORK_ORDER)}
+          </tbody></table>
+        </div>
+
+        <div style={{ marginBottom: '4px' }}>
+          <div style={SEC_HEAD}>Part 4 — Principal Contractor Details</div>
+          <table style={TBL}><tbody>
+            {R('Contractor Name', f.CONTRACTOR_NAME)}
+            {R('Contractor Address', f.CONTRACTOR_ADDRESS)}
+            {R('Contact Name', f.CONTRACTOR_CONTACT)}
+            {R('Telephone', f.CONTRACTOR_TELEPHONE)}
+            {R('Email', f.CONTRACTOR_EMAIL)}
+            {R('Out of Hours Contact', f.CONTRACTOR_OUT_OF_HOURS)}
+          </tbody></table>
+        </div>
+      </div>
+
+      {/* ── PAGE 2 — Description / Occupiers / Security ─────────── */}
+      <div data-pci-page="2" style={PAGE}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '2px solid #003087', paddingBottom: '6px', marginBottom: '14px' }}>
+          <div style={{ fontSize: '10pt', fontWeight: 'bold', color: '#003087' }}>
+            Pre Construction Information &amp; Construction Phase Plan
+          </div>
+          <div style={{ fontSize: '8.5pt', color: '#555', textAlign: 'right' }}>
+            <div>{f.PROJECT_NUMBER}</div>
+            <div>{f.PROJECT_TITLE}</div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '4px' }}>
+          <div style={SEC_HEAD}>Part 5 — Description of Works &amp; Construction Phase Plan</div>
+          <table style={TBL}><tbody>
+            <tr>
+              <td style={{ ...TDL, width: '38%' }}>Description of Works &amp; Construction Phase Plan</td>
+              <td style={{ ...TDV_ML, minHeight: '400px' }}>{f.DESCRIPTION_OF_WORK || ''}</td>
+            </tr>
+          </tbody></table>
+        </div>
+
+        <div style={{ marginBottom: '4px' }}>
+          <div style={SEC_HEAD}>Part 6 — Occupier / Tenant Details</div>
+          <table style={TBL}><tbody>
+            <tr>
+              <td style={{ ...TDL, width: '38%' }}>Occupier / Tenant Details</td>
+              <td style={{ ...TDV_ML, minHeight: '90px' }}>{f.OCCUPIER_TENANT_DETAILS || 'None identified.'}</td>
+            </tr>
+          </tbody></table>
+        </div>
+
+        <div style={{ marginBottom: '4px' }}>
+          <div style={SEC_HEAD}>Part 7 — Security Arrangements</div>
+          <table style={TBL}><tbody>
+            <tr>
+              <td style={{ ...TDL, width: '38%' }}>Security Arrangements</td>
+              <td style={{ ...TDV_ML, minHeight: '90px' }}>{f.SECURITY_ARRANGEMENTS || 'Standard site security applies.'}</td>
+            </tr>
+          </tbody></table>
+        </div>
+
+        <div style={{ marginTop: '16px', paddingTop: '6px', borderTop: '1px solid #ccc', fontSize: '7.5pt', color: '#666', display: 'flex', justifyContent: 'space-between' }}>
+          <span>FM701-10A — DCC Roads &amp; Transportation</span>
+          <span>Generated by RMP Design Studio · {new Date().toLocaleDateString('en-GB')}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+window.PCIPackDoc = PCIPackDoc;
+
 async function loadDocxBuffer(url) {
   const res = await fetch(url, { cache: 'no-cache' });
   if (!res.ok) throw new Error('Template not found: ' + url);
@@ -411,36 +576,43 @@ window.__getPCIPdfBuffer = async (scheme) => {
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
   document.body.appendChild(container);
+  let root = null;
   try {
-    let buffer = await loadDocxBuffer(PCI_TEMPLATE);
-    buffer = await injectValues(buffer, scheme);
-    if (window.docx && window.docx.renderAsync) {
-      // inWrapper:true + breakPages:true causes docx-preview to emit each
-      // DOCX page as its own <section> element — we then capture each section
-      // individually so PDF page breaks match the document's actual page breaks.
-      await window.docx.renderAsync(buffer, container, null, {
-        className: 'docx-preview', inWrapper: true, breakPages: true, useBase64URL: true,
+    root = ReactDOM.createRoot(container);
+    await new Promise(resolve => {
+      root.render(React.createElement(PCIPackDoc, { scheme }));
+      // Allow React to fully paint and fonts to load
+      setTimeout(resolve, 300);
+    });
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pages = Array.from(container.querySelectorAll('[data-pci-page]'));
+    let firstPage = true;
+
+    for (const pageEl of pages) {
+      const canvas = await window.html2canvas(pageEl, {
+        scale: 2, backgroundColor: '#ffffff',
+        useCORS: true, allowTaint: true, logging: false,
+        width: 794,
       });
-    }
-    const sections = Array.from(container.querySelectorAll('section')).filter(s => s.offsetHeight > 50);
-    if (sections.length > 0) {
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      for (let i = 0; i < sections.length; i++) {
-        if (i > 0) pdf.addPage();
-        const canvas = await window.html2canvas(sections[i], {
-          scale: 2, backgroundColor: '#ffffff', useCORS: true, allowTaint: true, logging: false,
-        });
-        const imgData = canvas.toDataURL('image/jpeg', 0.9);
-        const imgW = 210;
-        const imgH = (canvas.height / canvas.width) * imgW;
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH);
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const imgW = 210;
+      const imgH = (canvas.height / canvas.width) * imgW;
+      const pdfPageH = 297;
+      let y = 0;
+      // Paginate if content taller than one A4 page (e.g. very long description)
+      while (y < imgH - 1) {
+        if (!firstPage) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, -y, imgW, imgH);
+        y += pdfPageH;
+        firstPage = false;
       }
-      return pdf.output('arraybuffer');
     }
-    // Fallback if docx-preview didn't produce section elements
-    return await window.htmlToPdfBuffer(container);
+
+    return pdf.output('arraybuffer');
   } finally {
+    if (root) { try { root.unmount(); } catch (_) {} }
     document.body.removeChild(container);
   }
 };
