@@ -670,6 +670,20 @@ const PackFileModal = ({ packFile, docName, onClose }) => (
 // ─── Doc Preview (thumbnail per document type) ────────────────────────────────
 
 const DocPreview = ({ docKey, scheme }) => {
+  // Uploaded pack PDF takes priority — show it for any doc type
+  const packFile = scheme[`pack_file_${docKey}`];
+  if (packFile) {
+    return (
+      <div style={{textAlign:'center',paddingTop:10,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
+        </svg>
+        <div style={{fontSize:5,fontWeight:700,color:'#dc2626',letterSpacing:'0.05em'}}>PDF</div>
+        <div style={{fontSize:4,color:'#555',lineHeight:1.3,wordBreak:'break-all',maxWidth:'90%'}}>{packFile.name}</div>
+      </div>
+    );
+  }
   if(docKey==="front") return (
     <div>
       <div style={{background:'#1a3a5c',color:'white',fontSize:4,padding:'2px 3px',fontWeight:700,marginBottom:2}}>DUNDEE CITY COUNCIL · RMP</div>
@@ -697,19 +711,6 @@ const DocPreview = ({ docKey, scheme }) => {
     }
     if(!breakdown.length) breakdown=[{l:'(not generated yet)',v:'—'}];
     return <div><div style={{fontWeight:700,fontSize:6}}>BILL OF QUANTITIES</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0",fontWeight:b.bold?700:400}}><span>{b.l}</span><span>{b.v}</span></div>)}</div>;
-  }
-  const packFile = scheme[`pack_file_${docKey}`];
-  if (packFile) {
-    return (
-      <div style={{textAlign:'center',paddingTop:10,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-          <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
-        </svg>
-        <div style={{fontSize:5,fontWeight:700,color:'#dc2626',letterSpacing:'0.05em'}}>PDF</div>
-        <div style={{fontSize:4,color:'#555',lineHeight:1.3,wordBreak:'break-all',maxWidth:'90%'}}>{packFile.name}</div>
-      </div>
-    );
   }
   return <div style={{color:"#aaa",fontSize:5,textAlign:"center",paddingTop:20}}>[{docKey.toUpperCase()}]<br/>Upload PDF below</div>;
 };
@@ -805,29 +806,30 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
               <div className="doc-status">
                 <span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span>
                 {isWorking ? (
-                  <div style={{marginLeft:"auto",display:"flex",gap:4,alignItems:"center"}}>
+                  <div style={{marginLeft:"auto",display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
                     <button className="btn sm ghost" disabled={isGenerating}
                       onClick={() => handleWorkingClick(d)}>
                       {workingLabel(d)} {!isGenerating && <Icon.Arrow />}
                     </button>
-                    {d.key === 'boq' && (() => {
-                      const boqFile = scheme['pack_file_boq'];
-                      return boqFile ? (
+                    {(d.key === 'boq' || d.key === 'pci' || d.key === 'rsr') && (() => {
+                      const docFile = scheme[`pack_file_${d.key}`];
+                      const uploadLabel = d.key === 'pci' ? 'Upload Pack PDF' : 'PDF';
+                      return docFile ? (
                         <>
                           <button className="btn sm ghost"
-                            onClick={() => setViewingPackFile({ packFile: boqFile, docName: 'Bill of Quantities' })}>
+                            onClick={() => setViewingPackFile({ packFile: docFile, docName: d.name })}>
                             <Icon.Eye /> PDF
                           </button>
                           <button className="btn sm ghost" style={{color:"var(--red)"}}
-                            title="Remove uploaded PDF" onClick={() => clearPackFile('boq')}>
+                            title="Remove uploaded PDF" onClick={() => clearPackFile(d.key)}>
                             <Icon.Trash />
                           </button>
                         </>
                       ) : (
-                        <label style={{cursor:"pointer",display:"inline-flex"}}>
+                        <label style={{cursor:"pointer",display:"inline-flex"}} title={d.key==='pci'?"Upload printed PDF to include in pack — overrides auto-render":"Upload PDF to use in place of auto-render"}>
                           <input type="file" accept=".pdf,application/pdf" style={{display:"none"}}
-                            onChange={e => { const f = e.target.files[0]; if (f) handlePackFileUpload('boq', f); e.target.value = ''; }} />
-                          <span className="btn sm ghost"><Icon.Upload /> PDF</span>
+                            onChange={e => { const f = e.target.files[0]; if (f) handlePackFileUpload(d.key, f); e.target.value = ''; }} />
+                          <span className="btn sm ghost"><Icon.Upload /> {uploadLabel}</span>
                         </label>
                       );
                     })()}
@@ -868,7 +870,7 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
         })}
       </div>
       <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
-        <strong>Connected templates:</strong> Front Sheet, RSR, PCI / CPP, and Resident Letter are live — click the action button to download and mark as ready. <strong>Drawings, TM plans, and utility searches</strong> — upload PDFs directly here (max 20 MB each); they're stored in the browser and can be viewed or replaced at any time.
+        <strong>Pack generation rule:</strong> If you upload a PDF for any document, that file is used in the compiled pack — overriding auto-render. <strong>PCI / CPP must be uploaded</strong> (use Preview → Download .docx → print-to-PDF in Word, then upload here). RSR and Front Sheet auto-render if no upload is present. All other documents require upload (max 20 MB each).
       </div>
       {viewingPackFile && (
         <PackFileModal
