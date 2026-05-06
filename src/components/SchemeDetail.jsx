@@ -126,7 +126,11 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
           <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>
           {onDuplicate && <button className="btn ghost sm" title="Duplicate scheme" onClick={()=>onDuplicate(scheme)}><Icon.Copy /></button>}
-          <button className="btn ghost sm" title="Delete scheme" style={{color:"var(--red)"}} onClick={()=>{ if(confirm(`Delete "${scheme.road_name}"? This cannot be undone.`)){ deleteScheme(schemeId); onBack(); } }}><Icon.Trash /></button>
+          <button className="btn ghost sm" title="Delete scheme" style={{color:"var(--red)"}} onClick={async()=>{
+            const ask = window.confirmDialog || ((o)=>Promise.resolve(window.confirm(o.body||o.title)));
+            const ok = await ask({ title:`Delete "${scheme.road_name}"?`, body:'This cannot be undone.', confirmLabel:'Delete', danger:true });
+            if (ok) { deleteScheme(schemeId); onBack(); if (window.Toast) window.Toast.show({kind:'info',msg:`Deleted "${scheme.road_name}".`}); }
+          }}><Icon.Trash /></button>
         </div>
       </div>
       {(() => {

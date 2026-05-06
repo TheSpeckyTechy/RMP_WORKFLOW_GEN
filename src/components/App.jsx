@@ -504,7 +504,11 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
                 <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>Clears all saved edits and reloads the original seed data. Cannot be undone.</div>
               </div>
               <button className="btn sm" style={{borderColor:"var(--red)",color:"var(--red)",flexShrink:0}}
-                onClick={()=>{ if(confirm("Reset all scheme data to defaults? This cannot be undone.")) resetAllSchemes(); }}>
+                onClick={async()=>{
+                  const ask = window.confirmDialog || ((o)=>Promise.resolve(window.confirm(o.body||o.title)));
+                  const ok = await ask({ title:'Reset scheme data?', body:'Clears all saved edits and reloads the original seed data. Cannot be undone.', confirmLabel:'Reset', danger:true });
+                  if (ok) { resetAllSchemes(); if (window.Toast) window.Toast.show({kind:'info',msg:'Scheme data reset.'}); }
+                }}>
                 Reset data
               </button>
             </div>
@@ -631,10 +635,19 @@ const AppInner = () => {
   const notifRef = React.useRef(null);
 
   React.useEffect(() => {
-    const handler = (e) => setNotifications(n => [e.detail, ...n].slice(0, 10));
+    const handler = (e) => {
+      setNotifications(n => [e.detail, ...n].slice(0, 10));
+      const det = e.detail || {};
+      if (window.Toast) {
+        const action = (det.fn && window[det.fn] && det.schemeId)
+          ? { label: 'Re-download', onClick: () => { const s = getScheme && getScheme(det.schemeId); if (s) window[det.fn](s); } }
+          : null;
+        window.Toast.show({ kind: 'success', msg: det.label ? `Downloaded · ${det.label}` : 'Download complete', action });
+      }
+    };
     window.addEventListener('rmp-download', handler);
     return () => window.removeEventListener('rmp-download', handler);
-  }, []);
+  }, [getScheme]);
 
   React.useEffect(() => {
     if (!notifOpen) return;
@@ -685,14 +698,23 @@ const AppInner = () => {
   React.useEffect(() => { if (STATUS_FILTER_KEYS.includes(view)) setFilter(view); }, [view]);
 
   React.useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "n" && !e.metaKey && !e.ctrlKey && !e.altKey &&
-          !["INPUT","SELECT","TEXTAREA"].includes(document.activeElement?.tagName)) {
-        setNewSchemeOpen(true);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    if (!window.Shortcuts) return;
+    window.Shortcuts.register('n', () => setNewSchemeOpen(true), {
+      label: 'New scheme', group: 'Schemes',
+    });
+    return () => { window.Shortcuts && window.Shortcuts.unregister('n'); };
+  }, []);
+
+  React.useEffect(() => {
+    if (!window.CommandPalette) return;
+    const actions = [
+      { id: 'new-scheme', label: 'New scheme', sub: 'Create a new road maintenance scheme', group: 'Schemes', icon: <Icon.Plus />, run: () => setNewSchemeOpen(true) },
+      { id: 'go-dashboard', label: 'Go to dashboard', group: 'Navigation', icon: <Icon.Folder />, run: () => { setOpenScheme(null); setView('dashboard'); } },
+      { id: 'go-settings', label: 'Open settings', group: 'Navigation', icon: <Icon.Cog />, run: () => { setOpenScheme(null); setView('settings'); } },
+      { id: 'shortcuts-help', label: 'Show keyboard shortcuts', group: 'Help', run: () => window.Shortcuts && window.Shortcuts.openHelp() },
+    ];
+    actions.forEach(a => window.CommandPalette.register(a));
+    return () => { actions.forEach(a => window.CommandPalette && window.CommandPalette.unregister(a.id)); };
   }, []);
 
   return (
@@ -756,6 +778,9 @@ const AppInner = () => {
       {previewing?.docKey === "letter" && <LetterModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
       {newSchemeOpen && <NewSchemeModal onClose={()=>{ setNewSchemeOpen(false); setDuplicateSource(null); }} initialValues={duplicateSource} onCreate={s=>{ addScheme(s); setNewSchemeOpen(false); setDuplicateSource(null); setView("dashboard"); setFilter("all"); setSearch(""); setOpenScheme(s.id); }} />}
       {tweaksOn && <Tweaks tweaks={tweaks} setTweaks={setTweaks} />}
+      <CommandPaletteHost
+        onOpenScheme={(id) => { setOpenScheme(id); setSearch(''); setView('dashboard'); }}
+      />
     </div>
   );
 };
@@ -791,6 +816,9 @@ const App = () => {
     <ErrorBoundary>
       <SchemeProvider>
         <AppInner />
+        <ToastHost />
+        <ShortcutsHost />
+        <ConfirmDialogHost />
       </SchemeProvider>
     </ErrorBoundary>
   );
