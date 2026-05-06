@@ -460,14 +460,32 @@
     return 'full_closure';
   }
 
-  // Convert a DD/MM/YYYY → DD/MM/YYYY date pair to working days
-  // (calendar × 5/7, min 1). Returns null if either date is unparseable.
+  // Convert a DD/MM/YYYY → DD/MM/YYYY date pair to working days, counting
+  // each Mon–Fri inclusively from start to finish. Returns:
+  //   - null  if either date is missing or unparseable, or finish < start.
+  //   - n ≥ 1 working days otherwise (Sat/Sun excluded; min 1 even if both
+  //           dates fall on a weekend, since a real job has at least 1 day).
+  //
+  // Bank holidays are NOT excluded — that would need a Scotland-specific
+  // calendar lookup. If schemes regularly span Christmas / New Year breaks,
+  // add a holiday-skip pass here as a follow-up.
   function computeWorkingDays(start, finish) {
     if (!start || !finish) return null;
-    const parse = s => { const [d,m,y] = String(s).split('/'); return new Date(+y, +m-1, +d); };
+    const parse = s => {
+      const [d, m, y] = String(s).split('/');
+      const dt = new Date(+y, +m - 1, +d);
+      return isNaN(dt) ? null : dt;
+    };
     const a = parse(start), b = parse(finish);
-    if (isNaN(a) || isNaN(b)) return null;
-    return Math.max(1, Math.round((b - a) / 86400000 * 5 / 7));
+    if (!a || !b || b < a) return null;
+    let days = 0;
+    const cur = new Date(a);
+    while (cur <= b) {
+      const dow = cur.getDay();
+      if (dow !== 0 && dow !== 6) days++;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return Math.max(1, days);
   }
 
   // Core derivation — everything that the BoQ can look up from the Master.
@@ -531,7 +549,11 @@
       iw_gully_cway:     +s.iron_gullies || 0,
       tm_type:           mapSchemeTmType(s.tm_type),
       include_diversion: /diversion/i.test(s.tm_type || ''),
-      duration_days:     wd != null ? wd : 5,
+      // Fall back to 1 day (not 5) when dates are missing/invalid so that a
+      // bare date_start (or no dates) doesn't masquerade as a real one-week
+      // duration. The user should fill date_finish to drive a real count;
+      // until they do the BoQ TM line uses 1 day, which is clearly a stub.
+      duration_days:     wd != null ? wd : 1,
       // Zone-driven shapes. When zones.length > 0 these win over the
       // scalar surface_tag / milling_entries values above.
       milling_entries:   zones.length ? millingFromZones : [{ depth: snapMillingDepth(+s.surface_depth_mm || 40), area: null }],
