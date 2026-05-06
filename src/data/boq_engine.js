@@ -11,8 +11,28 @@
 
 (function () {
   // ── Material option tables ─────────────────────────────────────────────────
+  // Surface courses, ordered by Dundee design practice:
+  //   1. The three primaries everyday schemes use, all at 40mm depth.
+  //   2. Other hot-laid courses (HRA 35/14F, AC, HBC, etc.) kept available.
+  //   3. Preventive / thin treatments at the bottom.
+  //
+  // Note on catalogue mapping for the new "Taycoat" and "SMA 14" tags:
+  // - Taycoat = SMA 10 closed surf with 100/150 pen binder grade (a softer
+  //   binder than the 40/60 used in the catalogue's 7/053 row). The priced
+  //   catalogue does not yet carry a dedicated 100/150 row, so the tag is
+  //   mapped to 7/053 (SMA 10 surf 40/60 40mm) as the closest priced
+  //   analogue until a proper Taycoat row is added.
+  // - SMA 14 = no priced row exists at 14mm aggregate; same fallback to
+  //   7/053 until rates are added.
+  // When new rates land in boq_rates_full.js, update the right-hand side of
+  // the two new entries in BOQ_LEGACY_TAG_MAP — the rail labels here can
+  // stay as they are.
   const SURFACE_OPTIONS = [
-    { tag: 'surf_hra3014_40_14', label: 'HRA 30/14F 40mm · 14mm chips' },
+    // Dundee-typical primaries (40mm) ───────────────────────────────────────
+    { tag: 'surf_taycoat_10_40', label: '40mm Taycoat — SMA 10 closed surf 100/150' },
+    { tag: 'surf_hra3014_40_14', label: '40mm HRA 14mm' },
+    { tag: 'surf_sma14_40',      label: '40mm SMA 14' },
+    // Other hot-laid surface courses ───────────────────────────────────────
     { tag: 'surf_hra3014_40_20', label: 'HRA 30/14F 40mm · 20mm chips' },
     { tag: 'surf_hra3514_45_14', label: 'HRA 35/14F 45mm · 14mm chips' },
     { tag: 'surf_hra3514_45_20', label: 'HRA 35/14F 45mm · 20mm chips' },
@@ -95,6 +115,12 @@
       if (t.includes('prem'))                         return 'sd_10mm_prem';
       return 'sd_10mm_int';
     }
+    // Dundee-practice primaries — match BEFORE the legacy substring rules
+    // so "Taycoat", "SMA 10 100/150", and "SMA 14" resolve to the new
+    // dedicated tags rather than falling back to substring-matched defaults.
+    if (t.includes('taycoat'))                                     return 'surf_taycoat_10_40';
+    if ((t.includes('sma 10') || t.includes('sma10')) && t.includes('100/150')) return 'surf_taycoat_10_40';
+    if ((t.includes('sma 14') || t.includes('sma14')))             return 'surf_sma14_40';
     // HBC variants before plain AC so they match precisely.
     if (t.includes('ac14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';
     if (t.includes('ac 14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';
