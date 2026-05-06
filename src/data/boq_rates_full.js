@@ -1812,10 +1812,14 @@ window.BOQ_LEGACY_TAG_MAP = {
   "surf_hra3514_45_14": "7/045",
   "surf_hra3514_45_20": "7/043",
   "surf_sma10_40": "7/053",
-  // Dundee-practice aliases — these labels don't yet have dedicated catalogue
-  // entries; both fall back to 7/053 (SMA 10 surf 40mm) as the closest priced
-  // analogue. Replace the right-hand side once rates for Taycoat and SMA 14
-  // are added to boq_rates_full.js (regenerate via scripts/extract_boq_rates.py).
+  // Dundee-practice aliases. Both fall back to 7/053 (SMA 10 surf 40/60 40mm)
+  // as the closest priced analogue:
+  //   surf_taycoat_10_40 — Taycoat is SMA 10 closed surf with 100/150 pen
+  //     binder (softer than the 40/60 in 7/053). No dedicated 100/150 row
+  //     yet exists in the catalogue.
+  //   surf_sma14_40      — no priced row exists for SMA at 14mm aggregate.
+  // Replace the right-hand side once dedicated rates are added to
+  // boq_rates_full.js (regenerate via scripts/extract_boq_rates.py).
   "surf_taycoat_10_40": "7/053",
   "surf_sma14_40":      "7/053",
   "surf_sma6_30": "7/055",
