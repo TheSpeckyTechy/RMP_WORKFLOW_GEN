@@ -501,11 +501,11 @@ const UtilitiesTab = ({ scheme }) => {
 
 // ─── Front Sheet (A4 HTML doc, rendered offscreen then exported as PDF) ─────────
 
-const FRONT_STATUS_COLORS = { design:"#3b82f6", review:"#f59e0b", ready:"#22c55e", works:"#6366f1", archived:"#9ca3af" };
+const FRONT_STATUS_COLORS = { design:"#3b82f6", review:"#f59e0b", ready:"#22c55e", works:"#6366f1", archived:"#9ca3af", constructed:"#0f5c42" };
 
 const FrontSheetDoc = ({ scheme }) => {
   const docsGen = scheme.docs_generated || {};
-  const statusLabels = { design:"In Design", review:"In Review", ready:"Ready to Issue", works:"On Site", archived:"Archived" };
+  const statusLabels = { design:"In Design", review:"In Review", ready:"Ready to Issue", works:"On Site", archived:"Archived", constructed:"Constructed" };
   const statusColor = FRONT_STATUS_COLORS[scheme.status] || "#6b7280";
   const teamRows = [
     ["Designer",      scheme.prepared_by],

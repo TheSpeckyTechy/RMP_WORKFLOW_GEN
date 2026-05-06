@@ -36,7 +36,7 @@ const Icon = {
 
 const fmtGBP = (n) => "£" + Number(n).toLocaleString("en-GB", { maximumFractionDigits: 0 });
 const fmtDate = (iso) => { const d = new Date(iso); return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }); };
-const STATUS_LABELS = { design: "In Design", review: "In Review", ready: "Ready to Issue", works: "On Site", archived: "Archived" };
+const STATUS_LABELS = { design: "In Design", review: "In Review", ready: "Ready to Issue", works: "On Site", archived: "Archived", constructed: "Constructed" };
 
 const htmlToPdf = async (element, filename) => {
   if (!window.html2canvas || !window.jspdf) throw new Error('PDF libraries not loaded');

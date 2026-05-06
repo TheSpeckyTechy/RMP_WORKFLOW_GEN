@@ -50,7 +50,7 @@ const isUrgentScheme = (s) => {
 };
 
 const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
-  const { schemes, resetAllSchemes } = React.useContext(window.SchemeContext);
+  const { schemes, resetAllSchemes, updateScheme } = React.useContext(window.SchemeContext);
   const handleReset = async () => {
     const ask = window.confirmDialog || ((o) => Promise.resolve(window.confirm(o.body || o.title)));
     const ok = await ask({
@@ -64,7 +64,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
       if (window.Toast) window.Toast.show({ kind: 'info', msg: 'Automation reset to defaults.' });
     }
   };
-  const statusFiltered = filter === "all" ? schemes : schemes.filter(s => s.status === filter);
+  const statusFiltered = filter === "all" ? schemes.filter(s => s.status !== 'constructed') : schemes.filter(s => s.status === filter);
   const list = (search
     ? statusFiltered.filter(s => {
         const q = search.toLowerCase();
@@ -74,17 +74,22 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
                (s.scheme_extent||"").toLowerCase().includes(q) ||
                (s.treatment_type||"").toLowerCase().includes(q);
       })
-    : statusFiltered).slice().sort((a, b) => parseStartDate(a.date_start) - parseStartDate(b.date_start));
+    : statusFiltered).slice().sort((a, b) => {
+      const ua = isUrgentScheme(a), ub = isUrgentScheme(b);
+      if (ua !== ub) return ua ? -1 : 1;
+      return parseStartDate(a.date_start) - parseStartDate(b.date_start);
+    });
+  const activeSchemes = schemes.filter(s => s.status !== "archived" && s.status !== "constructed");
   const totals = {
-    live: schemes.filter(s => s.status !== "archived").length,
-    urgent: schemes.filter(s => isUrgentScheme(s)).length,
-    tender: schemes.filter(s => s.status !== "archived").reduce((a,s) => a + (+s.tender_total||0), 0),
-    m2: schemes.filter(s => s.status !== "archived").reduce((a,s) => a + (+s.area_m2||0), 0),
-    ready: schemes.filter(s => s.packProgress === s.packTotal && s.status !== "archived").length,
+    live: activeSchemes.length,
+    urgent: activeSchemes.filter(s => isUrgentScheme(s)).length,
+    tender: activeSchemes.reduce((a,s) => a + (+s.tender_total||0), 0),
+    m2: activeSchemes.reduce((a,s) => a + (+s.area_m2||0), 0),
+    ready: activeSchemes.filter(s => s.packProgress === s.packTotal).length,
   };
   const filters = [
     { k: "all", l: "All" },{ k: "design", l: "In design" },{ k: "review", l: "In review" },
-    { k: "ready", l: "Ready" },{ k: "works", l: "On site" },{ k: "archived", l: "Archived" },
+    { k: "ready", l: "Ready" },{ k: "works", l: "On site" },{ k: "constructed", l: "Constructed" },{ k: "archived", l: "Archived" },
   ];
   return (
     <>
@@ -134,7 +139,16 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
                   <td><div className="pack-bar"><div className="pack-bar-track"><div className={"pack-bar-fill "+(pct===100?"full":"")} style={{width:pct+"%"}}></div></div><div className="pack-bar-count">{s.packProgress}/{s.packTotal}</div></div></td>
                   <td><span className="mono" style={{fontSize:12,fontWeight:600,color:scoreColor}}>{score}%</span></td>
                   <td><span className={"pill "+s.status}>{STATUS_LABELS[s.status]}</span></td>
-                  <td style={{color:"var(--ink-3)"}}><Icon.Arrow /></td>
+                  <td style={{color:"var(--ink-3)",display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end"}}>
+                    {s.status !== 'constructed' && (
+                      <button
+                        className="btn-construct"
+                        title="Mark as Constructed"
+                        onClick={e => { e.stopPropagation(); updateScheme(s.id, { status: 'constructed' }); }}
+                      >✓</button>
+                    )}
+                    <Icon.Arrow />
+                  </td>
                 </tr>
               );
             })}
