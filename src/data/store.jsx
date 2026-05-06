@@ -131,6 +131,11 @@ const baseScheme = (overrides) => ({
   date_approved: "",
   date_start: "",
   date_finish: "",
+  // Drives computeWorkingDays in the BoQ engine. Stored as the human label
+  // from the Master dropdown; isSevenDayPattern interprets it.
+  working_pattern: "Mon–Fri",
+  // Informational on the Master / RSR; does not currently affect rates.
+  shift_pattern:   "Day",
   // 4. Project Team
   prepared_by: "Jake McAllister",
   designer_email: "jake.mcallister@dundeecity.gov.uk",
@@ -559,6 +564,10 @@ window.WORKBOOK_SCHEMA = [
     { key: "date_approved", label: "Design Approved Date", type: "date" },
     { key: "date_start", label: "Proposed Start Date", type: "date" },
     { key: "date_finish", label: "Proposed Finish Date", type: "date" },
+    { key: "working_pattern", label: "Working Pattern", type: "select",
+      options: ["Mon–Fri", "Mon–Sun (incl. weekends)"] },
+    { key: "shift_pattern", label: "Shift", type: "select",
+      options: ["Day", "Night", "Day & night"] },
   ]},
   { section: "4. Project Team", fields: [
     { key: "prepared_by", label: "Prepared By (Designer)", type: "text" },
