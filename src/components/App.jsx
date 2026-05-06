@@ -115,10 +115,32 @@ const GenerateModal = ({ scheme, onClose }) => {
         await new Promise(r => setTimeout(r, 30)); // allow React to paint
 
         try {
-          let buf = null;
+          // Multi-file sections: merge all uploaded files in order
+          if (section.key === 'drawings' || section.key === 'utilities') {
+            const multiFiles = scheme[`pack_files_${section.key}`] || [];
+            // Fall back to legacy single-file if multi array is empty
+            const legacy = scheme[`pack_file_${section.key}`];
+            const toMerge = multiFiles.length > 0 ? multiFiles : (legacy?.data ? [legacy] : []);
+            if (toMerge.length > 0) {
+              let totalPages = 0;
+              for (const f of toMerge) {
+                const fbuf = dataUrlToBuffer(f.data);
+                const fsrc = await PDFDocument.load(fbuf, { ignoreEncryption: true });
+                const fpages = await merged.copyPages(fsrc, fsrc.getPageIndices());
+                fpages.forEach(p => merged.addPage(p));
+                totalPages += fsrc.getPageCount();
+              }
+              inc.push(section.label);
+              markStep(section.key, 'done', `${toMerge.length} file${toMerge.length!==1?'s':''} · ${totalPages}pp`);
+            } else {
+              skip.push(section.label);
+              markStep(section.key, 'skipped', 'no PDFs uploaded');
+            }
+            continue;
+          }
 
-          // Uploaded PDF always takes priority over auto-render for every section.
-          // PCI is upload-only — no auto-render fallback in the pack.
+          // Single-file sections: uploaded PDF wins, then auto-render fallback
+          let buf = null;
           const pf = scheme[`pack_file_${section.key}`];
           if (pf && pf.data) {
             buf = dataUrlToBuffer(pf.data);
