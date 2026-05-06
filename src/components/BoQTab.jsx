@@ -474,10 +474,25 @@ window.QuickInputRail = QuickInputRail;
 // ── LedgerRow ────────────────────────────────────────────────────────────────
 // One priced line with inline controls: qty edit, A/B/C band override,
 // overflow menu (up / down / duplicate / delete).
+//
+// Soft-warning rules (returned as a list of human-readable strings):
+//   - quantity ≤ 0: line is in the BoQ but contributes £0 to the total.
+//   - blank/whitespace unit: rate × qty can't compute a meaningful subtotal.
+// `line.missing` (catalogue mismatch) is a hard error and is rendered with
+// the existing red treatment instead.
+const lineWarnings = (line) => {
+  const w = [];
+  if (!(+line.qty > 0)) w.push('Quantity is zero — line won’t contribute to the total.');
+  if (!String(line.unit || '').trim()) w.push('Unit missing — subtotal can’t be computed.');
+  return w;
+};
+
 const LedgerRow = ({ line, alt, onEdit, onDelete, onMove, onDuplicate }) => {
   const [editing, setEditing] = React.useState(false);
   const [draftQty, setDraftQty] = React.useState(line.qty);
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const warnings = line.missing ? [] : lineWarnings(line);
+  const hasWarning = warnings.length > 0;
 
   React.useEffect(() => { setDraftQty(line.qty); }, [line.qty]);
 
@@ -491,17 +506,27 @@ const LedgerRow = ({ line, alt, onEdit, onDelete, onMove, onDuplicate }) => {
 
   return (
     <div
-      className={"boq-row" + (alt ? " alt" : "") + (line.missing ? " missing" : "")}
+      className={"boq-row" + (alt ? " alt" : "") + (line.missing ? " missing" : (hasWarning ? " warn" : ""))}
       style={{
         display:'grid',
         gridTemplateColumns:'76px minmax(0,1fr) 96px 44px 76px 92px 34px',
         padding:'5px 10px', borderBottom:'1px solid var(--line)',
-        background: line.missing ? 'var(--red-wash)' : (alt ? 'var(--bg-sunken)' : 'var(--bg)'),
+        background: line.missing ? 'var(--red-wash)' : (hasWarning ? 'var(--amber-wash)' : (alt ? 'var(--bg-sunken)' : 'var(--bg)')),
         alignItems:'center', position:'relative',
       }}
     >
       <div className="mono" style={{fontSize:10,color:'var(--ink-3)',paddingTop:1}}>{line.id}</div>
       <div style={{paddingRight:8,lineHeight:1.35,fontSize:11,minWidth:0,overflow:'hidden',textOverflow:'ellipsis'}}>
+        {hasWarning && (
+          <span
+            title={warnings.join('\n')}
+            aria-label={warnings.join(' ')}
+            style={{
+              display:'inline-block', marginRight:6, color:'var(--amber)',
+              fontSize:11, lineHeight:1, cursor:'help', verticalAlign:'middle',
+            }}
+          >⚠</span>
+        )}
         {line.desc || <em style={{color:'var(--red)'}}>{line.missing ? 'Item not found in catalogue' : '(no description)'}</em>}
         {line.auto && <span style={{
           marginLeft:6, fontSize:9, color:'var(--ink-3)', fontFamily:'var(--font-mono)',
