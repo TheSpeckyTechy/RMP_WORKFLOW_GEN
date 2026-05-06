@@ -98,17 +98,42 @@ const MasterZoneStrip = ({ scheme }) => {
 
 // Cheap pre-export sanity check. Surfaces the small handful of fields whose
 // absence makes the generated pack visibly broken (blank placeholders,
-// divide-by-zero £/m², "Ward W— —" headers). Each issue is a short string
-// rendered as a chip; if there are none the banner shows the all-clear.
+// "Ward W— —" headers, zero £/m²). Each issue is { label, target } where
+// `target` is the WORKBOOK_SCHEMA key the validation chip scrolls to.
 const masterIssues = (scheme) => {
   const issues = [];
-  if (!String(scheme.road_name || '').trim())                                    issues.push('Road name');
-  if (!String(scheme.project_number || '').trim())                               issues.push('Project number');
-  if (!(+scheme.carriageway_area_m2 > 0))                                        issues.push('Carriageway area');
-  if (!scheme.ward_num || !String(scheme.ward_selected || '').trim())            issues.push('Ward');
-  if (!Array.isArray(scheme.treatments) || scheme.treatments.length === 0)       issues.push('Treatment zones');
-  if (!String(scheme.contractor || '').trim())                                   issues.push('Contractor');
+  if (!String(scheme.road_name      || '').trim()) issues.push({ label: 'Road name',      target: 'road_name' });
+  if (!String(scheme.project_number || '').trim()) issues.push({ label: 'Project number', target: 'project_number' });
+  if (!scheme.ward_num || !String(scheme.ward_selected || '').trim()) issues.push({ label: 'Ward', target: 'ward_selected' });
+  // Carriageway area is implicit — it's the sum of zone_aN_area_m2.
+  // Collapse the two related checks (no zones, or zones summing to 0) into
+  // distinct issues so the chip can target the right row.
+  const zones = Array.isArray(scheme.treatments) ? scheme.treatments : [];
+  if (zones.length === 0) {
+    issues.push({ label: 'Treatment zones', target: 'zone_a1_description' });
+  } else {
+    const totalArea = zones.reduce((a, z) => a + (+z.area_m2 || 0), 0);
+    if (totalArea <= 0) issues.push({ label: 'Zone areas', target: 'zone_a1_area_m2' });
+  }
+  if (!String(scheme.contractor || '').trim()) issues.push({ label: 'Contractor', target: 'contractor' });
   return issues;
+};
+
+// Scroll a Master row into view and briefly flash it. Rows are tagged with
+// id="mwb-field-<key>" by renderField below.
+const jumpToField = (target) => {
+  const el = document.getElementById('mwb-field-' + target);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.remove('mwb-flash');
+  // Force a reflow so re-adding the class restarts the animation.
+  void el.offsetWidth;
+  el.classList.add('mwb-flash');
+  // Try to focus the input/select inside so the user can start typing.
+  const focusable = el.querySelector('input, select, textarea');
+  if (focusable) {
+    setTimeout(() => focusable.focus(), 350);
+  }
 };
 
 const MasterValidationBanner = ({ scheme }) => {
@@ -124,9 +149,15 @@ const MasterValidationBanner = ({ scheme }) => {
   return (
     <div className="mwb-validate warn">
       <span className="mwb-validate-dot" />
-      <span className="mwb-validate-label">{issues.length} field{issues.length === 1 ? '' : 's'} missing — generated pack will have blank placeholders:</span>
+      <span className="mwb-validate-label">{issues.length} field{issues.length === 1 ? '' : 's'} missing — click a chip to jump to its row:</span>
       <span className="mwb-validate-chips">
-        {issues.map(i => <span key={i} className="mwb-validate-chip">{i}</span>)}
+        {issues.map(i => (
+          <button key={i.target} type="button" className="mwb-validate-chip"
+            onClick={() => jumpToField(i.target)}
+            title={`Jump to "${i.label}" field`}>
+            {i.label} <span className="mwb-validate-chip-arrow">↓</span>
+          </button>
+        ))}
       </span>
     </div>
   );
@@ -270,24 +301,24 @@ const MasterWorkbook = ({ schemeId }) => {
     const computed = f.type === "calc" ? f.formula(scheme) : scheme[f.key];
     const value = computed ?? "";
     if (f.type === "subheader") return (
-      <div className="mwb-row mwb-subheader" key={f.key}>
+      <div className="mwb-row mwb-subheader" key={f.key} id={'mwb-field-' + f.key}>
         <div className="mwb-subheader-label">{f.label}</div>
       </div>
     );
     if (f.type === "zone-label") return (
-      <div className="mwb-row mwb-zone-label" key={f.key}>
+      <div className="mwb-row mwb-zone-label" key={f.key} id={'mwb-field-' + f.key}>
         <div className="mwb-zone-badge">{f.label}</div>
         <div className="mwb-zone-label-text">{f.sublabel}</div>
       </div>
     );
     if (f.type === "calc") return (
-      <div className="mwb-row calc" key={f.key}>
+      <div className="mwb-row calc" key={f.key} id={'mwb-field-' + f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
         <div className="mwb-val calc-val"><span className={f.mono?"mono":""}>{value}</span><span className="calc-badge">calc</span></div>
       </div>
     );
     if (f.type === "ward") return (
-      <div className="mwb-row" key={f.key}>
+      <div className="mwb-row" key={f.key} id={'mwb-field-' + f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
         <div className="mwb-val"><select value={scheme.ward_num} onChange={e => { const num=+e.target.value; const w=window.WARDS.find(x=>x.num===num); updateScheme(schemeId,{ward_num:num,ward_selected:w.name}); }}>
           {window.WARDS.map(w => <option key={w.num} value={w.num}>W{w.num} {w.name}</option>)}
@@ -295,13 +326,13 @@ const MasterWorkbook = ({ schemeId }) => {
       </div>
     );
     if (f.type === "select") return (
-      <div className="mwb-row" key={f.key}>
+      <div className="mwb-row" key={f.key} id={'mwb-field-' + f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
         <div className="mwb-val"><select value={value} onChange={e=>update(f.key,e.target.value)}>{f.options.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
       </div>
     );
     if (f.type === "tayside-pe") return (
-      <div className="mwb-row" key={f.key}>
+      <div className="mwb-row" key={f.key} id={'mwb-field-' + f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
         <div className="mwb-val"><select value={value} onChange={e => {
           const name = e.target.value;
@@ -327,7 +358,7 @@ const MasterWorkbook = ({ schemeId }) => {
       const postcode = encodeURIComponent(scheme.postcode||'');
       const href = `https://gridreferencefinder.com/?postcode=${postcode}`;
       return (
-        <div className="mwb-row" key={f.key}>
+        <div className="mwb-row" key={f.key} id={'mwb-field-' + f.key}>
           <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
           <div className="mwb-val">
             <a href={href} target="_blank" rel="noreferrer" style={{color:"var(--accent)",fontSize:12,textDecoration:"none"}}>
@@ -338,13 +369,13 @@ const MasterWorkbook = ({ schemeId }) => {
       );
     }
     if (f.type === "textarea") return (
-      <div className="mwb-row" key={f.key}>
+      <div className="mwb-row" key={f.key} id={'mwb-field-' + f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
         <div className="mwb-val"><textarea value={value} rows={Math.min(8,Math.max(2,String(value).split("\n").length+1))} onChange={e=>update(f.key,e.target.value)} style={{width:"100%",fontFamily:"inherit",fontSize:12,padding:"6px 8px",border:"1px solid var(--line)",borderRadius:3,background:"var(--bg)",color:"var(--ink)",resize:"vertical",lineHeight:1.45}} /></div>
       </div>
     );
     return (
-      <div className="mwb-row" key={f.key}>
+      <div className="mwb-row" key={f.key} id={'mwb-field-' + f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
         <div className="mwb-val"><input type={f.type==="email"?"email":f.type==="number"?"number":"text"} className={f.mono?"mono":""} value={value} onChange={e=>update(f.key,f.type==="number"?(e.target.value===""?"":+e.target.value):e.target.value)} /></div>
       </div>
