@@ -670,6 +670,42 @@ const PackFileModal = ({ packFile, docName, onClose }) => (
 // ─── Doc Preview (thumbnail per document type) ────────────────────────────────
 
 const DocPreview = ({ docKey, scheme }) => {
+  // Multi-file sections: show stacked thumbnail with count
+  if (docKey === 'drawings' || docKey === 'utilities') {
+    const files = scheme[`pack_files_${docKey}`] || [];
+    if (files.length > 0) {
+      return (
+        <div style={{textAlign:'center',paddingTop:8,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+          <div style={{display:'flex',justifyContent:'center'}}>
+            {files.slice(0,3).map((f,i)=>(
+              <svg key={i} viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{marginLeft:i?-5:0,filter:'drop-shadow(0 1px 2px rgba(0,0,0,0.25))'}}>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              </svg>
+            ))}
+          </div>
+          <div style={{fontSize:5,fontWeight:700,color:'#dc2626'}}>{files.length} PDF{files.length!==1?'s':''}</div>
+          <div style={{fontSize:4,color:'#555',lineHeight:1.3,wordBreak:'break-all',maxWidth:'90%'}}>{files[0].name}</div>
+          {files.length>1&&<div style={{fontSize:4,color:'#888'}}>+{files.length-1} more</div>}
+        </div>
+      );
+    }
+  }
+
+  // Single uploaded pack PDF takes priority over doc-specific previews
+  const packFile = scheme[`pack_file_${docKey}`];
+  if (packFile) {
+    return (
+      <div style={{textAlign:'center',paddingTop:10,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
+        </svg>
+        <div style={{fontSize:5,fontWeight:700,color:'#dc2626',letterSpacing:'0.05em'}}>PDF</div>
+        <div style={{fontSize:4,color:'#555',lineHeight:1.3,wordBreak:'break-all',maxWidth:'90%'}}>{packFile.name}</div>
+      </div>
+    );
+  }
   if(docKey==="front") return (
     <div>
       <div style={{background:'#1a3a5c',color:'white',fontSize:4,padding:'2px 3px',fontWeight:700,marginBottom:2}}>DUNDEE CITY COUNCIL · RMP</div>
@@ -697,19 +733,6 @@ const DocPreview = ({ docKey, scheme }) => {
     }
     if(!breakdown.length) breakdown=[{l:'(not generated yet)',v:'—'}];
     return <div><div style={{fontWeight:700,fontSize:6}}>BILL OF QUANTITIES</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0",fontWeight:b.bold?700:400}}><span>{b.l}</span><span>{b.v}</span></div>)}</div>;
-  }
-  const packFile = scheme[`pack_file_${docKey}`];
-  if (packFile) {
-    return (
-      <div style={{textAlign:'center',paddingTop:10,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-          <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>
-        </svg>
-        <div style={{fontSize:5,fontWeight:700,color:'#dc2626',letterSpacing:'0.05em'}}>PDF</div>
-        <div style={{fontSize:4,color:'#555',lineHeight:1.3,wordBreak:'break-all',maxWidth:'90%'}}>{packFile.name}</div>
-      </div>
-    );
   }
   return <div style={{color:"#aaa",fontSize:5,textAlign:"center",paddingTop:20}}>[{docKey.toUpperCase()}]<br/>Upload PDF below</div>;
 };
@@ -745,6 +768,42 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
       [`pack_file_${docKey}`]: null,
       docs_generated: { ...docsGen, [docKey]: false },
     });
+  };
+
+  // Multi-file helpers (drawings, utilities)
+  const handleMultiFileUpload = async (docKey, files) => {
+    const existing = scheme[`pack_files_${docKey}`] || [];
+    const added = [];
+    for (const file of Array.from(files)) {
+      if (file.size > 20 * 1024 * 1024) { alert(`${file.name} exceeds 20 MB — skipped.`); continue; }
+      try {
+        const data = await readPDFasDataUrl(file);
+        added.push({ id: `${Date.now()}-${Math.random()}`, data, name: file.name });
+      } catch (e) { alert(`Failed to read ${file.name}: ${e.message}`); }
+    }
+    if (!added.length) return;
+    const updated = [...existing, ...added];
+    updateScheme(scheme.id, {
+      [`pack_files_${docKey}`]: updated,
+      docs_generated: { ...docsGen, [docKey]: true },
+    });
+  };
+
+  const removeMultiFile = (docKey, id) => {
+    const updated = (scheme[`pack_files_${docKey}`] || []).filter(f => f.id !== id);
+    updateScheme(scheme.id, {
+      [`pack_files_${docKey}`]: updated,
+      docs_generated: { ...docsGen, [docKey]: updated.length > 0 },
+    });
+  };
+
+  const reorderMultiFile = (docKey, id, dir) => {
+    const arr = [...(scheme[`pack_files_${docKey}`] || [])];
+    const idx = arr.findIndex(f => f.id === id);
+    const next = dir === 'up' ? idx - 1 : idx + 1;
+    if (idx < 0 || next < 0 || next >= arr.length) return;
+    [arr[idx], arr[next]] = [arr[next], arr[idx]];
+    updateScheme(scheme.id, { [`pack_files_${docKey}`]: arr });
   };
 
   // Register __downloadFront so GenerateModal can call it too (PR C).
@@ -802,73 +861,116 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
                 <div className="doc-name">{d.name}</div>
                 <div className="doc-meta"><span>{d.type}</span><span>{d.auto?"Auto":"Manual"}</span></div>
               </div>
-              <div className="doc-status">
-                <span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span>
-                {isWorking ? (
-                  <div style={{marginLeft:"auto",display:"flex",gap:4,alignItems:"center"}}>
-                    <button className="btn sm ghost" disabled={isGenerating}
-                      onClick={() => handleWorkingClick(d)}>
-                      {workingLabel(d)} {!isGenerating && <Icon.Arrow />}
-                    </button>
-                    {d.key === 'boq' && (() => {
-                      const boqFile = scheme['pack_file_boq'];
-                      return boqFile ? (
-                        <>
-                          <button className="btn sm ghost"
-                            onClick={() => setViewingPackFile({ packFile: boqFile, docName: 'Bill of Quantities' })}>
-                            <Icon.Eye /> PDF
-                          </button>
-                          <button className="btn sm ghost" style={{color:"var(--red)"}}
-                            title="Remove uploaded PDF" onClick={() => clearPackFile('boq')}>
-                            <Icon.Trash />
-                          </button>
-                        </>
-                      ) : (
-                        <label style={{cursor:"pointer",display:"inline-flex"}}>
-                          <input type="file" accept=".pdf,application/pdf" style={{display:"none"}}
-                            onChange={e => { const f = e.target.files[0]; if (f) handlePackFileUpload('boq', f); e.target.value = ''; }} />
-                          <span className="btn sm ghost"><Icon.Upload /> PDF</span>
-                        </label>
-                      );
-                    })()}
-                  </div>
-                ) : (() => {
-                  const packFile = scheme[`pack_file_${d.key}`];
+              {(d.key === 'drawings' || d.key === 'utilities' || d.key === 'tm') ? (
+                // ── Multi-file card (drawings / utilities) ───────
+                (() => {
+                  const mf = scheme[`pack_files_${d.key}`] || [];
                   return (
-                    <div style={{marginLeft:"auto",display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
-                      {packFile ? (
-                        <>
-                          <button className="btn sm ghost"
-                            onClick={() => setViewingPackFile({ packFile, docName: d.name })}>
-                            <Icon.Eye /> View
-                          </button>
-                          <button className="btn sm ghost" style={{color:"var(--red)"}}
-                            title="Remove uploaded file"
-                            onClick={() => clearPackFile(d.key)}>
-                            <Icon.Trash />
-                          </button>
-                        </>
-                      ) : (
-                        <label style={{cursor:"pointer",display:"inline-flex"}}>
-                          <input type="file" accept=".pdf,application/pdf" style={{display:"none"}}
-                            onChange={e => { const f = e.target.files[0]; if (f) handlePackFileUpload(d.key, f); e.target.value = ''; }} />
-                          <span className="btn sm ghost"><Icon.Upload /> Upload PDF</span>
-                        </label>
+                    <div className="doc-status" style={{flexDirection:'column',alignItems:'stretch',gap:6}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                        <span className={"pill "+(mf.length>0?"ready":"review")}>{mf.length>0?"ready":"pending"}</span>
+                        {mf.length>0&&<span style={{fontSize:10,color:'var(--ink-3)',fontFamily:'var(--font-mono)'}}>{mf.length} file{mf.length!==1?'s':''}</span>}
+                      </div>
+                      {mf.length>0&&(
+                        <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                          {mf.map((file,idx,arr)=>(
+                            <div key={file.id} style={{display:'flex',alignItems:'center',gap:4,background:'var(--bg-sunken)',padding:'4px 6px',borderRadius:'var(--radius-sm)'}}>
+                              <span style={{color:'var(--ink-3)',fontFamily:'var(--font-mono)',fontSize:10,minWidth:14,textAlign:'center',flexShrink:0}}>{idx+1}</span>
+                              <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontSize:11,color:'var(--ink)'}}>{file.name}</span>
+                              <div style={{display:'flex',gap:2,flexShrink:0}}>
+                                <button className="btn ghost sm" style={{padding:'2px 5px',fontSize:13,lineHeight:1}} disabled={idx===0} title="Move up"
+                                  onClick={()=>reorderMultiFile(d.key,file.id,'up')}>↑</button>
+                                <button className="btn ghost sm" style={{padding:'2px 5px',fontSize:13,lineHeight:1}} disabled={idx===arr.length-1} title="Move down"
+                                  onClick={()=>reorderMultiFile(d.key,file.id,'down')}>↓</button>
+                                <button className="btn ghost sm" style={{padding:'2px 5px'}} title="View"
+                                  onClick={()=>setViewingPackFile({packFile:file,docName:d.name})}><Icon.Eye /></button>
+                                <button className="btn ghost sm" style={{padding:'2px 5px',color:'var(--red)'}} title="Remove"
+                                  onClick={()=>removeMultiFile(d.key,file.id)}><Icon.Trash /></button>
+                              </div>
+                            </div>
+                          ))}
+                          {mf.length>1&&<div style={{fontSize:10,color:'var(--ink-3)',textAlign:'right',paddingRight:2}}>↑ ↓ to reorder · merged in order shown</div>}
+                        </div>
                       )}
-                      <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,cursor:"pointer",userSelect:"none",color:"var(--ink-3)"}}>
-                        <input type="checkbox" checked={done} onChange={()=>toggleManual(d.key)} style={{width:"auto"}} />
-                        Received
+                      <label style={{cursor:'pointer',display:'inline-flex',alignSelf:'flex-start'}}>
+                        <input type="file" accept=".pdf,application/pdf" multiple style={{display:'none'}}
+                          onChange={e=>{if(e.target.files.length)handleMultiFileUpload(d.key,e.target.files);e.target.value='';}} />
+                        <span className="btn sm ghost"><Icon.Upload /> {mf.length>0?'Add more':'Upload PDFs'}</span>
                       </label>
                     </div>
                   );
-                })()}
-              </div>
+                })()
+              ) : (
+                // ── Single-file / working card ───────────────────
+                <div className="doc-status">
+                  <span className={"pill "+(done?"ready":"review")}>{done?"ready":"pending"}</span>
+                  {isWorking ? (
+                    <div style={{marginLeft:"auto",display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
+                      <button className="btn sm ghost" disabled={isGenerating}
+                        onClick={() => handleWorkingClick(d)}>
+                        {workingLabel(d)} {!isGenerating && <Icon.Arrow />}
+                      </button>
+                      {(d.key === 'boq' || d.key === 'pci' || d.key === 'rsr') && (() => {
+                        const docFile = scheme[`pack_file_${d.key}`];
+                        const uploadLabel = d.key === 'pci' ? 'Upload Pack PDF' : 'PDF';
+                        return docFile ? (
+                          <>
+                            <button className="btn sm ghost"
+                              onClick={() => setViewingPackFile({ packFile: docFile, docName: d.name })}>
+                              <Icon.Eye /> PDF
+                            </button>
+                            <button className="btn sm ghost" style={{color:"var(--red)"}}
+                              title="Remove uploaded PDF" onClick={() => clearPackFile(d.key)}>
+                              <Icon.Trash />
+                            </button>
+                          </>
+                        ) : (
+                          <label style={{cursor:"pointer",display:"inline-flex"}} title={d.key==='pci'?"Upload printed PDF to include in pack — overrides auto-render":"Upload PDF to use in place of auto-render"}>
+                            <input type="file" accept=".pdf,application/pdf" style={{display:"none"}}
+                              onChange={e => { const f = e.target.files[0]; if (f) handlePackFileUpload(d.key, f); e.target.value = ''; }} />
+                            <span className="btn sm ghost"><Icon.Upload /> {uploadLabel}</span>
+                          </label>
+                        );
+                      })()}
+                    </div>
+                  ) : (() => {
+                    const packFile = scheme[`pack_file_${d.key}`];
+                    return (
+                      <div style={{marginLeft:"auto",display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
+                        {packFile ? (
+                          <>
+                            <button className="btn sm ghost"
+                              onClick={() => setViewingPackFile({ packFile, docName: d.name })}>
+                              <Icon.Eye /> View
+                            </button>
+                            <button className="btn sm ghost" style={{color:"var(--red)"}}
+                              title="Remove uploaded file"
+                              onClick={() => clearPackFile(d.key)}>
+                              <Icon.Trash />
+                            </button>
+                          </>
+                        ) : (
+                          <label style={{cursor:"pointer",display:"inline-flex"}}>
+                            <input type="file" accept=".pdf,application/pdf" style={{display:"none"}}
+                              onChange={e => { const f = e.target.files[0]; if (f) handlePackFileUpload(d.key, f); e.target.value = ''; }} />
+                            <span className="btn sm ghost"><Icon.Upload /> Upload PDF</span>
+                          </label>
+                        )}
+                        <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,cursor:"pointer",userSelect:"none",color:"var(--ink-3)"}}>
+                          <input type="checkbox" checked={done} onChange={()=>toggleManual(d.key)} style={{width:"auto"}} />
+                          Received
+                        </label>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
       <div style={{marginTop:20,padding:"14px 18px",background:"var(--bg-elev)",border:"1px solid var(--line)",borderRadius:"var(--radius-sm)",fontSize:12,color:"var(--ink-2)"}}>
-        <strong>Connected templates:</strong> Front Sheet, RSR, PCI / CPP, and Resident Letter are live — click the action button to download and mark as ready. <strong>Drawings, TM plans, and utility searches</strong> — upload PDFs directly here (max 20 MB each); they're stored in the browser and can be viewed or replaced at any time.
+        <strong>Pack generation rule:</strong> If you upload a PDF for any document, that file is used in the compiled pack — overriding auto-render. <strong>PCI / CPP must be uploaded</strong> (use Preview → Download .docx → print-to-PDF in Word, then upload here). RSR and Front Sheet auto-render if no upload is present. All other documents require upload (max 20 MB each).
       </div>
       {viewingPackFile && (
         <PackFileModal

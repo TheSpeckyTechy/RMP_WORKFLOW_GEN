@@ -69,13 +69,13 @@ class ErrorBoundary extends React.Component {
 }
 
 const PACK_SECTIONS = [
-  { key: 'front',    label: 'Front Sheet',                  auto: true,  packKey: null },
-  { key: 'pci',      label: 'PCI / CPP',                    auto: true,  packKey: null },
-  { key: 'rsr',      label: 'Road Space Request',           auto: true,  packKey: null },
-  { key: 'boq',      label: 'Bill of Quantities',           auto: false, packKey: 'boq' },
-  { key: 'drawings', label: 'Resurfacing & Ironwork Plans', auto: false, packKey: 'drawings' },
-  { key: 'tm',       label: 'Traffic Management Plans',     auto: false, packKey: 'tm' },
-  { key: 'utilities',label: 'Utility Searches Pack',        auto: false, packKey: 'utilities' },
+  { key: 'front',    label: 'Front Sheet',                  auto: true  },
+  { key: 'pci',      label: 'PCI / CPP',                    auto: false }, // upload-only for pack
+  { key: 'rsr',      label: 'Road Space Request',           auto: true  }, // upload overrides auto
+  { key: 'boq',      label: 'Bill of Quantities',           auto: false },
+  { key: 'drawings', label: 'Resurfacing & Ironwork Plans', auto: false },
+  { key: 'tm',       label: 'Traffic Management Plans',     auto: false },
+  { key: 'utilities',label: 'Utility Searches Pack',        auto: false },
 ];
 
 // Convert a base64 data URL to an ArrayBuffer (used to decode stored PDFs)
@@ -115,18 +115,41 @@ const GenerateModal = ({ scheme, onClose }) => {
         await new Promise(r => setTimeout(r, 30)); // allow React to paint
 
         try {
-          let buf = null;
+          // Multi-file sections: merge all uploaded files in order
+          if (section.key === 'drawings' || section.key === 'utilities' || section.key === 'tm') {
+            const multiFiles = scheme[`pack_files_${section.key}`] || [];
+            // Fall back to legacy single-file if multi array is empty
+            const legacy = scheme[`pack_file_${section.key}`];
+            const toMerge = multiFiles.length > 0 ? multiFiles : (legacy?.data ? [legacy] : []);
+            if (toMerge.length > 0) {
+              let totalPages = 0;
+              for (const f of toMerge) {
+                const fbuf = dataUrlToBuffer(f.data);
+                const fsrc = await PDFDocument.load(fbuf, { ignoreEncryption: true });
+                const fpages = await merged.copyPages(fsrc, fsrc.getPageIndices());
+                fpages.forEach(p => merged.addPage(p));
+                totalPages += fsrc.getPageCount();
+              }
+              inc.push(section.label);
+              markStep(section.key, 'done', `${toMerge.length} file${toMerge.length!==1?'s':''} · ${totalPages}pp`);
+            } else {
+              skip.push(section.label);
+              markStep(section.key, 'skipped', 'no PDFs uploaded');
+            }
+            continue;
+          }
 
-          if (section.key === 'front' && window.__getFrontPdfBuffer) {
+          // Single-file sections: uploaded PDF wins, then auto-render fallback
+          let buf = null;
+          const pf = scheme[`pack_file_${section.key}`];
+          if (pf && pf.data) {
+            buf = dataUrlToBuffer(pf.data);
+          } else if (section.key === 'front' && window.__getFrontPdfBuffer) {
             buf = await window.__getFrontPdfBuffer(scheme);
-          } else if (section.key === 'pci' && window.__getPCIPdfBuffer) {
-            buf = await window.__getPCIPdfBuffer(scheme);
           } else if (section.key === 'rsr' && window.__getRSRPdfBuffer) {
             buf = await window.__getRSRPdfBuffer(scheme);
-          } else if (section.packKey) {
-            const pf = scheme[`pack_file_${section.packKey}`];
-            if (pf && pf.data) buf = dataUrlToBuffer(pf.data);
           }
+          // PCI: no auto-fallback — user must upload via Pack tab → Upload Pack PDF
 
           if (buf) {
             const src   = await PDFDocument.load(buf, { ignoreEncryption: true });
@@ -135,7 +158,9 @@ const GenerateModal = ({ scheme, onClose }) => {
             inc.push(section.label);
             markStep(section.key, 'done', `${src.getPageCount()} page${src.getPageCount() !== 1 ? 's' : ''}`);
           } else {
-            const reason = section.auto ? 'render failed' : 'no PDF uploaded';
+            const reason = section.key === 'pci'
+              ? 'upload via Pack tab → Upload Pack PDF'
+              : section.auto ? 'render failed' : 'no PDF uploaded';
             skip.push(section.label);
             markStep(section.key, 'skipped', reason);
           }
