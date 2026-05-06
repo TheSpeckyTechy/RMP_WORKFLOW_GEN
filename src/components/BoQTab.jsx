@@ -676,13 +676,20 @@ window.BoQLedger = BoQLedger;
 
 // ── CatalogueDrawer ──────────────────────────────────────────────────────────
 // Right-side slide-in overlay. Live-searches window.BOQ_RATES_FULL.
-const CatalogueDrawer = ({ open, onClose, onPick }) => {
+//
+// `recent` is the per-scheme list of recently-picked catalogue items
+// (snapshots — see addFromCatalogue in BoQTab). It is rendered as a "Recent"
+// strip above the search results when the drawer is in its idle state
+// (no query, no series filter, no unit filter), since most schemes draw from
+// a small repeating set of items.
+const CatalogueDrawer = ({ open, onClose, onPick, recent = [] }) => {
   const [query, setQuery] = React.useState('');
   const [seriesFilter, setSeriesFilter] = React.useState(null);
   const [unitFilter, setUnitFilter] = React.useState('');
   const [results, setResults] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const debounceRef = React.useRef(null);
+  const idle = !query && !seriesFilter && !unitFilter;
 
   React.useEffect(() => {
     if (!open) return;
@@ -747,6 +754,35 @@ const CatalogueDrawer = ({ open, onClose, onPick }) => {
         </div>
 
         <div style={{flex:1,overflowY:'auto',minHeight:0}}>
+          {idle && recent.length > 0 && (
+            <>
+              <div style={{
+                padding:'8px 16px 4px', fontSize:10, fontWeight:700,
+                textTransform:'uppercase', letterSpacing:'0.08em',
+                color:'var(--ink-3)', background:'var(--bg-sunken)',
+                borderBottom:'1px solid var(--line)',
+              }}>Recent · {recent.length}</div>
+              {recent.map(it => (
+                <div key={'recent_' + (it.seriesKey || '') + '_' + it.id}
+                  className="boq-search-result" onClick={() => onPick(it)}>
+                  <div className="mono" style={{fontSize:10,color:'var(--ink-3)'}}>{it.id}</div>
+                  <div style={{minWidth:0,overflow:'hidden'}}>
+                    <div style={{fontSize:11,lineHeight:1.3}}>{it.desc}</div>
+                    <div style={{fontSize:9,color:'var(--ink-3)',fontFamily:'var(--font-mono)',marginTop:2}}>
+                      S{it.series} · {it.unit} · A £{(+it.rateA||0).toFixed(2)} / B £{(+it.rateB||0).toFixed(2)} / C £{(+it.rateC||0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div style={{textAlign:'right',fontSize:18,color:'var(--accent)'}}>+</div>
+                </div>
+              ))}
+              <div style={{
+                padding:'8px 16px 4px', fontSize:10, fontWeight:700,
+                textTransform:'uppercase', letterSpacing:'0.08em',
+                color:'var(--ink-3)', background:'var(--bg-sunken)',
+                borderTop:'1px solid var(--line)', borderBottom:'1px solid var(--line)',
+              }}>All items · {results.length}</div>
+            </>
+          )}
           {results.map(it => (
             <div key={it.seriesKey + '_' + it.id} className="boq-search-result"
               onClick={() => onPick(it)}>
@@ -900,7 +936,18 @@ const BoQTab = ({ schemeId }) => {
       series: item.series || E.seriesOf(item.id),
       auto: false,
     };
-    commit({ custom_lines: [...(boq.custom_lines||[]), newLine] });
+    // Track this pick at the head of recent_items so it pins to the top of
+    // the catalogue drawer next time the user opens it. Stored as a snapshot
+    // (not a live ref) so the strip is self-sufficient without re-querying
+    // BOQ_RATES_FULL on every render.
+    const key = (item.seriesKey || '') + '_' + item.id;
+    const snapshot = {
+      seriesKey: item.seriesKey, id: item.id, desc: item.desc, unit: item.unit,
+      series: item.series, rateA: item.rateA, rateB: item.rateB, rateC: item.rateC,
+    };
+    const prior  = (boq.recent_items || []).filter(r => ((r.seriesKey || '') + '_' + r.id) !== key);
+    const recent = [snapshot, ...prior].slice(0, 20);
+    commit({ custom_lines: [...(boq.custom_lines||[]), newLine], recent_items: recent });
   };
 
   const handleSettings = (settings) => commit({ settings });
@@ -977,6 +1024,7 @@ const BoQTab = ({ schemeId }) => {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onPick={(item) => { addFromCatalogue(item); /* keep drawer open for batch add */ }}
+        recent={boq.recent_items || []}
       />
     </div>
   );
