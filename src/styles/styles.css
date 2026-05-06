@@ -495,6 +495,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
 .mwb-preview-dominant .mwb-preview-value{font-size:13px;font-weight:500}
 @media (max-width:768px){.mwb-preview{grid-template-columns:repeat(2,1fr)}.mwb-preview-stat:nth-child(2){border-right:none}.mwb-preview-stat:nth-child(1),.mwb-preview-stat:nth-child(2){border-bottom:1px solid var(--line);padding-bottom:10px}.mwb-preview-stat:nth-child(3),.mwb-preview-stat:nth-child(4){padding-top:10px}}
 
+/* Treatment-zone strip — proportional chips for each populated zone, mirroring
+   the real surface distribution at a glance. */
+.mwb-zone-strip{display:flex;gap:6px;padding:10px 16px;background:var(--bg-sunken);border-bottom:1px solid var(--line);align-items:stretch;min-height:46px}
+.mwb-zone-strip-empty{display:block;padding:12px 20px;font-size:11px;color:var(--ink-3);font-style:italic;background:var(--bg-sunken);border-bottom:1px solid var(--line)}
+.mwb-zone-chip{flex:1 1 0;min-width:120px;padding:5px 9px;border-radius:var(--radius-sm);background:var(--bg);border:1px solid var(--line);font-size:11px;line-height:1.3;display:flex;flex-direction:column;justify-content:center;gap:2px;overflow:hidden}
+.mwb-zone-chip-head{display:flex;align-items:center;gap:6px;font-weight:600;min-width:0}
+.mwb-zone-chip-num{font-family:var(--font-mono);font-size:9px;color:white;background:var(--accent);padding:1px 5px;border-radius:3px;flex-shrink:0;letter-spacing:0.04em}
+.mwb-zone-chip-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.mwb-zone-chip-meta{font-size:10px;color:var(--ink-3);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:768px){.mwb-zone-strip{flex-wrap:wrap}.mwb-zone-chip{flex:1 1 calc(50% - 3px) !important;min-width:0}}
+
 /* Topbar sync-state chip — combines coloured dot with live "Synced · 4s ago"
    label so the user can see at a glance whether their work is safe. */
 .sync-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;background:var(--bg-sunken);border:1px solid var(--line);border-radius:14px;font-size:11px;color:var(--ink-3);font-family:var(--font-mono);white-space:nowrap;flex-shrink:0;line-height:1;transition:background 0.12s,border-color 0.12s,color 0.12s}

@@ -59,6 +59,43 @@ const MasterPreviewBar = ({ scheme }) => {
   );
 };
 
+// Treatment-zone strip — renders each populated zone (A1–A5) as a chip whose
+// flex-grow is proportional to its area, so the visual layout mirrors the
+// real surface distribution. Empty state nudges the user to the Treatment tab.
+const MasterZoneStrip = ({ scheme }) => {
+  const zones = Array.isArray(scheme.treatments) ? scheme.treatments : [];
+  if (zones.length === 0) {
+    return (
+      <div className="mwb-zone-strip mwb-zone-strip-empty">
+        No treatment zones yet — open the Treatment tab to populate A1–A5.
+      </div>
+    );
+  }
+  const totalArea = zones.reduce((acc, z) => acc + (+z.area_m2 || 0), 0);
+  return (
+    <div className="mwb-zone-strip">
+      {zones.map((z, i) => {
+        const area = +z.area_m2 || 0;
+        const pct  = totalArea > 0 ? Math.round((area / totalArea) * 100) : 0;
+        return (
+          <div key={z.id || i} className="mwb-zone-chip" style={{flex: `${Math.max(1, area)} 1 0`}}
+               title={`Zone A${i+1} · ${z.treatment_type || '(no treatment)'} · ${area.toLocaleString()} m²${z.depth_mm ? ' · ' + z.depth_mm + 'mm' : ''}`}>
+            <div className="mwb-zone-chip-head">
+              <span className="mwb-zone-chip-num">A{i+1}</span>
+              <span className="mwb-zone-chip-name">{z.treatment_type || z.zone || <span style={{color:'var(--ink-3)',fontStyle:'italic'}}>(no treatment)</span>}</span>
+            </div>
+            <div className="mwb-zone-chip-meta">
+              {area > 0 ? `${area.toLocaleString()} m²` : '0 m²'}
+              {z.depth_mm ? ` · ${z.depth_mm}mm` : ''}
+              {pct > 0 ? <span style={{marginLeft:6,color:'var(--ink-3)'}}>· {pct}%</span> : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const MasterWorkbook = ({ schemeId }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
@@ -296,6 +333,7 @@ const MasterWorkbook = ({ schemeId }) => {
         </div>
       </div>
       <MasterPreviewBar scheme={scheme} />
+      <MasterZoneStrip scheme={scheme} />
       <div className="mwb-legend">
         <span><span className="swatch input" /> Input cell</span>
         <span><span className="swatch calc" /> Calculated</span>
