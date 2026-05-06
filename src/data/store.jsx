@@ -87,6 +87,9 @@ window.defaultBoq = () => ({
     iw_gully_cway: 0,
   },
   custom_lines: [],      // [{uid,id,desc,qty,unit,bandOverride?,series,auto?,notes?}]
+  recent_items: [],      // last ≤20 catalogue picks; pinned at the top of the
+                         // catalogue drawer when no search/filter is active.
+                         // Each: {seriesKey,id,desc,unit,series,rateA,rateB,rateC}
   settings: {
     useBERR:     false,
     berrIndex:   1.000,
@@ -95,9 +98,16 @@ window.defaultBoq = () => ({
     showPWP:     true,
     areaBandOverride: null,
     percentAdditions: {
-      ohp:         { enabled: true,  pct: 0.125, label: 'Overheads & Profit' },
-      contingency: { enabled: true,  pct: 0.05,  label: 'Contingency' },
-      ois:         { enabled: false, pct: 0.025, label: 'Off-site Items' },
+      ohp:             { enabled: true,  pct: 0.125, label: 'Overheads & Profit' },
+      contingency:     { enabled: true,  pct: 0.05,  label: 'Contingency' },
+      ois:             { enabled: false, pct: 0.025, label: 'Off-site Items' },
+      // Series 6400 uplifts — percentages come from the Tayside JMCA
+      // catalogue (Band A, see boq_rates_full.js). Disabled by default so
+      // they never apply silently; the BoQ tab toggles them.
+      night_uplift:    { enabled: false, pct: 0.20,  label: 'Night-shift uplift (Series 6400/003)' },
+      saturday_uplift: { enabled: false, pct: 0.20,  label: 'Saturday uplift (Series 6400/004)' },
+      sunday_uplift:   { enabled: false, pct: 0.20,  label: 'Sunday uplift (Series 6400/005)' },
+      dundee_area:     { enabled: false, pct: 0.03,  label: 'Dundee City Council area (Series 6400/011)' },
     },
   },
   touched: false,   // flipped to true once the designer has interacted
@@ -128,6 +138,11 @@ const baseScheme = (overrides) => ({
   date_approved: "",
   date_start: "",
   date_finish: "",
+  // Drives computeWorkingDays in the BoQ engine. Stored as the human label
+  // from the Master dropdown; isSevenDayPattern interprets it.
+  working_pattern: "Mon–Fri",
+  // Informational on the Master / RSR; does not currently affect rates.
+  shift_pattern:   "Day",
   // 4. Project Team
   prepared_by: "Jake McAllister",
   designer_email: "jake.mcallister@dundeecity.gov.uk",
@@ -556,6 +571,10 @@ window.WORKBOOK_SCHEMA = [
     { key: "date_approved", label: "Design Approved Date", type: "date" },
     { key: "date_start", label: "Proposed Start Date", type: "date" },
     { key: "date_finish", label: "Proposed Finish Date", type: "date" },
+    { key: "working_pattern", label: "Working Pattern", type: "select",
+      options: ["Mon–Fri", "Mon–Sun (incl. weekends)"] },
+    { key: "shift_pattern", label: "Shift", type: "select",
+      options: ["Day", "Night", "Day & night"] },
   ]},
   { section: "4. Project Team", fields: [
     { key: "prepared_by", label: "Prepared By (Designer)", type: "text" },

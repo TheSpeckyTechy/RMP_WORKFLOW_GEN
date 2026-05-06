@@ -12,6 +12,126 @@
 //             window.WARDS, window.TAYSIDE_STAFF, window.Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Live preview summary — reads scheme + boq state and projects what the BoQ
+// would total RIGHT NOW (auto-lines regenerated on the fly). Lets the user see
+// the cost / dominant series jump as they edit Master fields, catching the
+// silent-default bug class (e.g. wrong surface tag prices a Micro-asphalt
+// scheme as HRA at 5–6× the right cost) before export.
+const MasterPreviewBar = ({ scheme }) => {
+  const E = window.BOQ_ENGINE;
+  const computed = React.useMemo(() => {
+    if (!E) return null;
+    const boq = scheme.boq || (window.defaultBoq ? window.defaultBoq() : { quick_inputs: {}, custom_lines: [], settings: {}, overrides: {} });
+    const effective = E.effectiveQuickInputs(scheme, boq);
+    const autoLines = E.regenAutoLines(effective);
+    const userLines = (boq.custom_lines || []).filter(l => !l.auto);
+    const merged    = { ...boq, quick_inputs: effective, custom_lines: [...autoLines, ...userLines] };
+    return E.buildBoQLines(merged, scheme);
+  }, [scheme]);
+
+  if (!computed) return null;
+
+  const cwArea  = +scheme.carriageway_area_m2 || +(scheme.boq?.quick_inputs?.carriageway_area) || 0;
+  const total   = +computed.totalIncVat || 0;
+  const perM2   = cwArea > 0 ? total / cwArea : 0;
+  const dominant = (computed.groups || []).slice().sort((a, b) => (+b.subtotal || 0) - (+a.subtotal || 0))[0];
+
+  const Stat = ({ label, value, sub }) => (
+    <div className="mwb-preview-stat">
+      <div className="mwb-preview-label">{label}</div>
+      <div className="mwb-preview-value mono">{value}</div>
+      {sub && <div className="mwb-preview-sub">{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div className="mwb-preview" title="Live projection of the current BoQ totals — updates as you edit Master fields. Refine in the BoQ tab.">
+      <Stat label="BoQ total (incl. VAT)" value={E.fmtGBP(total)} />
+      <Stat label="£ per m²" value={cwArea > 0 ? E.fmtGBP(perM2) : '—'} sub={cwArea > 0 ? `${cwArea.toLocaleString()} m²` : 'no carriageway area'} />
+      <Stat label="Lines" value={String((computed.lines || []).length)} sub={`${(computed.groups || []).length} series`} />
+      <div className="mwb-preview-stat mwb-preview-dominant">
+        <div className="mwb-preview-label">Dominant series</div>
+        <div className="mwb-preview-value">
+          {dominant ? <span><span className="mono" style={{color:'var(--ink-3)',marginRight:6}}>S{dominant.num}</span>{dominant.title}</span> : <span style={{color:'var(--ink-3)'}}>—</span>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Treatment-zone strip — renders each populated zone (A1–A5) as a chip whose
+// flex-grow is proportional to its area, so the visual layout mirrors the
+// real surface distribution. Empty state nudges the user to the Treatment tab.
+const MasterZoneStrip = ({ scheme }) => {
+  const zones = Array.isArray(scheme.treatments) ? scheme.treatments : [];
+  if (zones.length === 0) {
+    return (
+      <div className="mwb-zone-strip mwb-zone-strip-empty">
+        No treatment zones yet — open the Treatment tab to populate A1–A5.
+      </div>
+    );
+  }
+  const totalArea = zones.reduce((acc, z) => acc + (+z.area_m2 || 0), 0);
+  return (
+    <div className="mwb-zone-strip">
+      {zones.map((z, i) => {
+        const area = +z.area_m2 || 0;
+        const pct  = totalArea > 0 ? Math.round((area / totalArea) * 100) : 0;
+        return (
+          <div key={z.id || i} className="mwb-zone-chip" style={{flex: `${Math.max(1, area)} 1 0`}}
+               title={`Zone A${i+1} · ${z.treatment_type || '(no treatment)'} · ${area.toLocaleString()} m²${z.depth_mm ? ' · ' + z.depth_mm + 'mm' : ''}`}>
+            <div className="mwb-zone-chip-head">
+              <span className="mwb-zone-chip-num">A{i+1}</span>
+              <span className="mwb-zone-chip-name">{z.treatment_type || z.zone || <span style={{color:'var(--ink-3)',fontStyle:'italic'}}>(no treatment)</span>}</span>
+            </div>
+            <div className="mwb-zone-chip-meta">
+              {area > 0 ? `${area.toLocaleString()} m²` : '0 m²'}
+              {z.depth_mm ? ` · ${z.depth_mm}mm` : ''}
+              {pct > 0 ? <span style={{marginLeft:6,color:'var(--ink-3)'}}>· {pct}%</span> : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Cheap pre-export sanity check. Surfaces the small handful of fields whose
+// absence makes the generated pack visibly broken (blank placeholders,
+// divide-by-zero £/m², "Ward W— —" headers). Each issue is a short string
+// rendered as a chip; if there are none the banner shows the all-clear.
+const masterIssues = (scheme) => {
+  const issues = [];
+  if (!String(scheme.road_name || '').trim())                                    issues.push('Road name');
+  if (!String(scheme.project_number || '').trim())                               issues.push('Project number');
+  if (!(+scheme.carriageway_area_m2 > 0))                                        issues.push('Carriageway area');
+  if (!scheme.ward_num || !String(scheme.ward_selected || '').trim())            issues.push('Ward');
+  if (!Array.isArray(scheme.treatments) || scheme.treatments.length === 0)       issues.push('Treatment zones');
+  if (!String(scheme.contractor || '').trim())                                   issues.push('Contractor');
+  return issues;
+};
+
+const MasterValidationBanner = ({ scheme }) => {
+  const issues = masterIssues(scheme);
+  if (issues.length === 0) {
+    return (
+      <div className="mwb-validate ok">
+        <span className="mwb-validate-dot" />
+        <span className="mwb-validate-label">Ready to export — all required Master fields populated.</span>
+      </div>
+    );
+  }
+  return (
+    <div className="mwb-validate warn">
+      <span className="mwb-validate-dot" />
+      <span className="mwb-validate-label">{issues.length} field{issues.length === 1 ? '' : 's'} missing — generated pack will have blank placeholders:</span>
+      <span className="mwb-validate-chips">
+        {issues.map(i => <span key={i} className="mwb-validate-chip">{i}</span>)}
+      </span>
+    </div>
+  );
+};
+
 const MasterWorkbook = ({ schemeId }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
@@ -248,6 +368,9 @@ const MasterWorkbook = ({ schemeId }) => {
           <button className="btn sm" onClick={exportXlsx}><Icon.Download /> Export .xlsx</button>
         </div>
       </div>
+      <MasterPreviewBar scheme={scheme} />
+      <MasterZoneStrip scheme={scheme} />
+      <MasterValidationBanner scheme={scheme} />
       <div className="mwb-legend">
         <span><span className="swatch input" /> Input cell</span>
         <span><span className="swatch calc" /> Calculated</span>

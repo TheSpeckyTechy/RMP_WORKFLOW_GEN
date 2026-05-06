@@ -481,3 +481,129 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]) .inline-error{background:rgba(248,113,113,0.14);border:1px solid rgba(248,113,113,0.4)}
 }
+
+/* Master Workbook — live BoQ preview bar shown above the legend.
+   Projects what the BoQ would total RIGHT NOW so the user can see the cost /
+   dominant series jump as they edit Master fields (catches the silent-
+   default bug class before export). */
+.mwb-preview{display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:12px 0;background:var(--bg-elev);border-bottom:1px solid var(--line);align-items:stretch}
+.mwb-preview-stat{padding:0 20px;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0}
+.mwb-preview-stat:last-child{border-right:none}
+.mwb-preview-label{font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--ink-3);font-weight:500}
+.mwb-preview-value{font-size:16px;font-weight:600;line-height:1.2;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mwb-preview-sub{font-size:10px;color:var(--ink-3);font-family:var(--font-mono)}
+.mwb-preview-dominant .mwb-preview-value{font-size:13px;font-weight:500}
+@media (max-width:768px){.mwb-preview{grid-template-columns:repeat(2,1fr)}.mwb-preview-stat:nth-child(2){border-right:none}.mwb-preview-stat:nth-child(1),.mwb-preview-stat:nth-child(2){border-bottom:1px solid var(--line);padding-bottom:10px}.mwb-preview-stat:nth-child(3),.mwb-preview-stat:nth-child(4){padding-top:10px}}
+
+/* Treatment-zone strip — proportional chips for each populated zone, mirroring
+   the real surface distribution at a glance. */
+.mwb-zone-strip{display:flex;gap:6px;padding:10px 16px;background:var(--bg-sunken);border-bottom:1px solid var(--line);align-items:stretch;min-height:46px}
+.mwb-zone-strip-empty{display:block;padding:12px 20px;font-size:11px;color:var(--ink-3);font-style:italic;background:var(--bg-sunken);border-bottom:1px solid var(--line)}
+.mwb-zone-chip{flex:1 1 0;min-width:120px;padding:5px 9px;border-radius:var(--radius-sm);background:var(--bg);border:1px solid var(--line);font-size:11px;line-height:1.3;display:flex;flex-direction:column;justify-content:center;gap:2px;overflow:hidden}
+.mwb-zone-chip-head{display:flex;align-items:center;gap:6px;font-weight:600;min-width:0}
+.mwb-zone-chip-num{font-family:var(--font-mono);font-size:9px;color:white;background:var(--accent);padding:1px 5px;border-radius:3px;flex-shrink:0;letter-spacing:0.04em}
+.mwb-zone-chip-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.mwb-zone-chip-meta{font-size:10px;color:var(--ink-3);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:768px){.mwb-zone-strip{flex-wrap:wrap}.mwb-zone-chip{flex:1 1 calc(50% - 3px) !important;min-width:0}}
+
+/* Pre-export validation banner — green all-clear or amber list of missing
+   Master fields that would otherwise produce blank placeholders downstream. */
+.mwb-validate{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line);font-size:11px}
+.mwb-validate.ok{background:var(--green-wash);color:var(--green)}
+.mwb-validate.warn{background:var(--amber-wash);color:var(--amber)}
+.mwb-validate-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:currentColor}
+.mwb-validate-label{font-weight:500}
+.mwb-validate-chips{display:inline-flex;flex-wrap:wrap;gap:4px}
+.mwb-validate-chip{display:inline-block;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.55);border:1px solid currentColor;font-family:var(--font-mono);font-size:10px;font-weight:500}
+[data-theme="dark"] .mwb-validate-chip{background:rgba(0,0,0,0.25)}
+
+/* Topbar sync-state chip — combines coloured dot with live "Synced · 4s ago"
+   label so the user can see at a glance whether their work is safe. */
+.sync-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;background:var(--bg-sunken);border:1px solid var(--line);border-radius:14px;font-size:11px;color:var(--ink-3);font-family:var(--font-mono);white-space:nowrap;flex-shrink:0;line-height:1;transition:background 0.12s,border-color 0.12s,color 0.12s}
+.sync-chip-label{line-height:1}
+.sync-chip.sync-error{color:var(--red);border-color:var(--red);background:#fff0f0}
+[data-theme="dark"] .sync-chip.sync-error{background:rgba(192,57,43,0.18);border-color:rgba(192,57,43,0.6)}
+@media (max-width:600px){.sync-chip-label{display:none}.sync-chip{padding:3px;border:none;background:none}}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UI 2.0 — TIER A FOUNDATION
+   Toast bus, modal primitives, confirm dialog, shortcuts overlay,
+   command palette, cold-start skeleton.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── Toast stack ────────────────────────────────────────────────────────── */
+.toast-stack{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:1500;pointer-events:none;max-width:min(380px,calc(100vw - 40px))}
+.toast{pointer-events:auto;display:flex;align-items:center;gap:10px;padding:10px 12px 10px 14px;background:var(--bg);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);font-size:13px;color:var(--ink);animation:toast-in 220ms var(--ease)}
+.toast--leaving{animation:toast-out 200ms var(--ease) forwards}
+.toast-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--slate)}
+.toast--success .toast-dot{background:var(--green);box-shadow:0 0 8px color-mix(in oklab,var(--green) 50%,transparent)}
+.toast--error .toast-dot{background:var(--red);box-shadow:0 0 8px color-mix(in oklab,var(--red) 50%,transparent)}
+.toast--info .toast-dot{background:var(--accent);box-shadow:0 0 8px color-mix(in oklab,var(--accent) 50%,transparent)}
+.toast-msg{flex:1;line-height:1.4;min-width:0;overflow-wrap:break-word}
+.toast-action{flex-shrink:0;border:none;background:transparent;color:var(--accent);font-weight:600;font-size:12px;cursor:pointer;padding:2px 6px;border-radius:5px;transition:background var(--t-fast)}
+.toast-action:hover{background:var(--accent-wash)}
+.toast-close{flex-shrink:0;border:none;background:transparent;color:var(--ink-3);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;border-radius:5px;transition:color var(--t-fast),background var(--t-fast)}
+.toast-close:hover{color:var(--ink);background:var(--bg-sunken)}
+@keyframes toast-in{from{opacity:0;transform:translateY(8px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes toast-out{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(-4px) scale(0.96)}}
+[data-theme="dark"] .toast{background:var(--bg-elev)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .toast{background:var(--bg-elev)}}
+
+/* ── ConfirmDialog (uses .modal infrastructure with extra polish) ───────── */
+.confirm-modal{width:min(440px,92vw)}
+.confirm-modal .modal-body{padding:18px 22px 6px}
+.confirm-modal-title{font-size:15px;font-weight:600;margin-bottom:6px;line-height:1.3}
+.confirm-modal-body{font-size:13px;color:var(--ink-2);line-height:1.5}
+.btn.danger{background:var(--red);color:#fff;border-color:var(--red);box-shadow:0 1px 2px color-mix(in oklab,var(--red) 40%,transparent),inset 0 1px 0 rgba(255,255,255,0.14)}
+.btn.danger:hover{filter:brightness(1.05);box-shadow:0 4px 14px color-mix(in oklab,var(--red) 45%,transparent),inset 0 1px 0 rgba(255,255,255,0.14)}
+
+/* ── Shortcuts help overlay ─────────────────────────────────────────────── */
+.shortcuts-modal{width:min(560px,92vw)}
+.shortcuts-group{margin-bottom:18px}
+.shortcuts-group:last-child{margin-bottom:0}
+.shortcuts-group-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3);margin-bottom:8px}
+.shortcuts-list{display:flex;flex-direction:column;gap:4px}
+.shortcut-row{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:6px;font-size:13px}
+.shortcut-row:hover{background:var(--bg-sunken)}
+.shortcut-keys{display:flex;gap:4px;align-items:center}
+.shortcut-key{font-family:var(--font-mono);font-size:11px;background:var(--bg-sunken);border:1px solid var(--line);border-radius:5px;padding:2px 7px;box-shadow:0 1px 0 var(--line);min-width:22px;text-align:center}
+
+/* ── Command palette ────────────────────────────────────────────────────── */
+.cmdk-modal{width:min(560px,92vw);max-height:min(560px,80vh);display:flex;flex-direction:column}
+.cmdk-input-wrap{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.cmdk-input-icon{color:var(--ink-3);flex-shrink:0;display:flex;align-items:center}
+.cmdk-input{flex:1;border:none;outline:none;background:transparent;font-size:15px;color:var(--ink);padding:2px 0}
+.cmdk-input::placeholder{color:var(--ink-3)}
+.cmdk-results{flex:1;overflow-y:auto;padding:8px;min-height:0}
+.cmdk-section{margin-bottom:8px}
+.cmdk-section:last-child{margin-bottom:0}
+.cmdk-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-3);padding:6px 10px 4px}
+.cmdk-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--ink);border:none;background:transparent;width:100%;text-align:left;transition:background var(--t-fast)}
+.cmdk-item:hover{background:var(--bg-sunken)}
+.cmdk-item.cmdk-active{background:var(--accent-wash);color:var(--accent-ink)}
+[data-theme="dark"] .cmdk-item.cmdk-active{background:color-mix(in oklab,var(--accent) 22%,var(--bg-elev));color:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .cmdk-item.cmdk-active{background:color-mix(in oklab,var(--accent) 22%,var(--bg-elev));color:#fff}}
+.cmdk-item-icon{flex-shrink:0;color:var(--ink-3);display:flex;align-items:center}
+.cmdk-item.cmdk-active .cmdk-item-icon{color:inherit}
+.cmdk-item-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.cmdk-item-title{font-weight:500;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmdk-item-sub{font-size:11px;color:var(--ink-3);font-family:var(--font-mono)}
+.cmdk-item.cmdk-active .cmdk-item-sub{color:inherit;opacity:0.8}
+.cmdk-item-hint{font-size:10px;color:var(--ink-3);font-family:var(--font-mono);flex-shrink:0}
+.cmdk-empty{padding:32px 12px;text-align:center;color:var(--ink-3);font-size:13px}
+.cmdk-foot{padding:8px 14px;border-top:1px solid var(--line);font-size:11px;color:var(--ink-3);display:flex;justify-content:space-between;gap:12px;flex-shrink:0}
+.cmdk-foot-keys{display:flex;gap:10px}
+.cmdk-foot-keys span{display:inline-flex;align-items:center;gap:4px}
+
+/* ── Boot skeleton (pre-React) ──────────────────────────────────────────── */
+.boot-skeleton{display:flex;height:100vh;background:var(--bg-sunken)}
+.boot-skel-sidebar{width:220px;background:linear-gradient(180deg,#1c1f26 0%,#15181e 100%);flex-shrink:0}
+.boot-skel-main{flex:1;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
+.boot-skel-line{height:14px;background:linear-gradient(90deg,var(--bg-elev) 0%,var(--bg-sunken) 50%,var(--bg-elev) 100%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:6px}
+.boot-skel-line.lg{height:24px;width:200px}
+.boot-skel-line.sm{height:10px;width:60%}
+.boot-skel-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:8px}
+.boot-skel-card{height:88px;background:linear-gradient(90deg,var(--bg-elev) 0%,var(--bg-sunken) 50%,var(--bg-elev) 100%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:10px;border:1px solid var(--line)}
+.boot-skel-table{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;min-height:240px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@media (max-width:768px){.boot-skel-sidebar{display:none}.boot-skel-cards{grid-template-columns:repeat(2,1fr)}}

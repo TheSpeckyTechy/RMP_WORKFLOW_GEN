@@ -51,9 +51,17 @@ const isUrgentScheme = (s) => {
 
 const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
   const { schemes, resetAllSchemes } = React.useContext(window.SchemeContext);
-  const handleReset = () => {
-    if (confirm("Reset the whole automation?\n\nThis clears all local scheme edits and reloads the app with the default schemes. Cross-device data in Supabase is not affected.")) {
+  const handleReset = async () => {
+    const ask = window.confirmDialog || ((o) => Promise.resolve(window.confirm(o.body || o.title)));
+    const ok = await ask({
+      title: 'Reset the whole automation?',
+      body: 'This clears all local scheme edits and reloads the app with the default schemes. Cross-device data in Supabase is not affected.',
+      confirmLabel: 'Reset',
+      danger: true,
+    });
+    if (ok) {
       resetAllSchemes();
+      if (window.Toast) window.Toast.show({ kind: 'info', msg: 'Automation reset to defaults.' });
     }
   };
   const statusFiltered = filter === "all" ? schemes : schemes.filter(s => s.status === filter);

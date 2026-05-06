@@ -11,8 +11,28 @@
 
 (function () {
   // ── Material option tables ─────────────────────────────────────────────────
+  // Surface courses, ordered by Dundee design practice:
+  //   1. The three primaries everyday schemes use, all at 40mm depth.
+  //   2. Other hot-laid courses (HRA 35/14F, AC, HBC, etc.) kept available.
+  //   3. Preventive / thin treatments at the bottom.
+  //
+  // Note on catalogue mapping for the new "Taycoat" and "SMA 14" tags:
+  // - Taycoat = SMA 10 closed surf with 100/150 pen binder grade (a softer
+  //   binder than the 40/60 used in the catalogue's 7/053 row). The priced
+  //   catalogue does not yet carry a dedicated 100/150 row, so the tag is
+  //   mapped to 7/053 (SMA 10 surf 40/60 40mm) as the closest priced
+  //   analogue until a proper Taycoat row is added.
+  // - SMA 14 = no priced row exists at 14mm aggregate; same fallback to
+  //   7/053 until rates are added.
+  // When new rates land in boq_rates_full.js, update the right-hand side of
+  // the two new entries in BOQ_LEGACY_TAG_MAP — the rail labels here can
+  // stay as they are.
   const SURFACE_OPTIONS = [
-    { tag: 'surf_hra3014_40_14', label: 'HRA 30/14F 40mm · 14mm chips' },
+    // Dundee-typical primaries (40mm) ───────────────────────────────────────
+    { tag: 'surf_taycoat_10_40', label: '40mm Taycoat — SMA 10 closed surf 100/150' },
+    { tag: 'surf_hra3014_40_14', label: '40mm HRA 14mm' },
+    { tag: 'surf_sma14_40',      label: '40mm SMA 14' },
+    // Other hot-laid surface courses ───────────────────────────────────────
     { tag: 'surf_hra3014_40_20', label: 'HRA 30/14F 40mm · 20mm chips' },
     { tag: 'surf_hra3514_45_14', label: 'HRA 35/14F 45mm · 14mm chips' },
     { tag: 'surf_hra3514_45_20', label: 'HRA 35/14F 45mm · 20mm chips' },
@@ -95,6 +115,12 @@
       if (t.includes('prem'))                         return 'sd_10mm_prem';
       return 'sd_10mm_int';
     }
+    // Dundee-practice primaries — match BEFORE the legacy substring rules
+    // so "Taycoat", "SMA 10 100/150", and "SMA 14" resolve to the new
+    // dedicated tags rather than falling back to substring-matched defaults.
+    if (t.includes('taycoat'))                                     return 'surf_taycoat_10_40';
+    if ((t.includes('sma 10') || t.includes('sma10')) && t.includes('100/150')) return 'surf_taycoat_10_40';
+    if ((t.includes('sma 14') || t.includes('sma14')))             return 'surf_sma14_40';
     // HBC variants before plain AC so they match precisely.
     if (t.includes('ac14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';
     if (t.includes('ac 14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';
@@ -434,14 +460,44 @@
     return 'full_closure';
   }
 
-  // Convert a DD/MM/YYYY → DD/MM/YYYY date pair to working days
-  // (calendar × 5/7, min 1). Returns null if either date is unparseable.
-  function computeWorkingDays(start, finish) {
+  // Convert a DD/MM/YYYY → DD/MM/YYYY date pair to working days, counting
+  // each qualifying day inclusively from start to finish. Returns:
+  //   - null  if either date is missing or unparseable, or finish < start.
+  //   - n ≥ 1 working days otherwise (min 1 even if the entire range falls
+  //           on excluded days).
+  //
+  // `pattern` selects which days count:
+  //   - 'weekday'   (default) — Mon–Fri only. Sat/Sun excluded.
+  //   - 'seven_day'           — every day counts (used when crews work
+  //                             through weekends, e.g. nightshift programmes).
+  // Bank holidays are NOT excluded — that would need a Scotland-specific
+  // calendar lookup.
+  function computeWorkingDays(start, finish, pattern) {
     if (!start || !finish) return null;
-    const parse = s => { const [d,m,y] = String(s).split('/'); return new Date(+y, +m-1, +d); };
+    const parse = s => {
+      const [d, m, y] = String(s).split('/');
+      const dt = new Date(+y, +m - 1, +d);
+      return isNaN(dt) ? null : dt;
+    };
     const a = parse(start), b = parse(finish);
-    if (isNaN(a) || isNaN(b)) return null;
-    return Math.max(1, Math.round((b - a) / 86400000 * 5 / 7));
+    if (!a || !b || b < a) return null;
+    const sevenDay = isSevenDayPattern(pattern);
+    let days = 0;
+    const cur = new Date(a);
+    while (cur <= b) {
+      const dow = cur.getDay();
+      if (sevenDay || (dow !== 0 && dow !== 6)) days++;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return Math.max(1, days);
+  }
+
+  // Stored value of working_pattern is the human-readable label from the
+  // Master dropdown. Match defensively so future label tweaks don't break
+  // the engine: anything that mentions "7", "sun", or "weekend" is 7-day.
+  function isSevenDayPattern(pattern) {
+    const t = String(pattern || '').toLowerCase();
+    return /\b7\b|sun|weekend/.test(t);
   }
 
   // Core derivation — everything that the BoQ can look up from the Master.
@@ -451,7 +507,7 @@
   function deriveQuickInputsFromScheme(scheme) {
     const s = scheme || {};
     const isFootway = s.scheme_type === 'Footway';
-    const wd = computeWorkingDays(s.date_start, s.date_finish);
+    const wd = computeWorkingDays(s.date_start, s.date_finish, s.working_pattern);
 
     const zones = (s.treatments || []).filter(z => +z.area_m2 > 0);
 
@@ -505,7 +561,10 @@
       iw_gully_cway:     +s.iron_gullies || 0,
       tm_type:           mapSchemeTmType(s.tm_type),
       include_diversion: /diversion/i.test(s.tm_type || ''),
-      duration_days:     wd != null ? wd : 5,
+      // Fall back to 1 day (not 5) when dates are missing/invalid so a bare
+      // date_start (or no dates) doesn't masquerade as a real one-week
+      // duration. Filling date_finish drives a real count.
+      duration_days:     wd != null ? wd : 1,
       // Zone-driven shapes. When zones.length > 0 these win over the
       // scalar surface_tag / milling_entries values above.
       milling_entries:   zones.length ? millingFromZones : [{ depth: snapMillingDepth(+s.surface_depth_mm || 40), area: null }],
@@ -619,7 +678,7 @@
     fmtGBP, fmtQty, fmtPct, uid, snapMillingDepth, matchSurfaceTag, seriesOf,
     regenAutoLines, buildBoQLines,
     deriveQuickInputsFromScheme, effectiveQuickInputs,
-    mapSchemeTmType, computeWorkingDays,
+    mapSchemeTmType, computeWorkingDays, isSevenDayPattern,
     schemePatchForOverride,
     LINKED_FIELDS,
   };

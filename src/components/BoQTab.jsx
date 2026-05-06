@@ -305,6 +305,9 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
         onRelink={()=>onRelink('include_binder')}>
         <BQToggle value={inputs.include_binder} onChange={v=>set('include_binder',v)} label="Binder course" />
       </LinkedField>
+      <div style={{fontSize:10,color:'var(--ink-3)',margin:'0 0 6px',lineHeight:1.4}}>
+        Optional 60mm · 20mm binder — pairs with any of the three 40mm surface courses.
+      </div>
       {inputs.include_binder && (
         <>
           <BQSelect value={inputs.binder_tag} onChange={v=>set('binder_tag',v)} label="Binder type" options={MAT.BINDER_OPTIONS} />
@@ -474,10 +477,25 @@ window.QuickInputRail = QuickInputRail;
 // ── LedgerRow ────────────────────────────────────────────────────────────────
 // One priced line with inline controls: qty edit, A/B/C band override,
 // overflow menu (up / down / duplicate / delete).
+//
+// Soft-warning rules (returned as a list of human-readable strings):
+//   - quantity ≤ 0: line is in the BoQ but contributes £0 to the total.
+//   - blank/whitespace unit: rate × qty can't compute a meaningful subtotal.
+// `line.missing` (catalogue mismatch) is a hard error and is rendered with
+// the existing red treatment instead.
+const lineWarnings = (line) => {
+  const w = [];
+  if (!(+line.qty > 0)) w.push('Quantity is zero — line won’t contribute to the total.');
+  if (!String(line.unit || '').trim()) w.push('Unit missing — subtotal can’t be computed.');
+  return w;
+};
+
 const LedgerRow = ({ line, alt, onEdit, onDelete, onMove, onDuplicate }) => {
   const [editing, setEditing] = React.useState(false);
   const [draftQty, setDraftQty] = React.useState(line.qty);
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const warnings = line.missing ? [] : lineWarnings(line);
+  const hasWarning = warnings.length > 0;
 
   React.useEffect(() => { setDraftQty(line.qty); }, [line.qty]);
 
@@ -491,17 +509,27 @@ const LedgerRow = ({ line, alt, onEdit, onDelete, onMove, onDuplicate }) => {
 
   return (
     <div
-      className={"boq-row" + (alt ? " alt" : "") + (line.missing ? " missing" : "")}
+      className={"boq-row" + (alt ? " alt" : "") + (line.missing ? " missing" : (hasWarning ? " warn" : ""))}
       style={{
         display:'grid',
         gridTemplateColumns:'76px minmax(0,1fr) 96px 44px 76px 92px 34px',
         padding:'5px 10px', borderBottom:'1px solid var(--line)',
-        background: line.missing ? 'var(--red-wash)' : (alt ? 'var(--bg-sunken)' : 'var(--bg)'),
+        background: line.missing ? 'var(--red-wash)' : (hasWarning ? 'var(--amber-wash)' : (alt ? 'var(--bg-sunken)' : 'var(--bg)')),
         alignItems:'center', position:'relative',
       }}
     >
       <div className="mono" style={{fontSize:10,color:'var(--ink-3)',paddingTop:1}}>{line.id}</div>
       <div style={{paddingRight:8,lineHeight:1.35,fontSize:11,minWidth:0,overflow:'hidden',textOverflow:'ellipsis'}}>
+        {hasWarning && (
+          <span
+            title={warnings.join('\n')}
+            aria-label={warnings.join(' ')}
+            style={{
+              display:'inline-block', marginRight:6, color:'var(--amber)',
+              fontSize:11, lineHeight:1, cursor:'help', verticalAlign:'middle',
+            }}
+          >⚠</span>
+        )}
         {line.desc || <em style={{color:'var(--red)'}}>{line.missing ? 'Item not found in catalogue' : '(no description)'}</em>}
         {line.auto && <span style={{
           marginLeft:6, fontSize:9, color:'var(--ink-3)', fontFamily:'var(--font-mono)',
@@ -651,13 +679,20 @@ window.BoQLedger = BoQLedger;
 
 // ── CatalogueDrawer ──────────────────────────────────────────────────────────
 // Right-side slide-in overlay. Live-searches window.BOQ_RATES_FULL.
-const CatalogueDrawer = ({ open, onClose, onPick }) => {
+//
+// `recent` is the per-scheme list of recently-picked catalogue items
+// (snapshots — see addFromCatalogue in BoQTab). It is rendered as a "Recent"
+// strip above the search results when the drawer is in its idle state
+// (no query, no series filter, no unit filter), since most schemes draw from
+// a small repeating set of items.
+const CatalogueDrawer = ({ open, onClose, onPick, recent = [] }) => {
   const [query, setQuery] = React.useState('');
   const [seriesFilter, setSeriesFilter] = React.useState(null);
   const [unitFilter, setUnitFilter] = React.useState('');
   const [results, setResults] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const debounceRef = React.useRef(null);
+  const idle = !query && !seriesFilter && !unitFilter;
 
   React.useEffect(() => {
     if (!open) return;
@@ -722,6 +757,35 @@ const CatalogueDrawer = ({ open, onClose, onPick }) => {
         </div>
 
         <div style={{flex:1,overflowY:'auto',minHeight:0}}>
+          {idle && recent.length > 0 && (
+            <>
+              <div style={{
+                padding:'8px 16px 4px', fontSize:10, fontWeight:700,
+                textTransform:'uppercase', letterSpacing:'0.08em',
+                color:'var(--ink-3)', background:'var(--bg-sunken)',
+                borderBottom:'1px solid var(--line)',
+              }}>Recent · {recent.length}</div>
+              {recent.map(it => (
+                <div key={'recent_' + (it.seriesKey || '') + '_' + it.id}
+                  className="boq-search-result" onClick={() => onPick(it)}>
+                  <div className="mono" style={{fontSize:10,color:'var(--ink-3)'}}>{it.id}</div>
+                  <div style={{minWidth:0,overflow:'hidden'}}>
+                    <div style={{fontSize:11,lineHeight:1.3}}>{it.desc}</div>
+                    <div style={{fontSize:9,color:'var(--ink-3)',fontFamily:'var(--font-mono)',marginTop:2}}>
+                      S{it.series} · {it.unit} · A £{(+it.rateA||0).toFixed(2)} / B £{(+it.rateB||0).toFixed(2)} / C £{(+it.rateC||0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div style={{textAlign:'right',fontSize:18,color:'var(--accent)'}}>+</div>
+                </div>
+              ))}
+              <div style={{
+                padding:'8px 16px 4px', fontSize:10, fontWeight:700,
+                textTransform:'uppercase', letterSpacing:'0.08em',
+                color:'var(--ink-3)', background:'var(--bg-sunken)',
+                borderTop:'1px solid var(--line)', borderBottom:'1px solid var(--line)',
+              }}>All items · {results.length}</div>
+            </>
+          )}
           {results.map(it => (
             <div key={it.seriesKey + '_' + it.id} className="boq-search-result"
               onClick={() => onPick(it)}>
@@ -875,7 +939,18 @@ const BoQTab = ({ schemeId }) => {
       series: item.series || E.seriesOf(item.id),
       auto: false,
     };
-    commit({ custom_lines: [...(boq.custom_lines||[]), newLine] });
+    // Track this pick at the head of recent_items so it pins to the top of
+    // the catalogue drawer next time the user opens it. Stored as a snapshot
+    // (not a live ref) so the strip is self-sufficient without re-querying
+    // BOQ_RATES_FULL on every render.
+    const key = (item.seriesKey || '') + '_' + item.id;
+    const snapshot = {
+      seriesKey: item.seriesKey, id: item.id, desc: item.desc, unit: item.unit,
+      series: item.series, rateA: item.rateA, rateB: item.rateB, rateC: item.rateC,
+    };
+    const prior  = (boq.recent_items || []).filter(r => ((r.seriesKey || '') + '_' + r.id) !== key);
+    const recent = [snapshot, ...prior].slice(0, 20);
+    commit({ custom_lines: [...(boq.custom_lines||[]), newLine], recent_items: recent });
   };
 
   const handleSettings = (settings) => commit({ settings });
@@ -952,6 +1027,7 @@ const BoQTab = ({ schemeId }) => {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onPick={(item) => { addFromCatalogue(item); /* keep drawer open for batch add */ }}
+        recent={boq.recent_items || []}
       />
     </div>
   );
