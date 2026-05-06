@@ -87,6 +87,9 @@ window.defaultBoq = () => ({
     iw_gully_cway: 0,
   },
   custom_lines: [],      // [{uid,id,desc,qty,unit,bandOverride?,series,auto?,notes?}]
+  recent_items: [],      // last ≤20 catalogue picks; pinned at the top of the
+                         // catalogue drawer when no search/filter is active.
+                         // Each: {seriesKey,id,desc,unit,series,rateA,rateB,rateC}
   settings: {
     useBERR:     false,
     berrIndex:   1.000,
