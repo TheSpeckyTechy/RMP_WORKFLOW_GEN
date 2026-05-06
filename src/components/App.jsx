@@ -210,6 +210,30 @@ const SyncDot = ({ status }) => {
   );
 };
 
+// Topbar chip combining the SyncDot with a live "Synced · 4s ago" label.
+// Self-consumes SchemeContext so it can keep its own refresh timer.
+const SyncChip = () => {
+  const { syncStatus, lastSynced } = React.useContext(window.SchemeContext);
+  const [, forceUpdate] = React.useReducer(x => x + 1, 0);
+  React.useEffect(() => {
+    if (syncStatus !== 'synced' || !lastSynced) return;
+    const t = setInterval(forceUpdate, 30000);
+    return () => clearInterval(t);
+  }, [lastSynced, syncStatus]);
+  let label;
+  if (syncStatus === 'loading')      label = 'Connecting…';
+  else if (syncStatus === 'syncing') label = 'Saving…';
+  else if (syncStatus === 'error')   label = 'Sync error';
+  else if (lastSynced)               label = `Synced · ${relativeTime(lastSynced)}`;
+  else                               label = 'Synced';
+  return (
+    <div className={`sync-chip sync-${syncStatus || 'synced'}`} title={label}>
+      <SyncDot status={syncStatus} />
+      <span className="sync-chip-label">{label}</span>
+    </div>
+  );
+};
+
 const Tweaks = ({ tweaks, setTweaks }) => (
   <div className="tweaks-panel">
     <div className="tweaks-head"><span>Tweaks</span><span style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>design controls</span></div>
@@ -507,7 +531,7 @@ const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
 };
 
 const AppInner = () => {
-  const { addScheme, syncStatus, getScheme } = React.useContext(window.SchemeContext);
+  const { addScheme, getScheme } = React.useContext(window.SchemeContext);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [notifOpen, setNotifOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState([]);
@@ -594,7 +618,7 @@ const AppInner = () => {
             )}
           </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
-          <SyncDot status={syncStatus} />
+          <SyncChip />
           <div style={{position:"relative"}} ref={notifRef}>
             <button className="btn ghost sm" style={{position:"relative"}} onClick={()=>setNotifOpen(o=>!o)}>
               <Icon.Bell />

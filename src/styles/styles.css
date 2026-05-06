@@ -481,3 +481,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]) .inline-error{background:rgba(248,113,113,0.14);border:1px solid rgba(248,113,113,0.4)}
 }
+
+/* Topbar sync-state chip — combines coloured dot with live "Synced · 4s ago"
+   label so the user can see at a glance whether their work is safe. */
+.sync-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;background:var(--bg-sunken);border:1px solid var(--line);border-radius:14px;font-size:11px;color:var(--ink-3);font-family:var(--font-mono);white-space:nowrap;flex-shrink:0;line-height:1;transition:background 0.12s,border-color 0.12s,color 0.12s}
+.sync-chip-label{line-height:1}
+.sync-chip.sync-error{color:var(--red);border-color:var(--red);background:#fff0f0}
+[data-theme="dark"] .sync-chip.sync-error{background:rgba(192,57,43,0.18);border-color:rgba(192,57,43,0.6)}
+@media (max-width:600px){.sync-chip-label{display:none}.sync-chip{padding:3px;border:none;background:none}}
