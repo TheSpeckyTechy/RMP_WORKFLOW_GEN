@@ -315,5 +315,22 @@ window.__downloadRSRPdf = async (scheme) => {
   } catch (e) { console.warn('RSR PDF download failed', e); }
 };
 
+window.__getRSRPdfBuffer = async (scheme) => {
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
+  document.body.appendChild(container);
+  try {
+    const displayScheme = { ...scheme, treatment_type: scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type };
+    const root = ReactDOM.createRoot(container);
+    root.render(React.createElement(RoadSpaceRequestDoc, { scheme: displayScheme }));
+    await new Promise(r => setTimeout(r, 400));
+    const buf = await window.htmlToPdfBuffer(container.firstChild || container);
+    root.unmount();
+    return buf;
+  } finally {
+    document.body.removeChild(container);
+  }
+};
+
 window.RoadSpaceRequestDoc = RoadSpaceRequestDoc;
 window.RSRModal = RSRModal;

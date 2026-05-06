@@ -407,5 +407,23 @@ window.__downloadPCIPdf = async (scheme) => {
   } catch (e) { console.warn('PCI PDF download failed', e); }
 };
 
+window.__getPCIPdfBuffer = async (scheme) => {
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
+  document.body.appendChild(container);
+  try {
+    let buffer = await loadDocxBuffer(PCI_TEMPLATE);
+    buffer = await injectValues(buffer, scheme);
+    if (window.docx && window.docx.renderAsync) {
+      await window.docx.renderAsync(buffer, container, null, {
+        className: 'docx-preview', inWrapper: false, useBase64URL: true,
+      });
+    }
+    return await window.htmlToPdfBuffer(container);
+  } finally {
+    document.body.removeChild(container);
+  }
+};
+
 window.PCIDoc   = PCIDoc;
 window.PCIModal = PCIModal;

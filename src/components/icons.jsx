@@ -57,4 +57,23 @@ const htmlToPdf = async (element, filename) => {
   pdf.save(filename);
 };
 
-Object.assign(window, { Icon, fmtGBP, fmtDate, STATUS_LABELS, htmlToPdf });
+const htmlToPdfBuffer = async (element) => {
+  if (!window.html2canvas || !window.jspdf) throw new Error('PDF libraries not loaded');
+  const { jsPDF } = window.jspdf;
+  const canvas = await window.html2canvas(element, {
+    scale: 2, backgroundColor: '#ffffff', useCORS: true, allowTaint: true, logging: false,
+  });
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pageW = 210, pageH = 297;
+  const imgData = canvas.toDataURL('image/jpeg', 0.92);
+  const imgH = (canvas.height * pageW) / canvas.width;
+  let y = 0;
+  while (y < imgH) {
+    if (y > 0) pdf.addPage();
+    pdf.addImage(imgData, 'JPEG', 0, -y, pageW, imgH);
+    y += pageH;
+  }
+  return pdf.output('arraybuffer');
+};
+
+Object.assign(window, { Icon, fmtGBP, fmtDate, STATUS_LABELS, htmlToPdf, htmlToPdfBuffer });

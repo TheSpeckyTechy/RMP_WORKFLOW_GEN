@@ -74,6 +74,8 @@ const GenerateModal = ({ scheme, onClose }) => {
   const [exporting, setExporting] = React.useState(false);
   const [exported, setExported] = React.useState(false);
   const [failures, setFailures] = React.useState([]);
+  const [compiling, setCompiling] = React.useState(false);
+  const [compileResult, setCompileResult] = React.useState(null);
   const steps = [
     { l: "Reading scheme data", meta: scheme.project_number || "—" },
     { l: "Validating inputs", meta: "0 errors" },
@@ -148,7 +150,35 @@ const GenerateModal = ({ scheme, onClose }) => {
               {failures.length > 0 && (
                 <div style={{ fontSize: 12, color: "var(--red)", marginBottom: 6 }}>Failed: {failures.join(', ')} — check the browser console for details.</div>
               )}
-              <div style={{ fontSize: 12, color: "var(--ink-2)" }}>Front Sheet (.pdf), RSR (.docx + .pdf), PCI/CPP (.docx + .pdf), Master Workbook (.xlsx), and BoQ (.xlsx) saved to your downloads folder. Open the <strong>Pack</strong> tab to generate resident letters (CAG recipients required).</div>
+              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 10 }}>Front Sheet, RSR, PCI/CPP, Master Workbook, and BoQ saved to downloads. Open the <strong>Pack</strong> tab to generate resident letters.</div>
+              <div style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Compiled PDF pack</div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 8 }}>
+                  Merges Front Sheet + PCI/CPP + RSR + any uploaded PDFs (BoQ, drawings, TM, utilities) into one file.
+                </div>
+                {!compileResult && (
+                  <button className="btn sm accent" disabled={compiling}
+                    onClick={async () => {
+                      if (!window.__compilePackPdf) { alert('Pack compiler not loaded — refresh and try again.'); return; }
+                      setCompiling(true);
+                      try {
+                        const res = await window.__compilePackPdf(scheme, () => {});
+                        setCompileResult(res);
+                      } catch (e) {
+                        alert('Compile failed: ' + e.message);
+                      } finally { setCompiling(false); }
+                    }}>
+                    {compiling ? 'Compiling…' : <><Icon.Download /> Download compiled PDF</>}
+                  </button>
+                )}
+                {compileResult && (
+                  <div style={{ fontSize: 11 }}>
+                    <span style={{ color: "var(--green)", fontWeight: 600 }}>✓ Downloaded</span>
+                    {' — '}{compileResult.included.length} sections included
+                    {compileResult.skipped.length > 0 && <span style={{ color: "var(--ink-3)" }}> · skipped: {compileResult.skipped.join(', ')}</span>}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
