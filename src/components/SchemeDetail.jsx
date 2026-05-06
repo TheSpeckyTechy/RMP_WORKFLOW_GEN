@@ -861,7 +861,7 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
                 <div className="doc-name">{d.name}</div>
                 <div className="doc-meta"><span>{d.type}</span><span>{d.auto?"Auto":"Manual"}</span></div>
               </div>
-              {(d.key === 'drawings' || d.key === 'utilities') ? (
+              {(d.key === 'drawings' || d.key === 'utilities' || d.key === 'tm') ? (
                 // ── Multi-file card (drawings / utilities) ───────
                 (() => {
                   const mf = scheme[`pack_files_${d.key}`] || [];

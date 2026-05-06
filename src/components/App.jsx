@@ -116,7 +116,7 @@ const GenerateModal = ({ scheme, onClose }) => {
 
         try {
           // Multi-file sections: merge all uploaded files in order
-          if (section.key === 'drawings' || section.key === 'utilities') {
+          if (section.key === 'drawings' || section.key === 'utilities' || section.key === 'tm') {
             const multiFiles = scheme[`pack_files_${section.key}`] || [];
             // Fall back to legacy single-file if multi array is empty
             const legacy = scheme[`pack_file_${section.key}`];
