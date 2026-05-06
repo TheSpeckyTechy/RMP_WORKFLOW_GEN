@@ -175,8 +175,7 @@ const BQMillingList = ({ entries, onChange, defaultArea }) => {
 // ── QuickInputRail ───────────────────────────────────────────────────────────
 // Left-rail form. Reads/writes boq.quick_inputs. Calls onApply() to regenerate
 // the auto-line set; user-added lines are preserved by the caller.
-const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onApply, onApplyPreset, dirty }) => {
-  const presets = E.PRESETS || [];
+const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onApply, dirty }) => {
   // set(): for non-linked fields and for fields that are already overridden —
   // writes straight through to quick_inputs. For linked-but-not-yet-overridden
   // fields the Override button in LinkedField flips the flag first, so by the
@@ -218,24 +217,6 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
         marginBottom:4, zIndex:2,
       }}>
         <div style={{fontSize:12,fontWeight:700,color:'var(--ink)',marginBottom:6}}>Quick Input</div>
-        {onApplyPreset && presets.length > 0 && (
-          <select
-            value=""
-            onChange={(e) => {
-              const k = e.target.value;
-              e.target.value = '';
-              if (!k) return;
-              const preset = presets.find(p => p.key === k);
-              const msg = `Apply preset "${preset?.label}"?\n\n${preset?.desc || ''}\n\nThis will overwrite your layer toggles + materials and regenerate auto-lines. Custom lines you've added are preserved.`;
-              if (window.confirm(msg)) onApplyPreset(k);
-            }}
-            title="Pre-configure layer toggles + materials for a common treatment type."
-            style={{width:'100%',fontSize:11,padding:'4px 6px',marginBottom:6}}
-          >
-            <option value="">⚡ Start from preset…</option>
-            {presets.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
-          </select>
-        )}
         <button className={"btn sm " + (dirty ? "accent" : "")} onClick={onApply}
           style={{width:'100%',justifyContent:'center'}}>
           {dirty ? 'Regenerate auto-lines' : 'Regenerated ✓'}
@@ -877,28 +858,6 @@ const BoQTab = ({ schemeId }) => {
     setQuickDirty(false);
   };
 
-  // One-click preset: patches quick_inputs to a treatment-shaped configuration
-  // (e.g. "Inlay 50mm" — surface tag + 50mm milling + tack), marks the patched
-  // fields as overridden so they don't snap back to Master values, and
-  // regenerates auto-lines in the same commit. The user can still edit any
-  // field afterwards via the rail.
-  const handleApplyPreset = (presetKey) => {
-    const preset = (E.PRESETS || []).find(p => p.key === presetKey);
-    if (!preset) return;
-    const { inputs: nextInputs, touched } = E.applyPreset(presetKey, effective);
-    const linkedSet = new Set((E.LINKED_FIELDS || []).map(f => f.key));
-    const overrides = { ...(boq.overrides || {}) };
-    for (const k of touched) if (linkedSet.has(k)) overrides[k] = true;
-    // Persist only the patched keys into quick_inputs so unrelated fields can
-    // still follow the Master where they were doing so before.
-    const quick_inputs = { ...(boq.quick_inputs || {}) };
-    for (const k of touched) quick_inputs[k] = nextInputs[k];
-    const auto   = E.regenAutoLines(nextInputs);
-    const custom = (boq.custom_lines || []).filter(l => !l.auto);
-    commit({ overrides, quick_inputs, custom_lines: [...auto, ...custom] });
-    setQuickDirty(false);
-  };
-
   // Called by the rail when a linked OR overridden field is edited. Always
   // writes to quick_inputs; the override flag is managed separately by
   // overrideField / relinkField.
@@ -1051,7 +1010,6 @@ const BoQTab = ({ schemeId }) => {
           onOverride={overrideField}
           onRelink={relinkField}
           onApply={handleApplyQuick}
-          onApplyPreset={handleApplyPreset}
         />
         <div style={{minWidth:0}}>
           <BoQLedger

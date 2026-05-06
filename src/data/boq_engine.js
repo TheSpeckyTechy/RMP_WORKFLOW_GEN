@@ -637,97 +637,6 @@
     { key:'duration_days',     label:'Duration',           unit:'days' },
   ];
 
-  // ── PRESETS ────────────────────────────────────────────────────────────────
-  // Treatment-shaped patches over quick_inputs that pre-configure the layer
-  // toggles + materials for a common scheme type. Carriageway / footway
-  // areas, TM, kerbs and ironwork are intentionally untouched — those are
-  // scheme-specific and the user fills them in regardless of preset.
-  const PRESETS = [
-    {
-      key: 'inlay_50',
-      label: 'Inlay 50mm',
-      desc: 'Plane out 50mm; relay surface course (HRA 30/14F).',
-      patch: {
-        surface_tag: 'surf_hra3014_40_14',
-        include_milling: true,
-        milling_depth: 50,
-        milling_entries: [{ depth: 50, area: null }],
-        include_tack: true,
-        include_binder: false,
-        include_base: false,
-        include_subbase: false,
-      },
-    },
-    {
-      key: 'resurface_90',
-      label: 'Resurface 90mm (binder + surface)',
-      desc: 'Mill 90mm; lay HRA 50/20 binder + HRA 30/14F surface.',
-      patch: {
-        surface_tag: 'surf_hra3014_40_14',
-        include_binder: true,
-        binder_tag: 'bin_hra5020_60',
-        include_milling: true,
-        milling_depth: 90,
-        milling_entries: [{ depth: 90, area: null }],
-        include_tack: true,
-        include_base: false,
-        include_subbase: false,
-      },
-    },
-    {
-      key: 'surface_dressing_10',
-      label: 'Surface dressing 10mm',
-      desc: 'Preventive treatment — chip seal, no milling, no tack.',
-      patch: {
-        surface_tag: 'sd_10mm_int',
-        include_milling: false,
-        include_tack: false,
-        include_binder: false,
-        include_base: false,
-        include_subbase: false,
-      },
-    },
-    {
-      key: 'micro_asphalt',
-      label: 'Micro-asphalt (slurry seal)',
-      desc: 'Preventive treatment — slurry overlay, no milling.',
-      patch: {
-        surface_tag: 'surf_micro',
-        include_milling: false,
-        include_tack: false,
-        include_binder: false,
-        include_base: false,
-        include_subbase: false,
-      },
-    },
-    {
-      key: 'reconstruction',
-      label: 'Reconstruction (full depth)',
-      desc: 'Mill 200mm; sub-base + base + binder + surface.',
-      patch: {
-        surface_tag: 'surf_hra3014_40_14',
-        include_binder: true,
-        binder_tag: 'bin_hra5020_60',
-        include_base: true,
-        base_tag: 'base_ac32d_150',
-        include_subbase: true,
-        subbase_depth: 150,
-        include_milling: true,
-        milling_depth: 200,
-        milling_entries: [{ depth: 200, area: null }],
-        include_tack: true,
-      },
-    },
-  ];
-
-  function applyPreset(presetKey, currentInputs) {
-    const preset = PRESETS.find(p => p.key === presetKey);
-    if (!preset) return { inputs: currentInputs, touched: [] };
-    const inputs  = { ...(currentInputs || {}), ...preset.patch };
-    const touched = Object.keys(preset.patch);
-    return { inputs, touched };
-  }
-
   window.BOQ_ENGINE = {
     MATERIALS: {
       SURFACE_OPTIONS, BINDER_OPTIONS, BASE_OPTIONS,
@@ -739,6 +648,5 @@
     mapSchemeTmType, computeWorkingDays,
     schemePatchForOverride,
     LINKED_FIELDS,
-    PRESETS, applyPreset,
   };
 })();
