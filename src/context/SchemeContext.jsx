@@ -66,6 +66,27 @@ const withBoq = (s) => {
     };
   }
 
+  // ── 1c. Series 6400 uplift entries (night, Sat, Sun, Dundee area) — added
+  //       so existing schemes pick up the new BoQ-tab toggles. Each entry is
+  //       inserted only if absent, so user edits to existing toggles aren't
+  //       overwritten on subsequent loads.
+  const adds = (boq.settings && boq.settings.percentAdditions) || {};
+  const newAdds = {
+    night_uplift:    { enabled: false, pct: 0.20, label: 'Night-shift uplift (Series 6400/003)' },
+    saturday_uplift: { enabled: false, pct: 0.20, label: 'Saturday uplift (Series 6400/004)' },
+    sunday_uplift:   { enabled: false, pct: 0.20, label: 'Sunday uplift (Series 6400/005)' },
+    dundee_area:     { enabled: false, pct: 0.03, label: 'Dundee City Council area (Series 6400/011)' },
+  };
+  const missing = Object.keys(newAdds).filter(k => !adds[k]);
+  if (missing.length) {
+    const merged = { ...adds };
+    for (const k of missing) merged[k] = newAdds[k];
+    boq = {
+      ...boq,
+      settings: { ...(boq.settings || {}), percentAdditions: merged },
+    };
+  }
+
   // ── 2. Master-linked overrides. Compare each stored value against the
   //     value the Master would produce now. If they match, the field can
   //     cleanly follow the Master; if they differ, preserve the BoQ value
