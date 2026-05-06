@@ -68,16 +68,6 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const PACK_SECTIONS = [
-  { key: 'front',    label: 'Front Sheet',                  auto: true  },
-  { key: 'pci',      label: 'PCI / CPP',                    auto: false }, // upload-only for pack
-  { key: 'rsr',      label: 'Road Space Request',           auto: true  }, // upload overrides auto
-  { key: 'boq',      label: 'Bill of Quantities',           auto: false },
-  { key: 'drawings', label: 'Resurfacing & Ironwork Plans', auto: false },
-  { key: 'tm',       label: 'Traffic Management Plans',     auto: false },
-  { key: 'utilities',label: 'Utility Searches Pack',        auto: false },
-];
-
 // Convert a base64 data URL to an ArrayBuffer (used to decode stored PDFs)
 function dataUrlToBuffer(dataUrl) {
   const base64 = dataUrl.split(',')[1];
@@ -89,7 +79,9 @@ function dataUrlToBuffer(dataUrl) {
 
 const GenerateModal = ({ scheme, onClose }) => {
   // status per section: 'pending' | 'active' | 'done' | 'skipped' | 'error'
-  const initSteps = () => PACK_SECTIONS.map(s => ({ ...s, status: 'pending', note: '' }));
+  // Letter is excluded — requires recipient list (mail-merge workflow)
+  const COMPILE_DOCS = window.PACK_DOCS.filter(d => d.key !== 'letter');
+  const initSteps = () => COMPILE_DOCS.map(d => ({ ...d, status: 'pending', note: '' }));
   const [steps, setSteps] = React.useState(initSteps);
   const [finished, setFinished] = React.useState(false);
   const [packError, setPackError] = React.useState('');
@@ -110,7 +102,7 @@ const GenerateModal = ({ scheme, onClose }) => {
       const merged = await PDFDocument.create();
       const inc = [], skip = [];
 
-      for (const section of PACK_SECTIONS) {
+      for (const section of COMPILE_DOCS) {
         markStep(section.key, 'active');
         await new Promise(r => setTimeout(r, 30)); // allow React to paint
 
@@ -130,10 +122,10 @@ const GenerateModal = ({ scheme, onClose }) => {
                 fpages.forEach(p => merged.addPage(p));
                 totalPages += fsrc.getPageCount();
               }
-              inc.push(section.label);
+              inc.push(section.name);
               markStep(section.key, 'done', `${toMerge.length} file${toMerge.length!==1?'s':''} · ${totalPages}pp`);
             } else {
-              skip.push(section.label);
+              skip.push(section.name);
               markStep(section.key, 'skipped', 'no PDFs uploaded');
             }
             continue;
@@ -155,18 +147,18 @@ const GenerateModal = ({ scheme, onClose }) => {
             const src   = await PDFDocument.load(buf, { ignoreEncryption: true });
             const pages = await merged.copyPages(src, src.getPageIndices());
             pages.forEach(p => merged.addPage(p));
-            inc.push(section.label);
+            inc.push(section.name);
             markStep(section.key, 'done', `${src.getPageCount()} page${src.getPageCount() !== 1 ? 's' : ''}`);
           } else {
             const reason = section.key === 'pci'
               ? 'upload via Pack tab → Upload Pack PDF'
               : section.auto ? 'render failed' : 'no PDF uploaded';
-            skip.push(section.label);
+            skip.push(section.name);
             markStep(section.key, 'skipped', reason);
           }
         } catch (e) {
-          console.warn(`Pack compile — ${section.label}:`, e);
-          skip.push(section.label);
+          console.warn(`Pack compile — ${section.name}:`, e);
+          skip.push(section.name);
           markStep(section.key, 'error', e.message.slice(0, 60));
         }
       }
@@ -199,14 +191,6 @@ const GenerateModal = ({ scheme, onClose }) => {
     })();
   }, []); // eslint-disable-line
 
-  const statusIcon = (status) => {
-    if (status === 'done')    return <span style={{color:'var(--green)',fontWeight:700}}>✓</span>;
-    if (status === 'skipped') return <span style={{color:'var(--ink-3)'}}>–</span>;
-    if (status === 'error')   return <span style={{color:'var(--red)'}}>✕</span>;
-    if (status === 'active')  return <span className="spinner" style={{width:12,height:12,display:'inline-block'}} />;
-    return <span style={{color:'var(--ink-3)',fontSize:11}}>{PACK_SECTIONS.findIndex(s=>s.key===steps.find(x=>x.key===steps[0]?.key)?.key)}</span>;
-  };
-
   return (
     <div className="modal-backdrop" onClick={finished ? onClose : undefined}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -230,7 +214,7 @@ const GenerateModal = ({ scheme, onClose }) => {
                    s.status === 'error'   ? '✕' :
                    s.status === 'skipped' ? '–' : i + 1}
                 </div>
-                <div style={{flex:1}}>{s.label}</div>
+                <div style={{flex:1}}>{s.name}</div>
                 <div className="gen-step-meta" style={{
                   color: s.status === 'error' ? 'var(--red)' : s.status === 'skipped' ? 'var(--ink-3)' : undefined,
                 }}>
