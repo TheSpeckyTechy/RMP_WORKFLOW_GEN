@@ -718,6 +718,9 @@ const AppInner = () => {
           </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
           <SyncChip />
+          <button className="btn ghost sm" title="Force reload — bypasses cache and fetches latest code"
+            onClick={() => window.location.replace(window.location.pathname + '?nocache=' + Date.now())}
+            style={{fontSize:16,lineHeight:1,padding:"4px 7px"}}>↻</button>
           <div style={{position:"relative"}} ref={notifRef}>
             <button className="btn ghost sm" style={{position:"relative"}} onClick={()=>setNotifOpen(o=>!o)}>
               <Icon.Bell />
