@@ -11,8 +11,23 @@
 
 (function () {
   // ── Material option tables ─────────────────────────────────────────────────
+  // Surface courses, ordered by Dundee design practice:
+  //   1. The three primaries everyday schemes use, all at 40mm depth.
+  //   2. Other hot-laid courses (HRA 35/14F, AC, HBC, etc.) kept available.
+  //   3. Preventive / thin treatments at the bottom.
+  //
+  // Note on catalogue mapping for the new "Taycoat 10mm" and "SMA 14" tags:
+  // the priced catalogue (boq_rates_full.js) does NOT yet hold dedicated
+  // entries for Taycoat or for SMA at 14mm aggregate. Both tags are mapped
+  // to 7/053 (SMA 10 surf 40mm) in BOQ_LEGACY_TAG_MAP as the closest priced
+  // analogue until proper rates are added. When new rates land, update the
+  // tag map — the rail labels here can stay as they are.
   const SURFACE_OPTIONS = [
-    { tag: 'surf_hra3014_40_14', label: 'HRA 30/14F 40mm · 14mm chips' },
+    // Dundee-typical primaries (40mm) ───────────────────────────────────────
+    { tag: 'surf_taycoat_10_40', label: '40mm Taycoat 10mm' },
+    { tag: 'surf_hra3014_40_14', label: '40mm HRA 14mm' },
+    { tag: 'surf_sma14_40',      label: '40mm SMA 14' },
+    // Other hot-laid surface courses ───────────────────────────────────────
     { tag: 'surf_hra3014_40_20', label: 'HRA 30/14F 40mm · 20mm chips' },
     { tag: 'surf_hra3514_45_14', label: 'HRA 35/14F 45mm · 14mm chips' },
     { tag: 'surf_hra3514_45_20', label: 'HRA 35/14F 45mm · 20mm chips' },
@@ -95,6 +110,10 @@
       if (t.includes('prem'))                         return 'sd_10mm_prem';
       return 'sd_10mm_int';
     }
+    // Dundee-practice primaries — match BEFORE the legacy substring rules
+    // so "Taycoat 10mm" and "SMA 14" resolve to the new dedicated tags.
+    if (t.includes('taycoat'))                                     return 'surf_taycoat_10_40';
+    if ((t.includes('sma 14') || t.includes('sma14')))             return 'surf_sma14_40';
     // HBC variants before plain AC so they match precisely.
     if (t.includes('ac14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';
     if (t.includes('ac 14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';

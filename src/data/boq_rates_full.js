@@ -1812,6 +1812,12 @@ window.BOQ_LEGACY_TAG_MAP = {
   "surf_hra3514_45_14": "7/045",
   "surf_hra3514_45_20": "7/043",
   "surf_sma10_40": "7/053",
+  // Dundee-practice aliases — these labels don't yet have dedicated catalogue
+  // entries; both fall back to 7/053 (SMA 10 surf 40mm) as the closest priced
+  // analogue. Replace the right-hand side once rates for Taycoat and SMA 14
+  // are added to boq_rates_full.js (regenerate via scripts/extract_boq_rates.py).
+  "surf_taycoat_10_40": "7/053",
+  "surf_sma14_40":      "7/053",
   "surf_sma6_30": "7/055",
   "surf_hra5510_40": "7/059",
   "surf_ac6_30": "7/057",

@@ -324,6 +324,9 @@ const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onA
         onRelink={()=>onRelink('include_binder')}>
         <BQToggle value={inputs.include_binder} onChange={v=>set('include_binder',v)} label="Binder course" />
       </LinkedField>
+      <div style={{fontSize:10,color:'var(--ink-3)',margin:'0 0 6px',lineHeight:1.4}}>
+        Optional 60mm · 20mm binder — pairs with any of the three 40mm surface courses.
+      </div>
       {inputs.include_binder && (
         <>
           <BQSelect value={inputs.binder_tag} onChange={v=>set('binder_tag',v)} label="Binder type" options={MAT.BINDER_OPTIONS} />
