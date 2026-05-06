@@ -68,122 +68,190 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+const PACK_SECTIONS = [
+  { key: 'front',    label: 'Front Sheet',                  auto: true,  packKey: null },
+  { key: 'pci',      label: 'PCI / CPP',                    auto: true,  packKey: null },
+  { key: 'rsr',      label: 'Road Space Request',           auto: true,  packKey: null },
+  { key: 'boq',      label: 'Bill of Quantities',           auto: false, packKey: 'boq' },
+  { key: 'drawings', label: 'Resurfacing & Ironwork Plans', auto: false, packKey: 'drawings' },
+  { key: 'tm',       label: 'Traffic Management Plans',     auto: false, packKey: 'tm' },
+  { key: 'utilities',label: 'Utility Searches Pack',        auto: false, packKey: 'utilities' },
+];
+
+// Convert a base64 data URL to an ArrayBuffer (used to decode stored PDFs)
+function dataUrlToBuffer(dataUrl) {
+  const base64 = dataUrl.split(',')[1];
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
 const GenerateModal = ({ scheme, onClose }) => {
-  const [step, setStep] = React.useState(0);
-  const [done, setDone] = React.useState(false);
-  const [exporting, setExporting] = React.useState(false);
-  const [exported, setExported] = React.useState(false);
-  const [failures, setFailures] = React.useState([]);
-  const [compiling, setCompiling] = React.useState(false);
-  const [compileResult, setCompileResult] = React.useState(null);
-  const steps = [
-    { l: "Reading scheme data", meta: scheme.project_number || "—" },
-    { l: "Validating inputs", meta: "0 errors" },
-    { l: "Looking up ward councillors", meta: `W${scheme.ward_num}` },
-    { l: "Generating PCI / CPP", meta: "DOCX" },
-    { l: "Generating Road Space Request", meta: "DOCX + PDF" },
-    { l: "Generating Master Workbook", meta: "XLSX" },
-    { l: "Generating Bill of Quantities", meta: "XLSX" },
-    { l: "Generating Front Sheet", meta: "PDF" },
-  ];
+  // status per section: 'pending' | 'active' | 'done' | 'skipped' | 'error'
+  const initSteps = () => PACK_SECTIONS.map(s => ({ ...s, status: 'pending', note: '' }));
+  const [steps, setSteps] = React.useState(initSteps);
+  const [finished, setFinished] = React.useState(false);
+  const [packError, setPackError] = React.useState('');
+  const [included, setIncluded] = React.useState([]);
+  const [skipped, setSkipped] = React.useState([]);
+
+  const markStep = (key, status, note = '') =>
+    setSteps(prev => prev.map(s => s.key === key ? { ...s, status, note } : s));
+
   React.useEffect(() => {
-    if (step >= steps.length) { setDone(true); return; }
-    const t = setTimeout(() => setStep(s => s + 1), step === 0 ? 400 : 320);
-    return () => clearTimeout(t);
-  }, [step]);
-  React.useEffect(() => {
-    if (!done) return;
-    setExporting(true);
     (async () => {
-      const errs = [];
-      try { if (window.__downloadRSR) await window.__downloadRSR(scheme); } catch (e) { errs.push('RSR DOCX'); console.error('RSR DOCX failed', e); }
-      try { if (window.__downloadRSRPdf) await window.__downloadRSRPdf(scheme); } catch (e) { errs.push('RSR PDF'); console.error('RSR PDF failed', e); }
-      try { if (window.__downloadPCI) await window.__downloadPCI(scheme); } catch (e) { errs.push('PCI DOCX'); console.error('PCI DOCX failed', e); }
-      try { if (window.__downloadPCIPdf) await window.__downloadPCIPdf(scheme); } catch (e) { errs.push('PCI PDF'); console.error('PCI PDF failed', e); }
-      try { if (window.__workbookExport) window.__workbookExport(); } catch (e) { errs.push('Master Workbook'); console.error('Master Workbook failed', e); }
+      if (!window.PDFLib) {
+        setPackError('pdf-lib not loaded — refresh the page and try again.');
+        setFinished(true);
+        return;
+      }
+      const { PDFDocument } = window.PDFLib;
+      const merged = await PDFDocument.create();
+      const inc = [], skip = [];
+
+      for (const section of PACK_SECTIONS) {
+        markStep(section.key, 'active');
+        await new Promise(r => setTimeout(r, 30)); // allow React to paint
+
+        try {
+          let buf = null;
+
+          if (section.key === 'front' && window.__getFrontPdfBuffer) {
+            buf = await window.__getFrontPdfBuffer(scheme);
+          } else if (section.key === 'pci' && window.__getPCIPdfBuffer) {
+            buf = await window.__getPCIPdfBuffer(scheme);
+          } else if (section.key === 'rsr' && window.__getRSRPdfBuffer) {
+            buf = await window.__getRSRPdfBuffer(scheme);
+          } else if (section.packKey) {
+            const pf = scheme[`pack_file_${section.packKey}`];
+            if (pf && pf.data) buf = dataUrlToBuffer(pf.data);
+          }
+
+          if (buf) {
+            const src   = await PDFDocument.load(buf, { ignoreEncryption: true });
+            const pages = await merged.copyPages(src, src.getPageIndices());
+            pages.forEach(p => merged.addPage(p));
+            inc.push(section.label);
+            markStep(section.key, 'done', `${src.getPageCount()} page${src.getPageCount() !== 1 ? 's' : ''}`);
+          } else {
+            const reason = section.auto ? 'render failed' : 'no PDF uploaded';
+            skip.push(section.label);
+            markStep(section.key, 'skipped', reason);
+          }
+        } catch (e) {
+          console.warn(`Pack compile — ${section.label}:`, e);
+          skip.push(section.label);
+          markStep(section.key, 'error', e.message.slice(0, 60));
+        }
+      }
+
+      setIncluded(inc);
+      setSkipped(skip);
+
+      if (inc.length === 0) {
+        setPackError('No pages could be generated — check browser console for details.');
+        setFinished(true);
+        return;
+      }
+
       try {
-        if (window.__downloadBoQ) await window.__downloadBoQ();
-        else if (window.__exportBoQForScheme) window.__exportBoQForScheme(scheme);
-        else errs.push('BoQ XLSX');
-      } catch (e) { errs.push('BoQ XLSX'); console.error('BoQ XLSX failed', e); }
-      try {
-        if (window.__downloadFront) await window.__downloadFront();
-        else if (window.__downloadFrontPdf) await window.__downloadFrontPdf(scheme);
-        else errs.push('Front Sheet');
-      } catch (e) { errs.push('Front Sheet'); console.error('Front Sheet PDF failed', e); }
-      setFailures(errs);
-      setExporting(false);
-      setExported(true);
+        const bytes = await merged.save();
+        const blob  = new Blob([bytes], { type: 'application/pdf' });
+        const a     = document.createElement('a');
+        a.href      = URL.createObjectURL(blob);
+        a.download  = `Pack_${scheme.project_number}_${(scheme.road_name || '').replace(/\s+/g, '_')}.pdf`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        window.dispatchEvent(new CustomEvent('rmp-download', {
+          detail: { label: `Compiled Pack — ${scheme.road_name}`, ref: scheme.project_number },
+        }));
+      } catch (e) {
+        setPackError('PDF save failed: ' + e.message);
+      }
+
+      setFinished(true);
     })();
-  }, [done]);
+  }, []); // eslint-disable-line
+
+  const statusIcon = (status) => {
+    if (status === 'done')    return <span style={{color:'var(--green)',fontWeight:700}}>✓</span>;
+    if (status === 'skipped') return <span style={{color:'var(--ink-3)'}}>–</span>;
+    if (status === 'error')   return <span style={{color:'var(--red)'}}>✕</span>;
+    if (status === 'active')  return <span className="spinner" style={{width:12,height:12,display:'inline-block'}} />;
+    return <span style={{color:'var(--ink-3)',fontSize:11}}>{PACK_SECTIONS.findIndex(s=>s.key===steps.find(x=>x.key===steps[0]?.key)?.key)}</span>;
+  };
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={finished ? onClose : undefined}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <div style={{ fontWeight: 600, fontSize: 15 }}>Generating handover pack</div>
-            <div style={{ fontSize: 12, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{scheme.project_number} · {scheme.road_name}</div>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>Compiling handover pack</div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+              {scheme.project_number} · {scheme.road_name}
+            </div>
           </div>
-          <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
+          {finished && <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>}
         </div>
+
         <div className="modal-body">
           <div className="gen-timeline">
             {steps.map((s, i) => (
-              <div key={i} className={"gen-step " + (i < step ? "done" : i === step ? "active" : "")}>
-                <div className="gen-step-icon">{i < step ? <Icon.Check /> : i + 1}</div>
-                <div>{s.l}</div>
-                <div className="gen-step-meta">{s.meta}</div>
+              <div key={s.key} className={"gen-step " + (s.status === 'done' ? "done" : s.status === 'active' ? "active" : "")}>
+                <div className="gen-step-icon">
+                  {s.status === 'done'    ? <Icon.Check /> :
+                   s.status === 'active'  ? <div className="spinner" style={{width:10,height:10}} /> :
+                   s.status === 'error'   ? '✕' :
+                   s.status === 'skipped' ? '–' : i + 1}
+                </div>
+                <div style={{flex:1}}>{s.label}</div>
+                <div className="gen-step-meta" style={{
+                  color: s.status === 'error' ? 'var(--red)' : s.status === 'skipped' ? 'var(--ink-3)' : undefined,
+                }}>
+                  {s.note || (s.status === 'pending' ? '…' : s.auto ? 'rendering' : 'checking upload')}
+                </div>
               </div>
             ))}
           </div>
-          {done && !exported && (
-            <div style={{ padding: "16px 18px", background: "var(--accent-wash)", borderRadius: "var(--radius-sm)", marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--amber)", display: "inline-block", animation: "pulse 1s ease-in-out infinite", flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: "var(--ink-2)" }}>Downloading documents…</span>
+
+          {!finished && (
+            <div style={{ padding: "12px 14px", background: "var(--accent-wash)", borderRadius: "var(--radius-sm)", marginTop: 10, display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", display: "inline-block", animation: "pulse 1s ease-in-out infinite", flexShrink: 0 }} />
+              Rendering documents — this may take 10–20 seconds…
             </div>
           )}
-          {exported && (
-            <div style={{ padding: "16px 18px", background: failures.length ? "var(--amber-wash)" : "var(--green-wash)", border: `1px solid ${failures.length ? "var(--amber)" : "var(--green)"}`, borderRadius: "var(--radius-sm)", marginTop: 8 }}>
-              <div style={{ fontWeight: 600, color: failures.length ? "var(--amber)" : "var(--green)", marginBottom: 4, fontSize: 14 }}>
-                {failures.length ? `⚠ ${7 - failures.length}/7 files downloaded` : "✓ 7 files downloaded"}
+
+          {finished && packError && (
+            <div style={{ padding: "14px 16px", background: "var(--red-wash,#fef2f2)", border: "1px solid var(--red)", borderRadius: "var(--radius-sm)", marginTop: 10, fontSize: 12, color: "var(--red)" }}>
+              <strong>Error:</strong> {packError}
+            </div>
+          )}
+
+          {finished && !packError && (
+            <div style={{ padding: "14px 16px", background: "var(--green-wash)", border: "1px solid var(--green)", borderRadius: "var(--radius-sm)", marginTop: 10, fontSize: 13 }}>
+              <div style={{ fontWeight: 600, color: "var(--green)", marginBottom: 4 }}>
+                ✓ Pack_<span style={{fontFamily:'var(--font-mono)'}}>{scheme.project_number}</span>_{(scheme.road_name||'').replace(/\s+/g,'_')}.pdf downloaded
               </div>
-              {failures.length > 0 && (
-                <div style={{ fontSize: 12, color: "var(--red)", marginBottom: 6 }}>Failed: {failures.join(', ')} — check the browser console for details.</div>
-              )}
-              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 10 }}>Front Sheet, RSR, PCI/CPP, Master Workbook, and BoQ saved to downloads. Open the <strong>Pack</strong> tab to generate resident letters.</div>
-              <div style={{ borderTop: "1px solid var(--line)", paddingTop: 10 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Compiled PDF pack</div>
-                <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 8 }}>
-                  Merges Front Sheet + PCI/CPP + RSR + any uploaded PDFs (BoQ, drawings, TM, utilities) into one file.
+              <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: skipped.length ? 6 : 0 }}>
+                {included.length} section{included.length !== 1 ? 's' : ''} compiled: {included.join(', ')}.
+              </div>
+              {skipped.length > 0 && (
+                <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                  Skipped (no PDF uploaded): {skipped.join(', ')}. Upload via Pack tab → card → Upload PDF.
                 </div>
-                {!compileResult && (
-                  <button className="btn sm accent" disabled={compiling}
-                    onClick={async () => {
-                      if (!window.__compilePackPdf) { alert('Pack compiler not loaded — refresh and try again.'); return; }
-                      setCompiling(true);
-                      try {
-                        const res = await window.__compilePackPdf(scheme, () => {});
-                        setCompileResult(res);
-                      } catch (e) {
-                        alert('Compile failed: ' + e.message);
-                      } finally { setCompiling(false); }
-                    }}>
-                    {compiling ? 'Compiling…' : <><Icon.Download /> Download compiled PDF</>}
-                  </button>
-                )}
-                {compileResult && (
-                  <div style={{ fontSize: 11 }}>
-                    <span style={{ color: "var(--green)", fontWeight: 600 }}>✓ Downloaded</span>
-                    {' — '}{compileResult.included.length} sections included
-                    {compileResult.skipped.length > 0 && <span style={{ color: "var(--ink-3)" }}> · skipped: {compileResult.skipped.join(', ')}</span>}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           )}
         </div>
+
         <div className="modal-foot">
-          <button className="btn primary" onClick={onClose}>Done</button>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", flex: 1 }}>
+            Individual source files (DOCX / XLSX) — download from Pack tab document cards.
+          </div>
+          <button className="btn primary" onClick={onClose} disabled={!finished}>
+            {finished ? 'Done' : 'Working…'}
+          </button>
         </div>
       </div>
     </div>
