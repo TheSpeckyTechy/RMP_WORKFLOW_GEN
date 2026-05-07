@@ -124,6 +124,13 @@ const GenerateModal = ({ scheme, onClose }) => {
               }
               inc.push(section.name);
               markStep(section.key, 'done', `${toMerge.length} file${toMerge.length!==1?'s':''} · ${totalPages}pp`);
+            } else if (section.key === 'tm' && window.__getTmPlaceholderPdfBuffer) {
+              const tmBuf = await window.__getTmPlaceholderPdfBuffer(scheme);
+              const tmSrc = await PDFDocument.load(tmBuf, { ignoreEncryption: true });
+              const tmPages = await merged.copyPages(tmSrc, tmSrc.getPageIndices());
+              tmPages.forEach(p => merged.addPage(p));
+              inc.push(section.name);
+              markStep(section.key, 'done', 'placeholder · subcontractor TBC');
             } else {
               skip.push(section.name);
               markStep(section.key, 'skipped', 'no PDFs uploaded');
