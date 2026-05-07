@@ -96,6 +96,7 @@ const RoadSpaceRequestDoc = ({ scheme, onUpload }) => {
           <tr><td className="rsr-th">Finish Date</td><td><Bound k="date_finish" /></td></tr>
           <tr><td className="rsr-th">Duration of Closure</td><td>{daysBetween(scheme.date_start,scheme.date_finish)} working days</td></tr>
           <tr><td className="rsr-th">Working Hours</td><td><Bound k="tm_hours" /></td></tr>
+          <tr><td className="rsr-th">Diversion Route(s)</td><td><Bound k="tm_diversion" fallback="—" /></td></tr>
         </tbody></table>
         <div className="rsr-section-title">3. Supporting Images</div>
         <div className="rsr-image-grid">
@@ -145,6 +146,7 @@ async function downloadRSR(scheme) {
     DATE_FINISH:      scheme.date_finish || '',
     DURATION:         String(days),
     TM_HOURS:         scheme.tm_hours || '',
+    TM_DIVERSION:     scheme.tm_diversion || '',
     DATE_PREPARED:    scheme.date_prepared || '',
   };
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
@@ -199,6 +201,7 @@ const RSR_FIELD_META = {
   date_start:     { label: "Start date", hint: "DD/MM/YYYY" },
   date_finish:    { label: "Finish date", hint: "DD/MM/YYYY" },
   tm_hours:       { label: "Working hours", multi: true },
+  tm_diversion:   { label: "Diversion route(s)", multi: true },
   date_prepared:  { label: "Date prepared", hint: "DD/MM/YYYY" },
 };
 
