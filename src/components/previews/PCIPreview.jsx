@@ -396,10 +396,13 @@ const PCIPackDoc = ({ scheme }) => {
   );
 };
 
+let _pciTemplateBuf = null;
 async function loadDocxBuffer(url) {
+  if (_pciTemplateBuf) return _pciTemplateBuf.slice(0);
   const res = await fetch(url, { cache: 'no-cache' });
   if (!res.ok) throw new Error('Template not found: ' + url);
-  return res.arrayBuffer();
+  _pciTemplateBuf = await res.arrayBuffer();
+  return _pciTemplateBuf.slice(0);
 }
 
 async function injectValues(buffer, scheme) {
@@ -466,7 +469,7 @@ const PCIDoc = ({ scheme }) => {
     })();
 
     return () => { cancelled = true; };
-  }, [scheme && scheme.id]);
+  }, [scheme && JSON.stringify(buildPCIFields(scheme))]);
 
   return (
     <div className="pci-doc-wrap">
