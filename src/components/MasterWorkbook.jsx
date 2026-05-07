@@ -108,6 +108,7 @@ const masterIssues = (scheme) => {
   if (!scheme.ward_num || !String(scheme.ward_selected || '').trim())            issues.push('Ward');
   if (!Array.isArray(scheme.treatments) || scheme.treatments.length === 0)       issues.push('Treatment zones');
   if (!String(scheme.contractor || '').trim())                                   issues.push('Contractor');
+  if (String(scheme.sketch_pdf || '').trim() && !(+scheme.area_m2 > 0))          issues.push('Sketch master not copied (area)');
   return issues;
 };
 
