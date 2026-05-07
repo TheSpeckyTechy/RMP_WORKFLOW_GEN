@@ -118,7 +118,7 @@ const RoadSpaceRequestDoc = ({ scheme, onUpload }) => {
   );
 };
 
-const RSR_TEMPLATE = 'templates/Road_Space_Request_Form_TEMPLATE.docx';
+const RSR_TEMPLATE = 'templates/RSR_TEMPLATE.docx';
 
 async function downloadRSR(scheme) {
   const res = await fetch(RSR_TEMPLATE, { cache: 'no-cache' });
@@ -126,35 +126,26 @@ async function downloadRSR(scheme) {
   const buffer = await res.arrayBuffer();
   const zip = new window.JSZip();
   await zip.loadAsync(buffer);
-  const ext = scheme.scheme_extent ? `: ${scheme.scheme_extent}` : '';
+  const days = daysBetween(scheme.date_start, scheme.date_finish);
+  const treatment = scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : (scheme.treatment_type || '');
   const fields = {
-    PROJECT_TITLE:           `${scheme.road_name||''}${ext}`,
-    PROJECT_NUMBER:          scheme.project_number||'',
-    PROJECT_ADDRESS:         `${scheme.road_name||''}${ext}`,
-    START_DATE:              scheme.date_start||'',
-    FINISH_DATE:             scheme.date_finish||'',
-    DESIGNER_NAME:           scheme.prepared_by||'',
-    DESIGNER_HEAD_OF:        scheme.designer_head_of||'',
-    DESIGNER_TELEPHONE:      scheme.designer_phone||'',
-    DESIGNER_EMAIL:          scheme.designer_email||'',
-    CLIENT_NAME_ADDRESS:     scheme.client_name_address||'',
-    CLIENT_OFFICER:          scheme.client_officer||'',
-    CLIENT_TELEPHONE:        scheme.client_phone||'',
-    CLIENT_EMAIL:            scheme.client_email||'',
-    DEPARTMENT:              scheme.department||'',
-    CDM_PRINCIPAL_DESIGNER:  scheme.cdm_principal_designer||'',
-    CDM_HEAD_OF:             scheme.cdm_head_of||'',
-    CLIENT_REF_WORK_ORDER:   scheme.client_ref_work_order||'',
-    CONTRACTOR_NAME:         scheme.contractor||'',
-    CONTRACTOR_ADDRESS:      scheme.contractor_address||'',
-    CONTRACTOR_CONTACT:      scheme.contractor_pe||'',
-    CONTRACTOR_TELEPHONE:    scheme.contractor_ooh||'',
-    CONTRACTOR_EMAIL:        scheme.contractor_email||'',
-    CONTRACTOR_OUT_OF_HOURS: scheme.contractor_ooh||'',
-    OUT_OF_HOURS_CONTACT:    scheme.contractor_ooh||'',
-    DESCRIPTION_OF_WORK:     scheme.pci_description||'',
-    OCCUPIER_TENANT_DETAILS: scheme.pci_occupiers||'',
-    SECURITY_ARRANGEMENTS:   scheme.pci_site_security||'',
+    PREPARED_BY:      scheme.prepared_by || '',
+    DESIGNER_EMAIL:   scheme.designer_email || '',
+    DESIGNER_PHONE:   scheme.designer_phone || '',
+    CONTRACTOR_NAME:  scheme.contractor || '',
+    CONTRACTOR_PE:    scheme.contractor_pe || '',
+    CONTRACTOR_OOH:   scheme.contractor_ooh || '',
+    ROAD_NAME:        scheme.road_name || '',
+    PROJECT_NUMBER:   scheme.project_number || '',
+    WARD_SELECTED:    scheme.ward_selected || '',
+    GRID_REF:         scheme.grid_ref || '',
+    SCHEME_EXTENT:    scheme.scheme_extent || '',
+    TREATMENT_TYPE:   treatment,
+    DATE_START:       scheme.date_start || '',
+    DATE_FINISH:      scheme.date_finish || '',
+    DURATION:         String(days),
+    TM_HOURS:         scheme.tm_hours || '',
+    DATE_PREPARED:    scheme.date_prepared || '',
   };
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
   for (const p of xmlPaths) {
