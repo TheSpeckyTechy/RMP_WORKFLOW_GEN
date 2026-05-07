@@ -74,6 +74,14 @@ const LETTER_BINDINGS = [
   { tag: "<<Ward_Councillor_1>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[0]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
   { tag: "<<Ward_Councillor_2>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[1]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
   { tag: "<<Ward_Councillor_3>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[2]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
+  { tag: "<<PROJECT_NUMBER>>",  derive: s => s.project_number || "" },
+  { tag: "<<ROAD_NAME>>",       derive: s => s.road_name || "" },
+  { tag: "<<TREATMENT_TYPE>>",  derive: s => s.treatment_type === "Other" ? (s.treatment_description || "Other") : (s.treatment_type || "") },
+  { tag: "<<FINANCIAL_YEAR>>",  derive: s => s.financial_year || "" },
+  { tag: "<<PREPARED_BY>>",     derive: s => s.prepared_by || "" },
+  { tag: "<<DATE_START>>",      derive: s => s.date_start || "" },
+  { tag: "<<DATE_FINISH>>",     derive: s => s.date_finish || "" },
+  { tag: "<<WARD_SELECTED>>",   derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); return w ? `Ward ${w.num} — ${w.name}` : (s.ward_selected || ""); } },
 ];
 
 const loadLetterBuffer = async () => {
@@ -117,6 +125,17 @@ async function injectLetterXml(buffer, scheme, recipient) {
   // «TAG» MERGEFIELD visible text uses guillemet characters (U+00AB / U+00BB)
   const letterRef = buildLetterRef(scheme);
 
+  const wardLabel = (() => {
+    const w = window.WARDS.find(x => x.num === scheme.ward_num);
+    return w ? `Ward ${w.num} — ${w.name}` : (scheme.ward_selected || '');
+  })();
+  const treatmentLabel = scheme.treatment_type === 'Other'
+    ? (scheme.treatment_description || 'Other')
+    : (scheme.treatment_type || '');
+  const recipientName    = recipient?.name || '';
+  const recipientAddress = [recipient?.address1, recipient?.address2, recipient?.town, recipient?.postcode]
+    .filter(s => s && String(s).trim()).join(', ');
+
   const replacements = [
     ['&lt;&lt;Our_Ref&gt;&gt;',           xmlEscape(letterRef)],
     ['&lt;&lt;Your_Ref&gt;&gt;',          xmlEscape(letterRef)],  // harmless if not in template
@@ -126,6 +145,16 @@ async function injectLetterXml(buffer, scheme, recipient) {
     ['&lt;&lt;Ward_Councillor_1&gt;&gt;', xmlEscape(getCouncillor(0))],
     ['&lt;&lt;Ward_Councillor_2&gt;&gt;', xmlEscape(getCouncillor(1))],
     ['&lt;&lt;Ward_Councillor_3&gt;&gt;', xmlEscape(getCouncillor(2))],
+    ['&lt;&lt;PROJECT_NUMBER&gt;&gt;',    xmlEscape(scheme.project_number || '')],
+    ['&lt;&lt;ROAD_NAME&gt;&gt;',         xmlEscape(scheme.road_name || '')],
+    ['&lt;&lt;TREATMENT_TYPE&gt;&gt;',    xmlEscape(treatmentLabel)],
+    ['&lt;&lt;FINANCIAL_YEAR&gt;&gt;',    xmlEscape(scheme.financial_year || '')],
+    ['&lt;&lt;PREPARED_BY&gt;&gt;',       xmlEscape(scheme.prepared_by || '')],
+    ['&lt;&lt;DATE_START&gt;&gt;',        xmlEscape(scheme.date_start || '')],
+    ['&lt;&lt;DATE_FINISH&gt;&gt;',       xmlEscape(scheme.date_finish || '')],
+    ['&lt;&lt;WARD_SELECTED&gt;&gt;',     xmlEscape(wardLabel)],
+    ['&lt;&lt;RECIPIENT_NAME&gt;&gt;',    xmlEscape(recipientName)],
+    ['&lt;&lt;RECIPIENT_ADDRESS&gt;&gt;', xmlEscape(recipientAddress)],
     ['«AddressLine4»',          xmlEscape(recipient?.address1 || '')],
     ['«POSTCODE»',              xmlEscape(recipient?.postcode || '')],
     ['«TOWN_NAME»',             xmlEscape(recipient?.town || 'DUNDEE')],
@@ -253,7 +282,15 @@ async function mailMergeLetterPdf(scheme, recipients, onProgress) {
 }
 
 const applyLetter = (root, scheme, recipient) => {
-  const recipientBindings = { AddressLine4: recipient?.address1||"", POSTCODE: recipient?.postcode||"", TOWN_NAME: recipient?.town||"DUNDEE" };
+  const recipientAddress = [recipient?.address1, recipient?.address2, recipient?.town, recipient?.postcode]
+    .filter(s => s && String(s).trim()).join(", ");
+  const recipientBindings = {
+    AddressLine4: recipient?.address1||"",
+    POSTCODE: recipient?.postcode||"",
+    TOWN_NAME: recipient?.town||"DUNDEE",
+    RECIPIENT_NAME: recipient?.name||"",
+    RECIPIENT_ADDRESS: recipientAddress,
+  };
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
   const nodes = []; let n;
   while ((n=walker.nextNode())) { if (/<<[A-Za-z0-9_]+>>|«[A-Za-z0-9_]+»/.test(n.nodeValue)) nodes.push(n); }
@@ -266,7 +303,7 @@ const applyLetter = (root, scheme, recipient) => {
       const mA=/^<<([A-Za-z0-9_]+)>>$/.exec(p), mG=/^«([A-Za-z0-9_]+)»$/.exec(p), m=mA||mG;
       if (m) {
         const name=m[1]; let val,filled;
-        if (mG&&recipientBindings.hasOwnProperty(name)) { val=recipientBindings[name]; filled=val!==" "&&val!==undefined; }
+        if (recipientBindings.hasOwnProperty(name)) { val=recipientBindings[name]; filled=val!==""&&val!==undefined; }
         else { const b=byTag[mA?p:`<<${name}>>`]; val=b?b.derive(scheme):""; filled=val!==undefined&&val!=""; }
         const span=document.createElement("span"); span.className="pci-bound"+(filled?"":" pci-missing"); span.dataset.key=name;
         String(filled?val:p).split("\n").forEach((line,i)=>{ if(i>0){span.appendChild(document.createElement("br"));span.appendChild(document.createElement("br"));} span.appendChild(document.createTextNode(line)); });
