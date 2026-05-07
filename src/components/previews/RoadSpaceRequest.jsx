@@ -216,6 +216,7 @@ const RSRModal = ({ scheme, onClose }) => {
   const bindings = Object.keys(RSR_FIELD_META);
   const missing = bindings.filter(k => !scheme[k] && scheme[k] !== 0);
   const [downloading, setDownloading] = React.useState(false);
+  const [downloadingDocx, setDownloadingDocx] = React.useState(false);
 
   const set = (k, v) => updateScheme(scheme.id, { [k]: v });
 
@@ -237,6 +238,16 @@ const RSRModal = ({ scheme, onClose }) => {
     finally { setDownloading(false); }
   };
 
+  const handleDownloadDocx = async () => {
+    setDownloadingDocx(true);
+    try {
+      await downloadRSR(scheme);
+      window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR DOCX — ${scheme.road_name}`, ref: scheme.project_number } }));
+    }
+    catch(e) { alert('Download failed: ' + e.message); }
+    finally { setDownloadingDocx(false); }
+  };
+
   const displayScheme = { ...scheme, treatment_type: scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type };
 
   return (
@@ -250,6 +261,7 @@ const RSRModal = ({ scheme, onClose }) => {
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             {(scheme.rsr_image_1||scheme.rsr_image_2) &&
               <button className="btn ghost sm" style={{color:"var(--red)"}} onClick={()=>updateScheme(scheme.id,{rsr_image_1:"",rsr_image_2:""})} title="Clear both images">✕ Clear images</button>}
+            <button className="btn ghost sm" onClick={handleDownloadDocx} disabled={downloadingDocx}><Icon.Download /> {downloadingDocx?"Generating…":"Download .docx"}</button>
             <button className="btn sm" onClick={handleDownload} disabled={downloading}><Icon.Download /> {downloading?"Generating…":"Download .pdf"}</button>
             <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
           </div>
