@@ -80,7 +80,7 @@ function dataUrlToBuffer(dataUrl) {
 const GenerateModal = ({ scheme, onClose }) => {
   // status per section: 'pending' | 'active' | 'done' | 'skipped' | 'error'
   // Letter is excluded — requires recipient list (mail-merge workflow)
-  const COMPILE_DOCS = window.PACK_DOCS.filter(d => d.key !== 'letter');
+  const COMPILE_DOCS = window.PACK_DOCS.filter(d => d.key !== 'letter' && d.key !== 'boq');
   const initSteps = () => COMPILE_DOCS.map(d => ({ ...d, status: 'pending', note: '' }));
   const [steps, setSteps] = React.useState(initSteps);
   const [finished, setFinished] = React.useState(false);
