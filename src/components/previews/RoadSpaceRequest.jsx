@@ -121,15 +121,12 @@ const RoadSpaceRequestDoc = ({ scheme, onUpload }) => {
 
 const RSR_TEMPLATE = 'templates/RSR_TEMPLATE.docx';
 
-async function downloadRSR(scheme) {
-  const res = await fetch(RSR_TEMPLATE, { cache: 'no-cache' });
-  if (!res.ok) throw new Error('RSR template not found');
-  const buffer = await res.arrayBuffer();
-  const zip = new window.JSZip();
-  await zip.loadAsync(buffer);
+const xmlEscapeRSR = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function buildRSRFields(scheme) {
   const days = daysBetween(scheme.date_start, scheme.date_finish);
   const treatment = scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : (scheme.treatment_type || '');
-  const fields = {
+  return {
     PREPARED_BY:      scheme.prepared_by || '',
     DESIGNER_EMAIL:   scheme.designer_email || '',
     DESIGNER_PHONE:   scheme.designer_phone || '',
@@ -149,22 +146,92 @@ async function downloadRSR(scheme) {
     TM_DIVERSION:     scheme.tm_diversion || '',
     DATE_PREPARED:    scheme.date_prepared || '',
   };
+}
+
+let _rsrTemplateBuf = null;
+async function loadRSRDocxBuffer() {
+  if (_rsrTemplateBuf) return _rsrTemplateBuf.slice(0);
+  const res = await fetch(RSR_TEMPLATE, { cache: 'no-cache' });
+  if (!res.ok) throw new Error('RSR template not found: ' + RSR_TEMPLATE);
+  _rsrTemplateBuf = await res.arrayBuffer();
+  return _rsrTemplateBuf.slice(0);
+}
+
+async function injectRSRValues(buffer, scheme) {
+  const zip = new window.JSZip();
+  await zip.loadAsync(buffer);
+  const fields = buildRSRFields(scheme);
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
   for (const p of xmlPaths) {
     const f = zip.file(p); if (!f) continue;
     let xml = await f.async('string');
     for (const [k,v] of Object.entries(fields)) {
-      const safe = String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-      xml = xml.split(`{{${k}}}`).join(safe);
+      xml = xml.split(`{{${k}}}`).join(xmlEscapeRSR(v));
     }
     zip.file(p, xml);
   }
-  const out = await zip.generateAsync({ type:'arraybuffer' });
+  return zip.generateAsync({ type: 'arraybuffer' });
+}
+
+async function downloadRSR(scheme) {
+  const buffer = await loadRSRDocxBuffer();
+  const out = await injectRSRValues(buffer, scheme);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([out], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}));
   a.download = `RSR_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.docx`;
   a.click(); URL.revokeObjectURL(a.href);
 }
+
+// Renders the actual DOCX template via docx-preview — preview = download
+const RSRDoc = ({ scheme }) => {
+  const containerRef = React.useRef(null);
+  const [status, setStatus] = React.useState('idle');
+  const [errMsg, setErrMsg] = React.useState('');
+
+  React.useEffect(() => {
+    if (!scheme) return;
+    let cancelled = false;
+    setStatus('loading');
+    (async () => {
+      try {
+        const buffer = await loadRSRDocxBuffer();
+        const injected = await injectRSRValues(buffer, scheme);
+        if (cancelled) return;
+        if (window.docx && window.docx.renderAsync) {
+          await window.docx.renderAsync(injected, containerRef.current, null, {
+            className: 'docx-preview',
+            inWrapper: false,
+            useBase64URL: true,
+          });
+        } else {
+          containerRef.current.innerHTML = '<p class="pci-err">docx-preview library not loaded.</p>';
+        }
+        if (!cancelled) setStatus('ready');
+      } catch (err) {
+        if (!cancelled) { setStatus('error'); setErrMsg(err.message); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [scheme && JSON.stringify(buildRSRFields(scheme))]);
+
+  return (
+    <div className="pci-doc-wrap">
+      {status === 'loading' && (
+        <div className="pci-loading">
+          <div className="spinner" />
+          <span>Loading RSR form…</span>
+        </div>
+      )}
+      {status === 'error' && (
+        <div className="pci-err-banner">
+          <Icon.Alert size={16} />
+          <span>{errMsg}</span>
+        </div>
+      )}
+      <div ref={containerRef} className="pci-doc-content" />
+    </div>
+  );
+};
 
 async function downloadRSRPdf(scheme) {
   const container = document.createElement('div');
@@ -262,7 +329,7 @@ const RSRModal = ({ scheme, onClose }) => {
         </div>
         <div className="rsr-body">
           <div className="rsr-preview-pane">
-            <RoadSpaceRequestDoc scheme={displayScheme} onUpload={handleUpload} />
+            <RSRDoc scheme={displayScheme} />
           </div>
           <div className="rsr-side">
             <div className="rsr-side-title">Edit fields</div>
