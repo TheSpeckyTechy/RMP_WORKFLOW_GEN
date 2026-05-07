@@ -84,8 +84,20 @@ const loadLetterBuffer = async () => {
 
 const xmlEscape = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
+// When the body text contains paragraph breaks (\n\n) we open a new <w:p>.
+// Without explicit <w:pPr>/<w:rPr> Word falls back to the default ~10pt
+// after-spacing, which inflates the letter onto a second page. Emit the
+// same compact 60/60 spacing + 10pt black run formatting the template uses
+// so multi-paragraph bodies stay tight on a single page.
+const BODY_PARA_BREAK = '</w:t></w:r></w:p>'
+  + '<w:p><w:pPr><w:spacing w:before="60" w:after="60"/><w:jc w:val="both"/></w:pPr>'
+  + '<w:r><w:rPr><w:color w:val="000000"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr>'
+  + '<w:t xml:space="preserve">';
+
 const bodyToXml = text =>
-  xmlEscape(text).replace(/\n\n/g,'</w:t></w:r></w:p><w:p><w:r><w:t xml:space="preserve">').replace(/\n/g,'</w:t><w:br/><w:t xml:space="preserve">');
+  xmlEscape(text)
+    .replace(/\n\n/g, BODY_PARA_BREAK)
+    .replace(/\n/g,   '</w:t><w:br/><w:t xml:space="preserve">');
 
 async function injectLetterXml(buffer, scheme, recipient) {
   const zip = new window.JSZip();
