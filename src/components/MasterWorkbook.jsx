@@ -59,15 +59,16 @@ const MasterPreviewBar = ({ scheme }) => {
   );
 };
 
-// Treatment-zone strip — renders each populated zone (A1–A5) as a chip whose
-// flex-grow is proportional to its area, so the visual layout mirrors the
-// real surface distribution. Empty state nudges the user to the Treatment tab.
+// Treatment-zone strip — renders each populated zone (from scheme.design)
+// as a chip whose flex-grow is proportional to its area, so the visual
+// layout mirrors the real surface distribution. Empty state nudges the
+// user to the Designer tab.
 const MasterZoneStrip = ({ scheme }) => {
-  const zones = Array.isArray(scheme.treatments) ? scheme.treatments : [];
+  const zones = (scheme.design && scheme.design.zones) || [];
   if (zones.length === 0) {
     return (
       <div className="mwb-zone-strip mwb-zone-strip-empty">
-        No treatment zones yet — open the Treatment tab to populate A1–A5.
+        No treatment zones yet — open the Designer tab to add them.
       </div>
     );
   }
@@ -79,10 +80,10 @@ const MasterZoneStrip = ({ scheme }) => {
         const pct  = totalArea > 0 ? Math.round((area / totalArea) * 100) : 0;
         return (
           <div key={z.id || i} className="mwb-zone-chip" style={{flex: `${Math.max(1, area)} 1 0`}}
-               title={`Zone A${i+1} · ${z.treatment_type || '(no treatment)'} · ${area.toLocaleString()} m²${z.depth_mm ? ' · ' + z.depth_mm + 'mm' : ''}`}>
+               title={`Zone A${i+1} · ${z.surface || '(no treatment)'} · ${area.toLocaleString()} m²${z.depth_mm ? ' · ' + z.depth_mm + 'mm' : ''}`}>
             <div className="mwb-zone-chip-head">
               <span className="mwb-zone-chip-num">A{i+1}</span>
-              <span className="mwb-zone-chip-name">{z.treatment_type || z.zone || <span style={{color:'var(--ink-3)',fontStyle:'italic'}}>(no treatment)</span>}</span>
+              <span className="mwb-zone-chip-name">{z.surface || z.label || <span style={{color:'var(--ink-3)',fontStyle:'italic'}}>(no treatment)</span>}</span>
             </div>
             <div className="mwb-zone-chip-meta">
               {area > 0 ? `${area.toLocaleString()} m²` : '0 m²'}
@@ -102,11 +103,12 @@ const MasterZoneStrip = ({ scheme }) => {
 // rendered as a chip; if there are none the banner shows the all-clear.
 const masterIssues = (scheme) => {
   const issues = [];
+  const zones = (scheme.design && scheme.design.zones) || [];
   if (!String(scheme.road_name || '').trim())                                    issues.push('Road name');
   if (!String(scheme.project_number || '').trim())                               issues.push('Project number');
   if (!(window.schemeArea(scheme) > 0))                                          issues.push('Scheme area');
   if (!scheme.ward_num || !String(scheme.ward_selected || '').trim())            issues.push('Ward');
-  if (!Array.isArray(scheme.treatments) || scheme.treatments.length === 0)       issues.push('Treatment zones');
+  if (zones.length === 0)                                                        issues.push('Designer zones');
   if (!String(scheme.contractor || '').trim())                                   issues.push('Contractor');
   return issues;
 };

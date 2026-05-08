@@ -156,17 +156,14 @@ const baseScheme = (overrides) => ({
   footway_area_m2:     0,
   scheme_extent: "",
   grid_ref: "",
-  // 2. Treatment
-  treatment_type: "",
-  surface_depth_mm: 40,
-  binder_depth_mm: 0,
-  subbase_depth_mm: 0,
-  total_depth_mm: 0,
-  traffic_category: "Medium",
-  binder_grade: "40/60",
-  matrix: { traffic:"Moderate", bus_stops:"None", junctions:"None", turning:"None", parking:"No", condition:"Good", cracking:"None", rutting:"None" },
-  treatments: [],
-  // 3. Key Dates
+  // Treatment / TM / Ironwork / Kerbs / Lining live exclusively on
+  // scheme.design{} now (window.defaultDesign() at the bottom of this
+  // record). The legacy mirror written by TreatmentDesigner keeps the
+  // narrow set of fields PCI / RSR / Letter still read in sync —
+  // treatment_type, treatments[], iron_*, kerb_length, tm_* — and Phase 6
+  // retires those reads so this surface only owns identity + dates +
+  // people + budget + ward + correspondence.
+  // 2. Key Dates
   date_prepared: "",
   date_approved: "",
   date_start: "",
@@ -176,7 +173,7 @@ const baseScheme = (overrides) => ({
   working_pattern: "Mon–Fri",
   // Informational on the Master / RSR; does not currently affect rates.
   shift_pattern:   "Day",
-  // 4. Project Team
+  // 3. Project Team
   prepared_by: "Jake McAllister",
   designer_email: "jake.mcallister@dundeecity.gov.uk",
   designer_phone: "01382 834028",
@@ -193,16 +190,7 @@ const baseScheme = (overrides) => ({
   supervisor_name: "",
   supervisor_phone: "",
   supervisor_email: "",
-  // 5. TM
-  tm_type: "Full road closure",
-  tm_phases: 1,
-  tm_hours: "Off-peak (09:30-15:30)",
-  tm_diversion_by: "Sunbelt Rentals",
-  tm_compound: "",
-  // 6. Ironwork
-  iron_mh: 0, iron_bt: 0, iron_water: 0, iron_gas: 0, iron_gullies: 0,
-  kerb_length: 0, lining_req: "No",
-  // 7. Budget
+  // 4. Budget
   budget: 0, tender_total: 0, cost_per_m2: 0,
   budget_code: "", cpp_ref: "", drawing_ref: "", sketch_pdf: "", network_length: 0,
   rsr_image_1: "", rsr_image_2: "",
@@ -219,12 +207,6 @@ const baseScheme = (overrides) => ({
   pci_ironwork_summary: "",     // summary line pulled into PCI hazards/scope
   pci_lining_summary: "",       // summary line for lining works
   pci_occupiers: "",            // occupier / tenant info
-  // 10. Treatment Zones (A1–A5 fixed slots for master workbook named ranges)
-  zone_a1_description: "", zone_a1_area_m2: 0, zone_a1_depth_mm: 0, zone_a1_treatment: "",
-  zone_a2_description: "", zone_a2_area_m2: 0, zone_a2_depth_mm: 0, zone_a2_treatment: "",
-  zone_a3_description: "", zone_a3_area_m2: 0, zone_a3_depth_mm: 0, zone_a3_treatment: "",
-  zone_a4_description: "", zone_a4_area_m2: 0, zone_a4_depth_mm: 0, zone_a4_treatment: "",
-  zone_a5_description: "", zone_a5_area_m2: 0, zone_a5_depth_mm: 0, zone_a5_treatment: "",
   // Extra fields for the PCI pro-forma tokens
   client_name_address: "Fiona Welch\nDundee City Council, Executive Director of City Development",
   department: "Sustainable Transport and Roads",
@@ -298,8 +280,6 @@ window.SCHEMES = [
       { id:1, zone:"40mm inlay — main carriageway", area_m2:805,  depth_mm:40,  treatment_type:"HRA 30/14F surf 40/60" },
       { id:2, zone:"100mm deep inlay — junction areas", area_m2:1565, depth_mm:100, treatment_type:"HRA 30/14F surf 40/60" },
     ],
-    zone_a1_description: "40mm inlay — main carriageway", zone_a1_area_m2: 805,  zone_a1_depth_mm: 40,  zone_a1_treatment: "HRA 30/14F surf 40/60",
-    zone_a2_description: "100mm deep inlay — junction areas", zone_a2_area_m2: 1565, zone_a2_depth_mm: 100, zone_a2_treatment: "HRA 30/14F surf 40/60",
     road_category: "B", pci_before: "35", pci_after: "75",
     network_length: 320, contractor_ref: "TC/DCC/R5008",
     drawing_ref: "R6016-DCC-ZZ-DR-C-001", cpp_ref: "CPP-R5008-2026",
@@ -353,16 +333,6 @@ window.SCHEMES = [
       { id:3, zone:"A3 — 40mm AC14 patch (TTL Closure)",    area_m2:23,  depth_mm:40,  treatment_type:"AC14 close binder 40/60" },
       { id:4, zone:"A4 — 40mm AC14 patch (TTL Closure)",    area_m2:31,  depth_mm:40,  treatment_type:"AC14 close binder 40/60" },
     ],
-    zone_a1_description: "100mm AC14 patch — AC14 Surface course, AC20 Binder (Road Closure)",
-    zone_a1_area_m2: 595, zone_a1_depth_mm: 100, zone_a1_treatment: "100mm AC14 Patch",
-    zone_a2_description: "40mm AC14 patch (TTL Closure)",
-    zone_a2_area_m2: 19,  zone_a2_depth_mm: 40,  zone_a2_treatment: "40mm AC14 Patch",
-    zone_a3_description: "40mm AC14 patch (TTL Closure)",
-    zone_a3_area_m2: 23,  zone_a3_depth_mm: 40,  zone_a3_treatment: "40mm AC14 Patch",
-    zone_a4_description: "40mm AC14 patch (TTL Closure)",
-    zone_a4_area_m2: 31,  zone_a4_depth_mm: 40,  zone_a4_treatment: "40mm AC14 Patch",
-    zone_a5_description: "Surface Dressing — whole length of Arran Drive (Road Closure)",
-    zone_a5_area_m2: 0,   zone_a5_depth_mm: 0,   zone_a5_treatment: "Surface Dressing",
     ward_num: 2, ward_selected: "Lochee",
     postcode: "",
     date_prepared: "07/04/2026",
@@ -425,7 +395,6 @@ window.SCHEMES = [
     treatments: [
       { id:1, zone:"Full carriageway — 40mm AC10 Taycoat 100/150", area_m2:2250, depth_mm:40, treatment_type:"AC10 Taycoat 100/150" },
     ],
-    zone_a1_description: "Full carriageway — 40mm AC10 Taycoat 100/150", zone_a1_area_m2: 2250, zone_a1_depth_mm: 40, zone_a1_treatment: "AC10 Taycoat 100/150",
     drawing_ref: "R6083-DCC-ZZ-DR-C-001",
     cpp_ref: "CPP-R6083-2026",
     contractor_ref: "TC/DCC/R6083",
@@ -588,67 +557,7 @@ window.WORKBOOK_SCHEMA = [
     { key: "scheme_extent", label: "Scheme Extent", type: "text" },
     { key: "grid_ref", label: "Grid Reference", type: "text", mono: true },
   ]},
-  { section: "2. Treatment Details", fields: [
-    { key: "treatment_type", label: "Treatment Type", type: "select", options: [
-      // HRA — hot rolled asphalt surface courses
-      "HRA 30/14F surf 40/60",
-      "HRA 35/14F surf 40/60",
-      "HRA 55/10F surf 40/60",
-      // SMA — stone mastic asphalt
-      "SMA 10 surf 40/60",
-      "SMA 6 surf 100/150",
-      // AC — asphalt concrete surface courses
-      "AC14 close surf 40/60",
-      "AC14 HBC surf 40/60",
-      "AC10 close surf 40/60",
-      "AC10 HBC surf 40/60",
-      "AC10 Taycoat 100/150",
-      "AC6 dense 100/150",
-      // AC binder course (kept for legacy — typically not a surface course)
-      "AC14 close binder 40/60",
-      // Preventive / thin treatments — much cheaper per m² than hot-laid;
-      // selecting one produces very different BoQ line items.
-      "Micro-asphalt",
-      "Surface dressing 10mm intermediate",
-      "Surface dressing 10mm premium",
-      "Surface dressing 6mm intermediate",
-      "Other",
-    ]},
-    { key: "treatment_description", label: "Treatment Description (if Other)", type: "text" },
-    { key: "surface_depth_mm", label: "Surface Course Depth (mm)", type: "number", mono: true },
-    { key: "binder_depth_mm", label: "Binder Course Depth (mm)", type: "number", mono: true },
-    { key: "subbase_depth_mm", label: "Sub-base Depth (mm)", type: "number", mono: true },
-    { key: "total_depth_mm", label: "Total Construction Depth (mm)", type: "calc", mono: true, formula: s => (+s.surface_depth_mm||0) + (+s.binder_depth_mm||0) + (+s.subbase_depth_mm||0) },
-    { key: "traffic_category", label: "Traffic Category", type: "select", options: ["Low", "Medium", "Medium-High", "High"] },
-    { key: "binder_grade", label: "Binder Grade", type: "select", options: ["40/60", "70/100", "100/150", "160/220"] },
-    { key: "_zones_divider", label: "Treatment Zones (A1–A5)", type: "subheader" },
-    { key: "_zone_a1_head", label: "A1", sublabel: "Zone 1", type: "zone-label" },
-    { key: "zone_a1_description", label: "Zone A1 — Description", type: "text" },
-    { key: "zone_a1_area_m2",     label: "Zone A1 — Area (m²)",   type: "number", mono: true },
-    { key: "zone_a1_depth_mm",    label: "Zone A1 — Depth (mm)",  type: "number", mono: true },
-    { key: "zone_a1_treatment",   label: "Zone A1 — Treatment",   type: "text" },
-    { key: "_zone_a2_head", label: "A2", sublabel: "Zone 2", type: "zone-label" },
-    { key: "zone_a2_description", label: "Zone A2 — Description", type: "text" },
-    { key: "zone_a2_area_m2",     label: "Zone A2 — Area (m²)",   type: "number", mono: true },
-    { key: "zone_a2_depth_mm",    label: "Zone A2 — Depth (mm)",  type: "number", mono: true },
-    { key: "zone_a2_treatment",   label: "Zone A2 — Treatment",   type: "text" },
-    { key: "_zone_a3_head", label: "A3", sublabel: "Zone 3", type: "zone-label" },
-    { key: "zone_a3_description", label: "Zone A3 — Description", type: "text" },
-    { key: "zone_a3_area_m2",     label: "Zone A3 — Area (m²)",   type: "number", mono: true },
-    { key: "zone_a3_depth_mm",    label: "Zone A3 — Depth (mm)",  type: "number", mono: true },
-    { key: "zone_a3_treatment",   label: "Zone A3 — Treatment",   type: "text" },
-    { key: "_zone_a4_head", label: "A4", sublabel: "Zone 4", type: "zone-label" },
-    { key: "zone_a4_description", label: "Zone A4 — Description", type: "text" },
-    { key: "zone_a4_area_m2",     label: "Zone A4 — Area (m²)",   type: "number", mono: true },
-    { key: "zone_a4_depth_mm",    label: "Zone A4 — Depth (mm)",  type: "number", mono: true },
-    { key: "zone_a4_treatment",   label: "Zone A4 — Treatment",   type: "text" },
-    { key: "_zone_a5_head", label: "A5", sublabel: "Zone 5", type: "zone-label" },
-    { key: "zone_a5_description", label: "Zone A5 — Description", type: "text" },
-    { key: "zone_a5_area_m2",     label: "Zone A5 — Area (m²)",   type: "number", mono: true },
-    { key: "zone_a5_depth_mm",    label: "Zone A5 — Depth (mm)",  type: "number", mono: true },
-    { key: "zone_a5_treatment",   label: "Zone A5 — Treatment",   type: "text" },
-  ]},
-  { section: "3. Key Dates", fields: [
+  { section: "2. Key Dates", fields: [
     { key: "date_prepared", label: "Design Prepared Date", type: "date" },
     { key: "date_approved", label: "Design Approved Date", type: "date" },
     { key: "date_start", label: "Proposed Start Date", type: "date" },
@@ -658,7 +567,7 @@ window.WORKBOOK_SCHEMA = [
     { key: "shift_pattern", label: "Shift", type: "select",
       options: ["Day", "Night", "Day & night"] },
   ]},
-  { section: "4. Project Team", fields: [
+  { section: "3. Project Team", fields: [
     { key: "prepared_by", label: "Prepared By (Designer)", type: "text" },
     { key: "designer_email", label: "Designer Email", type: "email" },
     { key: "designer_phone", label: "Designer Phone", type: "text", mono: true },
@@ -676,26 +585,7 @@ window.WORKBOOK_SCHEMA = [
     { key: "supervisor_phone", label: "Site Supervisor Phone", type: "text", mono: true },
     { key: "supervisor_email", label: "Site Supervisor Email", type: "email" },
   ]},
-  { section: "5. Traffic Management", fields: [
-    { key: "tm_type", label: "TM Type", type: "select", options: [
-      "Full road closure", "Partial Road Closure", "Lane Closure", "Two-way lights",
-      "Stop/Go boards", "Give & Take", "Full Closure + Diversion"
-    ]},
-    { key: "tm_phases", label: "Number of Phases", type: "number", mono: true },
-    { key: "tm_hours", label: "Working Hours", type: "text" },
-    { key: "tm_diversion_by", label: "Diversion Route By", type: "text" },
-    { key: "tm_compound", label: "Plant Compound Location", type: "text" },
-  ]},
-  { section: "6. Ironwork & Ancillaries", fields: [
-    { key: "iron_mh", label: "Manhole Covers to Reset", type: "number", mono: true },
-    { key: "iron_bt", label: "BT Covers to Reset", type: "number", mono: true },
-    { key: "iron_water", label: "Water Covers to Reset", type: "number", mono: true },
-    { key: "iron_gas", label: "Gas Covers to Reset", type: "number", mono: true },
-    { key: "iron_gullies", label: "Gullies to Replace", type: "number", mono: true },
-    { key: "kerb_length", label: "Kerb Replacement (m)", type: "number", mono: true },
-    { key: "lining_req", label: "Lining Required?", type: "select", options: ["Yes", "No"] },
-  ]},
-  { section: "7. Budget & Tender", fields: [
+  { section: "4. Budget & Tender", fields: [
     { key: "budget", label: "Budget Allocation (£)", type: "number", mono: true },
     { key: "tender_total", label: "Tender Total (£)", type: "number", mono: true },
     { key: "cost_per_m2", label: "Cost per m² (£)", type: "calc", mono: true, formula: s => {
@@ -707,12 +597,12 @@ window.WORKBOOK_SCHEMA = [
     { key: "cpp_ref", label: "CPP Reference", type: "text", mono: true },
     { key: "drawing_ref", label: "Drawing Reference", type: "text", mono: true },
   ]},
-  { section: "8. Ward & Correspondence", fields: [
+  { section: "5. Ward & Correspondence", fields: [
     { key: "ward_selected", label: "Ward", type: "ward" },
     { key: "postcode", label: "Postcode (for lookup)", type: "text", mono: true },
     { key: "postcode_link", label: "Postcode Lookup Link", type: "link" },
   ]},
-  { section: "9. PCI / CPP Content", fields: [
+  { section: "6. PCI / CPP Content", fields: [
     { key: "road_category", label: "Road Category", type: "select", options: ["A", "B", "C", "D", "U"] },
     { key: "pci_before", label: "PCI Score — Before Works", type: "number", mono: true },
     { key: "pci_after", label: "PCI Score — After Works (target)", type: "number", mono: true },
