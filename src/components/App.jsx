@@ -202,10 +202,15 @@ const GenerateModal = ({ scheme, onClose }) => {
             frontBuf = await window.__getFrontPdfBuffer(scheme, { contents });
           }
           if (frontBuf) {
-            const frontDoc   = await PDFDocument.load(frontBuf, { ignoreEncryption: true });
-            const frontPages = await frontDoc.copyPages(frontDoc, frontDoc.getPageIndices());
-            // Build the final pack: front sheet first, then everything else.
+            const frontDoc = await PDFDocument.load(frontBuf, { ignoreEncryption: true });
+            // Build the final pack: front sheet first, then the body. pdf-lib
+            // refuses cross-document page references, so copyPages must be
+            // called on the *destination* doc — finalDoc here, not frontDoc /
+            // body. Calling frontDoc.copyPages(frontDoc, …) and then
+            // finalDoc.addPage(p) trips the "A `page` passed to addPage was
+            // not created in this document" guard.
             const finalDoc   = await PDFDocument.create();
+            const frontPages = await finalDoc.copyPages(frontDoc, frontDoc.getPageIndices());
             frontPages.forEach(p => finalDoc.addPage(p));
             const bodyPages  = await finalDoc.copyPages(body, body.getPageIndices());
             bodyPages.forEach(p => finalDoc.addPage(p));
