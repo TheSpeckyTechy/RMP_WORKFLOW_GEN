@@ -116,9 +116,9 @@ const buildAutoDescription = (scheme) => {
     lines.push(line + '.');
   }
 
-  // Ironwork — cway + fway + raise/replace counts. Combines scotttish water
-  // (manhole + water cover) into the same descriptor since both reset the
-  // same way on the BoQ.
+  // Ironwork — cway + fway + raise/replace counts. Manhole and water-authority
+  // covers are listed separately for clarity even though the BoQ rate folds
+  // them onto the same Scottish Water tag.
   const cway  = design.ironworks?.cway  || {};
   const fway  = design.ironworks?.fway  || {};
   const raise = design.ironworks?.raise || {};

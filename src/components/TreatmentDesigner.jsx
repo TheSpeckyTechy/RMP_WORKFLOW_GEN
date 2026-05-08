@@ -1,13 +1,9 @@
 // ─── TreatmentDesigner.jsx ────────────────────────────────────────────────────
-// Single source of truth for everything that ends up in the BoQ:
-// surface zones, ironworks, kerbs, lining, traffic management. Writes to
-// scheme.design.* and (for Phase 2 only) mirrors back to the legacy fields
-// (treatments[], iron_*, kerb_length, tm_*) so the BoQ engine — which still
-// reads quick_inputs derived from legacy — keeps producing the same output.
-// Phase 3 will re-point the engine and the mirror disappears.
-//
-// On the first user edit `design.touched` is flipped to true, which freezes
-// the persisted shape against SchemeContext's legacy → design back-fill.
+// Single source of truth for everything that ends up in the BoQ: surface
+// zones, ironworks, kerbs, lining, traffic management. Writes scheme.design.*
+// directly. The first user edit flips design.touched=true, which freezes the
+// persisted shape against the SchemeContext legacy → design back-fill that
+// runs on every load for older schemes that predate this model.
 //
 // Exports (via window): TreatmentDesigner
 // Depends on: React, window.SchemeContext, window.BOQ_ENGINE, window.Icon
@@ -71,11 +67,7 @@ const TD_TM_TYPES = [
 ];
 
 // Hook returning a writeDesign(patch) that merges the patch into
-// scheme.design with touched=true and persists it via updateScheme. Phase 2
-// also wrote a legacy mirror (treatments[], zone_a1-5_*, iron_*, kerb_length,
-// tm_*, treatment_type) so the BoQ engine and previews kept reading legacy.
-// Phase 6 retires every legacy reader, so the mirror is gone — design{} is
-// the single source of truth, full stop.
+// scheme.design with touched=true and persists it via updateScheme.
 const useDesignWriter = (schemeId) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   return React.useCallback((patch) => {

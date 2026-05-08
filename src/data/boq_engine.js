@@ -535,9 +535,8 @@
 
     // Dominant zone (largest area) drives the scheme-level fallbacks for the
     // non-zoned manual path and the surface_tag chip.
-    const dominant      = zones.slice().sort((a, b) => (+b.area_m2 || 0) - (+a.area_m2 || 0))[0];
-    const dominantDepth = +dominant?.depth_mm         || 40;
-    const dominantMill  = +dominant?.milling_depth_mm || dominantDepth;
+    const dominant     = zones.slice().sort((a, b) => (+b.area_m2 || 0) - (+a.area_m2 || 0))[0];
+    const dominantMill = +dominant?.milling_depth_mm || +dominant?.depth_mm || 40;
 
     const anyBinder  = surfaceFromZones.some(z => z.needsBinder);
     const anyBase    = surfaceFromZones.some(z => z.needsBase);

@@ -81,10 +81,7 @@ window.defaultBoq = () => ({
 // Treatment Designer model — single source of truth for everything that ends
 // up in the BoQ. Master holds the canonical totals (carriageway_area_m2,
 // footway_area_m2); the designer subdivides them into zones and adds the
-// ironworks / kerbs / lining / TM data the BoQ engine quantifies. Phase 1
-// keeps the legacy fields (treatments[], iron_*, kerb_length, tm_*) populated
-// alongside design{} via the SchemeContext migration shim; Phases 2-6 swap
-// every reader/writer onto design{} and strip the legacy fields.
+// ironworks / kerbs / lining / TM data the BoQ engine quantifies.
 window.defaultDesign = () => ({
   zones: [],
   ironworks: {
@@ -122,12 +119,9 @@ const baseScheme = (overrides) => ({
   scheme_extent: "",
   grid_ref: "",
   // Treatment / TM / Ironwork / Kerbs / Lining live exclusively on
-  // scheme.design{} now (window.defaultDesign() at the bottom of this
-  // record). The legacy mirror written by TreatmentDesigner keeps the
-  // narrow set of fields PCI / RSR / Letter still read in sync —
-  // treatment_type, treatments[], iron_*, kerb_length, tm_* — and Phase 6
-  // retires those reads so this surface only owns identity + dates +
-  // people + budget + ward + correspondence.
+  // scheme.design{} (see window.defaultDesign at the bottom of this record).
+  // This surface only owns identity + dates + people + budget + ward +
+  // correspondence; everything else flows from the Treatment Designer.
   // 2. Key Dates
   date_prepared: "",
   date_approved: "",

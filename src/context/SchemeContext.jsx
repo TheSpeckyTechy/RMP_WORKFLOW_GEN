@@ -106,11 +106,11 @@ const withDesign = (s) => {
   return next;
 };
 
-// Silent migration: ensure every scheme loaded from storage has a .boq that
-// ensures every loaded scheme has a .boq with the current settings shape
-// (Series 6400 uplift entries) and creates a default boq for any persisted
-// scheme missing one. The pre-Phase-4 quick_inputs / overrides back-fills
-// are gone: those fields are inert post-Phase-4 and quietly persist as-is.
+// Silent migration: every loaded scheme gets the current boq shape — a
+// default for any persisted scheme missing one, and back-filled Series 6400
+// uplift entries for older schemes whose settings.percentAdditions predate
+// them. The Designer is the only quantity writer post-Phase-4, so the
+// previous quick_inputs / overrides back-fills are gone.
 const withBoq = (s) => {
   if (!s) return s;
   if (!s.boq) return { ...s, boq: window.defaultBoq() };
@@ -141,9 +141,9 @@ const withBoq = (s) => {
   return boq === s.boq ? s : { ...s, boq };
 };
 
-// Order matters: withDesign renames area_m2 → carriageway_area_m2/footway_area_m2,
-// and withBoq's override-detection reads those fields via the BoQ engine when
-// back-filling boq.overrides. Run the rename first.
+// withDesign renames legacy area_m2 → carriageway/footway_area_m2 and
+// back-fills design{}; withBoq normalises the boq shape. Independent passes
+// composed left-to-right.
 const migrate = (s) => withBoq(withDesign(s));
 
 const initSchemes = () => {

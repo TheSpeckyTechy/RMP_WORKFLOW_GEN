@@ -384,13 +384,17 @@ const BoQTab = ({ schemeId, onOpenDesigner }) => {
 
   // Seed auto-lines once per scheme (first time .boq.touched is false).
   // Runs against `effective` so the initial BoQ reflects whatever the
-  // Designer already says, without storing a copy of those values.
+  // Designer already says. We deliberately skip the seed when regen returns
+  // an empty list — flipping touched=true on an empty Designer would lock
+  // the user into clicking "Regenerate from Designer" later, which is a
+  // surprising failure mode. Wait until there's something to seed.
   React.useEffect(() => {
     if (boq.touched) return;
     const autoLines = E.regenAutoLines(effective);
+    if (autoLines.length === 0) return;
     commit({ custom_lines: autoLines, touched: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schemeId]);
+  }, [schemeId, effective]);
 
   const computed = React.useMemo(
     () => E.buildBoQLines({ ...boq, quick_inputs: effective }, scheme),
