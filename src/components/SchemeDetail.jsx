@@ -77,7 +77,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
   const scheme = getScheme(schemeId);
   const [tab, setTab] = React.useState("workbook");
   const [showSketch, setShowSketch] = React.useState(false);
-  const isMobile = React.useMemo(()=>window.innerWidth<=768,[]);
+  const isMobile = window.useIsMobile ? window.useIsMobile() : React.useMemo(()=>window.innerWidth<=768,[]);
   const [mobileExpanded, setMobileExpanded] = React.useState(false);
   const workbookFieldCount = window.WORKBOOK_SCHEMA.flatMap(s=>s.fields).filter(f=>f.type!=="subheader"&&f.type!=="zone-label").length;
   const tabs = [

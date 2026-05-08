@@ -77,12 +77,27 @@ function dataUrlToBuffer(dataUrl) {
   return bytes.buffer;
 }
 
+// useIsMobile() — reactive media-query hook backed by matchMedia. Returns
+// true when the viewport is ≤768px and updates on rotation / resize.
+// Exposed via window so the BoQ / preview / scheme components can pick
+// it up without adding new <script> imports.
+window.useIsMobile = function useIsMobile() {
+  const mq = React.useMemo(() => window.matchMedia('(max-width:768px)'), []);
+  const [m, setM] = React.useState(mq.matches);
+  React.useEffect(() => {
+    const fn = e => setM(e.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, [mq]);
+  return m;
+};
+
 // Build tag for the pack-compile pipeline. Bumped each time the
 // GenerateModal logic changes so we can prove from a screenshot which
 // version is running — the modal footer renders this. If the tag
 // below doesn't match the actual deployed code, the browser is on a
 // stale cache and any "still failing" report is about old logic.
-const PACK_BUILD_TAG = 'no-vat-boq-cover';
+const PACK_BUILD_TAG = 'mobile-pass';
 
 const GenerateModal = ({ scheme, onClose }) => {
   // status per section: 'pending' | 'active' | 'done' | 'skipped' | 'error'
@@ -654,7 +669,7 @@ const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e=>e.stopPropagation()} style={{width:480}}>
+      <div className="modal new-scheme-modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-head">
           <div style={{fontWeight:600,fontSize:15}}>{initialValues ? 'Duplicate Scheme' : 'New Scheme'}</div>
           <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
@@ -823,6 +838,11 @@ const AppInner = () => {
           </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
           <SyncChip />
+          <button className="btn ghost sm" title="Open command palette (⌘K)"
+            onClick={() => window.CommandPalette && window.CommandPalette.open()}
+            style={{fontSize:14,lineHeight:1,padding:"6px 8px"}}>
+            <Icon.Search />
+          </button>
           <button className="btn ghost sm" title="Force reload — bypasses cache and fetches latest code"
             onClick={() => window.location.replace(window.location.pathname + '?nocache=' + Date.now())}
             style={{fontSize:16,lineHeight:1,padding:"4px 7px"}}>↻</button>

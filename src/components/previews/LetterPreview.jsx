@@ -639,6 +639,8 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
   const [merging, setMerging] = React.useState(false);
   const [mergeProgress, setMergeProgress] = React.useState(null);
   const [pageCount, setPageCount] = React.useState(null);
+  // Mobile tab state — see RSRModal for explanation.
+  const [activePane, setActivePane] = React.useState('form');
   const recipient = recipients[selectedIdx];
 
   const runMailMerge = async (mode) => {
@@ -693,7 +695,11 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
             <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
           </div>
         </div>
-        <div className="rsr-body">
+        <div className="modal-tabs">
+          <button className={"modal-tab"+(activePane==='form'?' active':'')}    onClick={()=>setActivePane('form')}>Form</button>
+          <button className={"modal-tab"+(activePane==='preview'?' active':'')} onClick={()=>setActivePane('preview')}>Preview</button>
+        </div>
+        <div className="rsr-body" data-pane={activePane}>
           <div className="rsr-preview-pane">
             {recipient
               ? <LetterDoc scheme={scheme} recipient={recipient} onPageCount={setPageCount}/>

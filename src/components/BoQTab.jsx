@@ -61,13 +61,9 @@ const LedgerRow = ({ line, alt, onEdit, onDelete, onMove, onDuplicate }) => {
 
   return (
     <div
-      className={"boq-row" + (alt ? " alt" : "") + (line.missing ? " missing" : (hasWarning ? " warn" : ""))}
+      className={"boq-row boq-ledger-row" + (alt ? " alt" : "") + (line.missing ? " missing" : (hasWarning ? " warn" : ""))}
       style={{
-        display:'grid',
-        gridTemplateColumns:'76px minmax(0,1fr) 96px 44px 76px 92px 34px',
-        padding:'5px 10px', borderBottom:'1px solid var(--line)',
         background: line.missing ? 'var(--red-wash)' : (hasWarning ? 'var(--amber-wash)' : (alt ? 'var(--bg-sunken)' : 'var(--bg)')),
-        alignItems:'center', position:'relative',
       }}
     >
       <div className="mono" style={{fontSize:10,color:'var(--ink-3)',paddingTop:1}}>{line.id}</div>
@@ -96,7 +92,7 @@ const LedgerRow = ({ line, alt, onEdit, onDelete, onMove, onDuplicate }) => {
           </span>
         ) : editing ? (
           <input
-            type="number" className="mono" step="0.01" min="0" autoFocus
+            type="number" inputMode="decimal" className="mono" step="0.01" min="0" autoFocus
             value={draftQty} onChange={e => setDraftQty(e.target.value)}
             onBlur={commitQty}
             onKeyDown={e => { if (e.key === 'Enter') commitQty(); if (e.key === 'Escape') { setDraftQty(line.qty); setEditing(false); } }}

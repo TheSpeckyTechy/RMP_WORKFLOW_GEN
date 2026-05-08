@@ -242,6 +242,11 @@ const RSRModal = ({ scheme: schemeProp, onClose }) => {
   const missing = bindings.filter(k => !scheme[k] && scheme[k] !== 0);
   const [downloading, setDownloading] = React.useState(false);
   const [downloadingDocx, setDownloadingDocx] = React.useState(false);
+  // Mobile tab state — controls which pane is visible on phones via the
+  // [data-pane] selector in styles.css. Inert on desktop (the .modal-tabs
+  // bar is display:none above 768px), so the form/preview grid keeps
+  // showing both panes side-by-side as before.
+  const [activePane, setActivePane] = React.useState('form');
 
   const set = (k, v) => updateScheme(scheme.id, { [k]: v });
 
@@ -282,7 +287,11 @@ const RSRModal = ({ scheme: schemeProp, onClose }) => {
             <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
           </div>
         </div>
-        <div className="rsr-body">
+        <div className="modal-tabs">
+          <button className={"modal-tab"+(activePane==='form'?' active':'')}    onClick={()=>setActivePane('form')}>Form</button>
+          <button className={"modal-tab"+(activePane==='preview'?' active':'')} onClick={()=>setActivePane('preview')}>Preview</button>
+        </div>
+        <div className="rsr-body" data-pane={activePane}>
           <div className="rsr-preview-pane">
             <RSRDoc scheme={displayScheme} />
           </div>

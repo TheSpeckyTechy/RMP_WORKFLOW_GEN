@@ -605,6 +605,8 @@ const PCIModal = ({ schemeId, onClose }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
   const [downloading, setDownloading] = React.useState(null);
+  // Mobile tab state — see RSRModal for explanation.
+  const [activePane, setActivePane] = React.useState('form');
 
   const handleDownload = React.useCallback(async (fmt) => {
     if (!scheme) return;
@@ -654,7 +656,11 @@ const PCIModal = ({ schemeId, onClose }) => {
           </div>
         </div>
 
-        <div className="rsr-body">
+        <div className="modal-tabs">
+          <button className={"modal-tab"+(activePane==='form'?' active':'')}    onClick={()=>setActivePane('form')}>Form</button>
+          <button className={"modal-tab"+(activePane==='preview'?' active':'')} onClick={()=>setActivePane('preview')}>Preview</button>
+        </div>
+        <div className="rsr-body" data-pane={activePane}>
           <div className="rsr-preview-pane">
             <PCIDoc scheme={scheme} />
           </div>
