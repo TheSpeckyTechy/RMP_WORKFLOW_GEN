@@ -107,10 +107,9 @@ const withDesign = (s) => {
 };
 
 // Silent migration: every loaded scheme gets the current boq shape — a
-// default for any persisted scheme missing one, and back-filled Series 6400
-// uplift entries for older schemes whose settings.percentAdditions predate
-// them. The Designer is the only quantity writer post-Phase-4, so the
-// previous quick_inputs / overrides back-fills are gone.
+// default for any persisted scheme missing one, back-filled Series 6400
+// uplift entries for older schemes, and stripped auto-lines (those are
+// derived live from the Designer state now and don't belong on disk).
 const withBoq = (s) => {
   if (!s) return s;
   if (!s.boq) return { ...s, boq: window.defaultBoq() };
@@ -136,6 +135,18 @@ const withBoq = (s) => {
       ...boq,
       settings: { ...(boq.settings || {}), percentAdditions: merged },
     };
+  }
+
+  // Strip auto-lines from any pre-derivation persisted state. They were
+  // stored alongside user-added (custom) lines until auto-lines became
+  // a render-time derivation; leaving them on disk would bloat
+  // localStorage / Supabase rows over time. boq.touched is also obsolete.
+  const lines = boq.custom_lines || [];
+  const userOnly = lines.filter(l => !l.auto);
+  if (userOnly.length !== lines.length || 'touched' in boq) {
+    const next = { ...boq, custom_lines: userOnly };
+    delete next.touched;
+    boq = next;
   }
 
   return boq === s.boq ? s : { ...s, boq };
