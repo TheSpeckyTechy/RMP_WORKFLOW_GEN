@@ -26,11 +26,36 @@ const defaultLetterSubject = s => {
   return `RESURFACING WORKS \u2014 ${road.toUpperCase()}${ext.toUpperCase()}`;
 };
 
+// Reformat a DD/MM/YYYY string as "15 June 2026" for resident letters.
+// Engineering specs use the numeric format; letters to the public read
+// better with the long-form month. Falls through to the original string
+// if it doesn't parse as DD/MM/YYYY.
+const _MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const longDate = (dmy) => {
+  if (!dmy) return dmy || '';
+  const m = String(dmy).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return dmy;
+  const [, d, mm, y] = m;
+  return `${+d} ${_MONTHS[+mm - 1]} ${y}`;
+};
+
 const defaultLetterBody = s => {
   const tmFields = window.schemeTM(s);
-  const start=s.date_start||"[start date]", finish=s.date_finish||"[finish date]", road=s.road_name||"[road]",
-    ext=s.scheme_extent?` between ${s.scheme_extent}`:"", tm=tmFields.type?tmFields.type.toLowerCase():"temporary traffic management", tmH=tmFields.hours||"07:30 to 15:30";
-  return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${ext}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place during working hours (${tmH}). Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
+  const road = s.road_name || "[road]";
+  const start = longDate(s.date_start) || "[start date]";
+  const finish = longDate(s.date_finish) || "[finish date]";
+  const ext = s.scheme_extent ? ` between ${s.scheme_extent}` : "";
+  const tm = tmFields.type ? tmFields.type.toLowerCase() : "temporary traffic management";
+  // tmH may already be parenthesised by the user (e.g. "Off-peak (09:30-15:30)").
+  // The previous template wrapped it in parens unconditionally and produced
+  // "(Off-peak (09:30-15:30))"; render it without parens when it already
+  // contains them and let the user-supplied phrasing carry through.
+  const rawHours = tmFields.hours || "07:30 to 15:30";
+  const hoursAlreadyParenthesised = /\(.*\)/.test(rawHours);
+  const hoursClause = hoursAlreadyParenthesised
+    ? ` during working hours — ${rawHours}`
+    : ` during working hours (${rawHours})`;
+  return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${ext}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place${hoursClause}. Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
 };
 
 const resolvedSubject = s => (s.letter_subject_override && s.letter_subject_override.trim()) || defaultLetterSubject(s);
