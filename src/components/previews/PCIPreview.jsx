@@ -64,10 +64,14 @@ const pciWorkingDays = (dmyA, dmyB) => {
 
 const buildAutoDescription = (scheme) => {
   const lines = [];
+  const design = scheme.design || (window.defaultDesign ? window.defaultDesign() : { zones: [], ironworks: { cway: {} }, kerbs: [], lining: [], tm: {} });
+  const designZones = (design.zones || []).filter(z => +z.area_m2 > 0);
+  const dominant = designZones.slice().sort((a, b) => (+b.area_m2 || 0) - (+a.area_m2 || 0))[0];
+  const dominantSurface = dominant?.surface || '';
+  const treatment = dominantSurface === 'Other'
+    ? 'specialist treatment'
+    : (dominantSurface || 'carriageway works');
   const ext = scheme.scheme_extent ? ` (${scheme.scheme_extent})` : '';
-  const treatment = scheme.treatment_type === 'Other'
-    ? (scheme.treatment_description || 'specialist treatment')
-    : (scheme.treatment_type || 'carriageway works');
 
   // Opening
   lines.push(`${scheme.scheme_type || 'Carriageway'} resurfacing of ${scheme.road_name}${ext}.`);
@@ -77,51 +81,84 @@ const buildAutoDescription = (scheme) => {
   const dateRange = [scheme.date_start, scheme.date_finish].filter(Boolean).join(' to ');
   if (days) lines.push(`Works programme: ${days} working day${days!==1?'s':''}${dateRange ? ` (${dateRange})` : ''}.`);
 
-  // Treatment zones
-  const zones = (scheme.treatments||[]).filter(z => +z.area_m2 > 0);
-  if (zones.length > 1) {
+  // Treatment zones — multiple zones get itemised, single zone collapses
+  // to the scheme-level summary line. Surface course depth is taken from
+  // the dominant zone's depth_mm; binder/sub-base lines fire when any
+  // zone has the matching Designer toggle on.
+  if (designZones.length > 1) {
     lines.push('\nTreatment zones:');
-    zones.forEach(z => {
-      const t = z.treatment_type === 'Other' ? (z.treatment_description || 'specialist') : (z.treatment_type || treatment);
-      lines.push(`• ${z.zone}: ${(+z.area_m2).toLocaleString()} m² at ${z.depth_mm}mm — ${t}.`);
+    designZones.forEach(z => {
+      const t = z.surface === 'Other' ? 'specialist' : (z.surface || treatment);
+      lines.push(`• ${z.label || `Zone ${z.id}`}: ${(+z.area_m2).toLocaleString()} m² at ${z.depth_mm}mm — ${t}.`);
     });
-    const total = zones.reduce((s,z)=>s+(+z.area_m2),0);
+    const total = designZones.reduce((s,z)=>s+(+z.area_m2),0);
     lines.push(`Total scheme area: ${total.toLocaleString()} m².`);
   } else {
-    const area = +scheme.area_m2;
+    const area = window.schemeArea(scheme);
     if (area > 0) lines.push(`Total scheme area: ${area.toLocaleString()} m².`);
-    if (+scheme.surface_depth_mm > 0) lines.push(`Surface course: ${treatment} at ${scheme.surface_depth_mm}mm nominal depth.`);
-    if (+scheme.binder_depth_mm > 0)  lines.push(`Binder course: ${scheme.binder_depth_mm}mm.`);
+    if (dominant && +dominant.depth_mm > 0) lines.push(`Surface course: ${treatment} at ${dominant.depth_mm}mm nominal depth.`);
   }
+  const anyBinder = designZones.some(z => z.includes_binder);
+  const anyBase   = designZones.some(z => z.includes_base);
+  if (anyBinder) {
+    const bd = designZones.reduce((m, z) => z.includes_binder ? Math.max(m, +z.binder_depth_mm || 0) : m, 0);
+    if (bd > 0) lines.push(`Binder course: ${bd}mm.`);
+  }
+  if (anyBase) lines.push('Base course: applied on deep-inlay zones (>100mm).');
 
   // Traffic management
-  if (scheme.tm_type) {
-    let tm = `\nTraffic management: ${scheme.tm_type}`;
-    if (+scheme.tm_phases > 1) tm += ` (${scheme.tm_phases} phases)`;
-    if (scheme.tm_hours)       tm += `. Working hours: ${scheme.tm_hours}`;
-    if (scheme.tm_diversion_by) tm += `. Diversion by: ${scheme.tm_diversion_by}`;
-    lines.push(tm + '.');
+  const tm = design.tm || {};
+  if (tm.type) {
+    let line = `\nTraffic management: ${tm.type}`;
+    if (+tm.phases > 1)   line += ` (${tm.phases} phases)`;
+    if (tm.hours)         line += `. Working hours: ${tm.hours}`;
+    if (tm.diversion_by)  line += `. Diversion by: ${tm.diversion_by}`;
+    lines.push(line + '.');
   }
 
-  // Ironwork
+  // Ironwork — cway + fway + raise/replace counts. Manhole and water-authority
+  // covers are listed separately for clarity even though the BoQ rate folds
+  // them onto the same Scottish Water tag.
+  const cway  = design.ironworks?.cway  || {};
+  const fway  = design.ironworks?.fway  || {};
+  const raise = design.ironworks?.raise || {};
   const iron = [];
-  if (+scheme.iron_mh     > 0) iron.push(`${scheme.iron_mh} no. manhole cover${+scheme.iron_mh>1?'s':''} to be reset`);
-  if (+scheme.iron_water  > 0) iron.push(`${scheme.iron_water} no. water authority cover${+scheme.iron_water>1?'s':''} to be reset`);
-  if (+scheme.iron_gas    > 0) iron.push(`${scheme.iron_gas} no. gas cover${+scheme.iron_gas>1?'s':''} to be reset`);
-  if (+scheme.iron_bt     > 0) iron.push(`${scheme.iron_bt} no. BT/comms cover${+scheme.iron_bt>1?'s':''} to be reset`);
-  if (+scheme.iron_gullies> 0) iron.push(`${scheme.iron_gullies} no. gully grating${+scheme.iron_gullies>1?'s':''} to be adjusted to new surface level`);
+  const pluralise = (n, noun) => `${n} no. ${noun}${n>1?'s':''}`;
+  if (+cway.mh      > 0) iron.push(`${pluralise(+cway.mh,    'manhole cover')} (carriageway) to be reset`);
+  if (+cway.water   > 0) iron.push(`${pluralise(+cway.water, 'water authority cover')} (carriageway) to be reset`);
+  if (+cway.gas     > 0) iron.push(`${pluralise(+cway.gas,   'gas cover')} (carriageway) to be reset`);
+  if (+cway.bt      > 0) iron.push(`${pluralise(+cway.bt,    'BT/comms cover')} (carriageway) to be reset`);
+  if (+cway.gullies > 0) iron.push(`${pluralise(+cway.gullies, 'gully grating')} to be adjusted to new surface level`);
+  if (+fway.mh    > 0)  iron.push(`${pluralise(+fway.mh, 'manhole cover')} (footway) to be reset`);
+  if (+fway.water > 0)  iron.push(`${pluralise(+fway.water, 'water authority cover')} (footway) to be reset`);
+  if (+fway.gas   > 0)  iron.push(`${pluralise(+fway.gas, 'gas cover')} (footway) to be reset`);
+  if (+fway.bt    > 0)  iron.push(`${pluralise(+fway.bt, 'BT/comms cover')} (footway) to be reset`);
+  const raiseTotal = Object.values(raise).reduce((s, v) => s + (+v || 0), 0);
+  if (raiseTotal > 0) iron.push(`${raiseTotal} no. cover${raiseTotal>1?'s':''} to be raised / replaced`);
   lines.push(iron.length > 0
     ? `\nIronwork: ${iron.join('; ')}.`
     : '\nIronwork: None identified — confirm on site prior to works commencing.');
 
   // Kerbs
-  if (+scheme.kerb_length > 0)
-    lines.push(`Kerb works: approximately ${scheme.kerb_length} m of kerb to be replaced / adjusted.`);
+  const kerbTotal = (design.kerbs || []).reduce((s, k) => s + (+k.length_m || 0), 0);
+  if (kerbTotal > 0) {
+    const types = (design.kerbs || []).filter(k => +k.length_m > 0).map(k => k.type).filter(Boolean);
+    const typeStr = types.length ? ` (${[...new Set(types)].join(', ')})` : '';
+    lines.push(`Kerb works: approximately ${kerbTotal} m of kerb${typeStr} to be replaced / adjusted.`);
+  }
 
   // Lining
-  lines.push(`Road markings: ${scheme.lining_req === 'Yes'
-    ? 'Full reinstatement of road markings required on completion of surfacing.'
-    : 'No road marking reinstatement required.'}`);
+  const lining = design.lining || [];
+  if (lining.length > 0) {
+    const totalM  = lining.filter(r => r.unit === 'm').reduce((s, r) => s + (+r.quantity || 0), 0);
+    const totalM2 = lining.filter(r => r.unit === 'm²').reduce((s, r) => s + (+r.quantity || 0), 0);
+    const bits = [];
+    if (totalM > 0)  bits.push(`${totalM.toLocaleString()} m linear`);
+    if (totalM2 > 0) bits.push(`${totalM2.toLocaleString()} m² area`);
+    lines.push(`Road markings: ${bits.join(' + ')} reinstatement on completion.`);
+  } else {
+    lines.push('Road markings: No road marking reinstatement required.');
+  }
 
   // Justification
   if (scheme.pci_justification)

@@ -125,7 +125,8 @@ const xmlEscapeRSR = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;
 
 function buildRSRFields(scheme) {
   const days = daysBetween(scheme.date_start, scheme.date_finish);
-  const treatment = scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : (scheme.treatment_type || '');
+  const treatment = window.schemeTreatment(scheme) || '';
+  const tm = window.schemeTM(scheme);
   return {
     PREPARED_BY:      scheme.prepared_by || '',
     DESIGNER_EMAIL:   scheme.designer_email || '',
@@ -142,8 +143,8 @@ function buildRSRFields(scheme) {
     DATE_START:       scheme.date_start || '',
     DATE_FINISH:      scheme.date_finish || '',
     DURATION:         String(days),
-    TM_HOURS:         scheme.tm_hours || '',
-    TM_DIVERSION:     scheme.tm_diversion || '',
+    TM_HOURS:         tm.hours,
+    TM_DIVERSION:     tm.diversion_by,
     DATE_PREPARED:    scheme.date_prepared || '',
   };
 }
@@ -239,7 +240,7 @@ async function downloadRSRPdf(scheme) {
   document.body.appendChild(container);
   try {
     const root = ReactDOM.createRoot(container);
-    const displayScheme = { ...scheme, treatment_type: scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type };
+    const displayScheme = { ...scheme, treatment_type: window.schemeTreatment(scheme) || '' };
     root.render(React.createElement(RoadSpaceRequestDoc, { scheme: displayScheme }));
     await new Promise(r => setTimeout(r, 400));
     await window.htmlToPdf(
@@ -309,7 +310,7 @@ const RSRModal = ({ scheme, onClose }) => {
     finally { setDownloadingDocx(false); }
   };
 
-  const displayScheme = { ...scheme, treatment_type: scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type };
+  const displayScheme = { ...scheme, treatment_type: window.schemeTreatment(scheme) || '' };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -393,7 +394,7 @@ window.__getRSRPdfBuffer = async (scheme) => {
   container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
   document.body.appendChild(container);
   try {
-    const displayScheme = { ...scheme, treatment_type: scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type };
+    const displayScheme = { ...scheme, treatment_type: window.schemeTreatment(scheme) || '' };
     const root = ReactDOM.createRoot(container);
     root.render(React.createElement(RoadSpaceRequestDoc, { scheme: displayScheme }));
     await new Promise(r => setTimeout(r, 400));

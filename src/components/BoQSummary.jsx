@@ -35,71 +35,7 @@ const SERIES_COLOUR = {
 const colourFor = (n) => SERIES_COLOUR[n] || '#7a7a7a';
 
 // ── Project header ───────────────────────────────────────────────────────────
-const OverridesPanel = ({ scheme, boq, onRelink, onPushToMaster, onClose }) => {
-  const derived = _E.deriveQuickInputsFromScheme(scheme);
-  const stored  = boq.quick_inputs || {};
-  const [toast, setToast] = React.useState('');
-  const fmt = (v) => v === true ? 'Yes' : v === false ? 'No'
-              : v == null || v === '' ? '—'
-              : typeof v === 'number' ? v.toLocaleString() : String(v);
-  const pushable = (key) => _E.schemePatchForOverride
-    ? _E.schemePatchForOverride(key, stored[key], scheme) !== null
-    : false;
-  const handlePush = (key, value) => {
-    onPushToMaster && onPushToMaster(key, value);
-    setToast('Pushed to Master ✓');
-    setTimeout(() => setToast(''), 2200);
-  };
-  const rows = _E.LINKED_FIELDS
-    .filter(f => boq.overrides && boq.overrides[f.key])
-    .map(f => ({ key: f.key, label: f.label, unit: f.unit, master: derived[f.key], boq: stored[f.key] }));
-
-  return (
-    <div className="boq-settings-pop" onClick={e=>e.stopPropagation()} style={{minWidth:380}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-        <div style={{fontSize:12,fontWeight:600}}>Overrides — {rows.length} field{rows.length===1?'':'s'}</div>
-        <button className="btn ghost sm" onClick={onClose} title="Close">✕</button>
-      </div>
-      <div style={{fontSize:11,color:'var(--ink-3)',lineHeight:1.5,marginBottom:10}}>
-        Each field below is diverging from the Master Workbook. Click Re-link
-        to discard the BoQ value and follow the Master again.
-      </div>
-      {toast && (
-        <div style={{fontSize:11,color:'var(--green)',fontWeight:600,padding:'4px 0 8px',textAlign:'center'}}>{toast}</div>
-      )}
-      {rows.length === 0 && (
-        <div style={{fontSize:11,color:'var(--ink-3)',textAlign:'center',padding:'18px 0'}}>No overrides. Every linked field follows the Master.</div>
-      )}
-      {rows.map(r => (
-        <div key={r.key} style={{display:'grid',gridTemplateColumns:'1fr auto',gap:6,padding:'8px 0',borderTop:'1px solid var(--line)',alignItems:'center'}}>
-          <div style={{minWidth:0}}>
-            <div style={{fontSize:11,fontWeight:600,color:'var(--ink)'}}>{r.label}</div>
-            <div style={{fontSize:10,color:'var(--ink-3)',fontFamily:'var(--font-mono)',marginTop:2}}>
-              Master: <span style={{color:'var(--ink-2)'}}>{fmt(r.master)}</span>
-              <span style={{margin:'0 6px'}}>·</span>
-              BoQ: <span style={{color:'var(--amber)',fontWeight:600}}>{fmt(r.boq)}</span>
-              {r.unit && <span style={{color:'var(--ink-3)'}}> {r.unit}</span>}
-            </div>
-          </div>
-          <div style={{display:'flex',gap:4,flexShrink:0}}>
-            <button className="btn ghost sm"
-              style={{fontSize:10,padding:'2px 8px',color: pushable(r.key) ? 'var(--ink-2)' : 'var(--ink-3)',opacity: pushable(r.key) ? 1 : 0.45,cursor: pushable(r.key) ? 'pointer' : 'not-allowed'}}
-              title={pushable(r.key) ? "Push this BoQ value up to the Master Workbook and clear the override" : "Cannot push — this field has no Master equivalent"}
-              disabled={!pushable(r.key)}
-              onClick={() => pushable(r.key) && handlePush(r.key, r.boq)}>
-              ↑ Push to Master
-            </button>
-            <button className="btn ghost sm" style={{fontSize:10,padding:'2px 8px',color:'var(--accent)'}}
-              onClick={() => onRelink && onRelink(r.key)}>↩ Re-link</button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onDownloadTC, downloadingTC, onRelink, onPushToMaster }) => {
-  const [panelOpen, setPanelOpen] = React.useState(false);
+const ProjectHeader = ({ scheme, computed, onDownload, downloading, onDownloadTC, downloadingTC }) => {
   const workingDays = (() => {
     if (!scheme.date_start || !scheme.date_finish) return null;
     const p = s => { const [d,m,y]=(s||'').split('/'); return new Date(+y,+m-1,+d); };
@@ -107,7 +43,6 @@ const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onDownl
     if (isNaN(a) || isNaN(b)) return null;
     return Math.max(1, Math.round((b-a)/86400000 * 5/7));
   })();
-  const overrideCount = Object.keys((boq && boq.overrides) || {}).length;
 
   return (
     <div className="boq-header" style={{position:'relative'}}>
@@ -119,19 +54,13 @@ const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onDownl
         <div style={{fontSize:12,color:'var(--ink-3)',display:'flex',flexWrap:'wrap',gap:'6px 10px',alignItems:'center'}}>
           {scheme.scheme_extent && <span>{scheme.scheme_extent}</span>}
           {scheme.ward_selected && <><span>·</span><span>Ward {scheme.ward_num}: {scheme.ward_selected}</span></>}
-          {scheme.area_m2 > 0 && <><span>·</span><span className="mono">{(+scheme.area_m2).toLocaleString()} m²</span></>}
+          {window.schemeArea(scheme) > 0 && <><span>·</span><span className="mono">{window.schemeArea(scheme).toLocaleString()} m²</span></>}
           {scheme.date_start && <><span>·</span><span className="mono">{scheme.date_start}{scheme.date_finish ? ` → ${scheme.date_finish}` : ''}</span></>}
           {workingDays && <><span>·</span><span className="mono">{workingDays} wd</span></>}
-          {scheme.treatment_type && <><span>·</span><span>{scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type}</span></>}
+          {window.schemeTreatment(scheme) && <><span>·</span><span>{window.schemeTreatment(scheme)}</span></>}
         </div>
       </div>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
-        {overrideCount > 0 && (
-          <button className="boq-override-chip" onClick={()=>setPanelOpen(o=>!o)}
-            title="Show overridden fields and re-link to Master">
-            ⚠ {overrideCount} override{overrideCount===1?'':'s'}
-          </button>
-        )}
         <div style={{textAlign:'right',marginRight:4}}>
           <div style={{fontSize:10,color:'var(--ink-3)',textTransform:'uppercase',letterSpacing:'0.07em'}}>Total inc VAT</div>
           <div className="mono" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em'}}>{_E.fmtGBP(computed.totalIncVat)}</div>
@@ -144,10 +73,6 @@ const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onDownl
           <Icon.Download /> {downloading ? 'Generating…' : 'Download .xlsx'}
         </button>
       </div>
-      {panelOpen && boq && (
-        <OverridesPanel scheme={scheme} boq={boq} onRelink={onRelink}
-          onPushToMaster={onPushToMaster} onClose={()=>setPanelOpen(false)} />
-      )}
     </div>
   );
 };
@@ -430,10 +355,10 @@ const RatesFooter = ({ computed, boq }) => {
 };
 
 // ── BoQSummary (top-level, exported) ─────────────────────────────────────────
-const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading, onDownloadTC, downloadingTC, onRelink, onPushToMaster }) => {
+const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading, onDownloadTC, downloadingTC }) => {
   return (
     <div className="boq-summary">
-      <ProjectHeader scheme={scheme} boq={boq} computed={computed} onDownload={onDownload} downloading={downloading} onDownloadTC={onDownloadTC} downloadingTC={downloadingTC} onRelink={onRelink} onPushToMaster={onPushToMaster} />
+      <ProjectHeader scheme={scheme} computed={computed} onDownload={onDownload} downloading={downloading} onDownloadTC={onDownloadTC} downloadingTC={downloadingTC} />
       {computed.hasCustomTreatment && (
         <div className="boq-custom-notice">
           <strong>Custom treatment</strong> — surface course items not auto-generated.

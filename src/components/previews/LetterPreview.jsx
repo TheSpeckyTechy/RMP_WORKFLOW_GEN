@@ -27,8 +27,9 @@ const defaultLetterSubject = s => {
 };
 
 const defaultLetterBody = s => {
+  const tmFields = window.schemeTM(s);
   const start=s.date_start||"[start date]", finish=s.date_finish||"[finish date]", road=s.road_name||"[road]",
-    ext=s.scheme_extent?` between ${s.scheme_extent}`:"", tm=s.tm_type?s.tm_type.toLowerCase():"temporary traffic management", tmH=s.tm_hours||"07:30 to 15:30";
+    ext=s.scheme_extent?` between ${s.scheme_extent}`:"", tm=tmFields.type?tmFields.type.toLowerCase():"temporary traffic management", tmH=tmFields.hours||"07:30 to 15:30";
   return `Dundee City Council will shortly be carrying out resurfacing works on ${road}${ext}. The works are programmed to commence on ${start} and are expected to be completed by ${finish}.\n\nTo enable the works to be carried out safely, ${tm.charAt(0).toUpperCase()+tm.slice(1)} will be in place during working hours (${tmH}). Pedestrian access to properties will be maintained at all times.\n\nWe apologise in advance for any inconvenience caused.`;
 };
 

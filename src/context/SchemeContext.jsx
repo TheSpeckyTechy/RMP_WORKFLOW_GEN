@@ -25,51 +25,102 @@ const lsSet    = (id, s) => { try { localStorage.setItem(LS_PREFIX + id, JSON.st
 const lsGetIds = ()    => { try { const v = localStorage.getItem(LS_IDS); return v ? JSON.parse(v) : []; } catch { return []; } };
 const lsSetIds = (ids) => { try { localStorage.setItem(LS_IDS, JSON.stringify(ids)); } catch {} };
 
-// Silent migration: ensure every scheme loaded from storage has a .boq that
-// matches the current shape — per-layer areas, milling_entries, and
-// Master-linked override flags. Persists on the first updateScheme call.
+// Build the Treatment Designer model (scheme.design) from the legacy fields
+// it replaces — treatments[] for zones, iron_* for ironworks, kerb_length
+// for kerbs, tm_* for traffic management. Used by withDesign during the
+// silent migration; also called when a fresh scheme has no design{} yet.
+//
+// Per-zone includes_binder / includes_base / includes_subbase flags match
+// the depth heuristic the BoQ engine used pre-Phase-3 (zone deeper than
+// surface_depth → needs binder; deeper than surface+binder → needs base /
+// subbase) so migrated schemes produce byte-identical BoQ output.
+const deriveDesignFromLegacy = (s) => {
+  const surfaceCourseDepth = +s.surface_depth_mm || 40;
+  const binderCourseDepth  = +s.binder_depth_mm  || 60;
+  const masterHasSubbase   = +s.subbase_depth_mm > 0;
+
+  return {
+    zones: (s.treatments || []).map((t, i) => {
+      const total = +t.depth_mm || surfaceCourseDepth;
+      return {
+        id:               t.id || (1000 + i + 1),
+        label:            t.zone || '',
+        surface:          t.treatment_type || s.treatment_type || '',
+        area_m2:          +t.area_m2 || 0,
+        depth_mm:         total,
+        milling_depth_mm: total,
+        includes_binder:  total > surfaceCourseDepth,
+        includes_base:    total > (surfaceCourseDepth + binderCourseDepth),
+        includes_subbase: masterHasSubbase && total > (surfaceCourseDepth + binderCourseDepth),
+        binder_depth_mm:  +s.binder_depth_mm || 0,
+        base_depth_mm:    0,
+        subbase_depth_mm: +s.subbase_depth_mm || 0,
+      };
+    }),
+    ironworks: {
+      cway:  { mh: +s.iron_mh||0, water: +s.iron_water||0, bt: +s.iron_bt||0, gas: +s.iron_gas||0, gullies: +s.iron_gullies||0 },
+      fway:  { mh: 0, water: 0, bt: 0, gas: 0 },
+      raise: { mh: 0, water: 0, bt: 0, gas: 0, gullies: 0 },
+    },
+    kerbs:  +s.kerb_length > 0 ? [{ id: 1, type: 'K1 half-batter — laid', length_m: +s.kerb_length }] : [],
+    lining: [],
+    tm: {
+      type:          s.tm_type || '',
+      hours:         s.tm_hours || '',
+      phases:        +s.tm_phases || 1,
+      diversion_by:  s.tm_diversion_by || '',
+      compound:      s.tm_compound || '',
+      duration_days: null,
+    },
+  };
+};
+
+// Silent migration: rename the pre-Phase-1 area_m2 field into the explicit
+// carriageway_area_m2 / footway_area_m2 split, and back-fill scheme.design
+// from legacy treatment / ironwork / kerb / TM fields. Persists on the first
+// updateScheme call.
+const withDesign = (s) => {
+  if (!s) return s;
+  let next = s;
+
+  // 1. area_m2 → carriageway_area_m2 / footway_area_m2. The legacy field is
+  //    left in place so any unmigrated readers keep working through Phase 1.
+  const hasNewArea = next.carriageway_area_m2 != null || next.footway_area_m2 != null;
+  if (next.area_m2 != null && !hasNewArea) {
+    const isFootway = next.scheme_type === 'Footway';
+    next = {
+      ...next,
+      carriageway_area_m2: isFootway ? 0 : (+next.area_m2 || 0),
+      footway_area_m2:     isFootway ? (+next.area_m2 || 0) : 0,
+    };
+  }
+
+  // 2. design{} back-fill. The Phase-2 designer flips design.touched=true on
+  //    first user edit, which freezes the persisted shape. Until then we
+  //    re-derive from legacy on every load so the mirror stays current as
+  //    designers edit treatments[] / iron_* / tm_* via the legacy UI.
+  if (!next.design || !next.design.touched) {
+    next = { ...next, design: { ...deriveDesignFromLegacy(next), touched: false } };
+  }
+
+  return next;
+};
+
+// Silent migration: every loaded scheme gets the current boq shape — a
+// default for any persisted scheme missing one, and back-filled Series 6400
+// uplift entries for older schemes whose settings.percentAdditions predate
+// them. The Designer is the only quantity writer post-Phase-4, so the
+// previous quick_inputs / overrides back-fills are gone.
 const withBoq = (s) => {
   if (!s) return s;
   if (!s.boq) return { ...s, boq: window.defaultBoq() };
 
   let boq = s.boq;
-  const qi = boq.quick_inputs || {};
 
-  // ── 1. Per-layer area / milling_entries (shipped in earlier PR) ──
-  if (!qi.milling_entries) {
-    boq = {
-      ...boq,
-      quick_inputs: {
-        ...qi,
-        milling_entries: [{ depth: +qi.milling_depth || 40, area: null }],
-        surface_area: qi.surface_area ?? null,
-        binder_area:  qi.binder_area  ?? null,
-        base_area:    qi.base_area    ?? null,
-        subbase_area: qi.subbase_area ?? null,
-        tack_area:    qi.tack_area    ?? null,
-      },
-    };
-  }
-
-  // ── 1b. New ironwork fields introduced in PR D2 (gas + gully) — default
-  //       to 0 so the rail can render them for legacy rows.
-  const qi2 = boq.quick_inputs || {};
-  if (!('iw_gas_cway' in qi2) || !('iw_gas_fw' in qi2) || !('iw_gully_cway' in qi2)) {
-    boq = {
-      ...boq,
-      quick_inputs: {
-        ...qi2,
-        iw_gas_cway:   +qi2.iw_gas_cway   || 0,
-        iw_gas_fw:     +qi2.iw_gas_fw     || 0,
-        iw_gully_cway: +qi2.iw_gully_cway || 0,
-      },
-    };
-  }
-
-  // ── 1c. Series 6400 uplift entries (night, Sat, Sun, Dundee area) — added
-  //       so existing schemes pick up the new BoQ-tab toggles. Each entry is
-  //       inserted only if absent, so user edits to existing toggles aren't
-  //       overwritten on subsequent loads.
+  // Series 6400 uplift entries (night, Sat, Sun, Dundee area) — back-filled
+  // for older schemes whose settings.percentAdditions predates them. Each
+  // entry only inserts if absent so any user edits to existing toggles
+  // survive subsequent loads.
   const adds = (boq.settings && boq.settings.percentAdditions) || {};
   const newAdds = {
     night_uplift:    { enabled: false, pct: 0.20, label: 'Night-shift uplift (Series 6400/003)' },
@@ -87,93 +138,20 @@ const withBoq = (s) => {
     };
   }
 
-  // ── 2. Master-linked overrides. Compare each stored value against the
-  //     value the Master would produce now. If they match, the field can
-  //     cleanly follow the Master; if they differ, preserve the BoQ value
-  //     by flagging it as overridden.
-  if (!boq.overrides) {
-    const E = window.BOQ_ENGINE;
-    const overrides = {};
-    if (E && E.deriveQuickInputsFromScheme && E.LINKED_FIELDS) {
-      const derived = E.deriveQuickInputsFromScheme(s);
-      const stored  = boq.quick_inputs || {};
-      for (const { key } of E.LINKED_FIELDS) {
-        if (!(key in stored)) continue;
-        if (stored[key] !== derived[key]) overrides[key] = true;
-      }
-    }
-    boq = { ...boq, overrides };
-  }
-
   return boq === s.boq ? s : { ...s, boq };
 };
 
+// withDesign renames legacy area_m2 → carriageway/footway_area_m2 and
+// back-fills design{}; withBoq normalises the boq shape. Independent passes
+// composed left-to-right.
+const migrate = (s) => withBoq(withDesign(s));
+
 const initSchemes = () => {
-  const base = window.SCHEMES.map(s => { const saved = lsGet(s.id); return withBoq(saved ? { ...s, ...saved } : s); });
+  const base = window.SCHEMES.map(s => { const saved = lsGet(s.id); return migrate(saved ? { ...s, ...saved } : s); });
   const defaultIds = new Set(window.SCHEMES.map(s => s.id));
-  const extras = lsGetIds().filter(id => !defaultIds.has(id)).map(id => lsGet(id)).filter(Boolean).map(withBoq);
+  const extras = lsGetIds().filter(id => !defaultIds.has(id)).map(id => lsGet(id)).filter(Boolean).map(migrate);
   return [...extras, ...base];
 };
-
-// Keep scheme.treatments[] and the zone_a1-a5_* Master-mirror fields in sync
-// as a single source of truth. Called from updateScheme before the write.
-//
-// Rules:
-//   - If `updates` includes `treatments`, it wins — rebuild zone_a1-5 from it.
-//   - Else if `updates` includes any zone_aN_* field, rebuild treatments from
-//     the resulting 5 slots.
-//   - Otherwise return updates unchanged.
-//
-// This means a Master Workbook edit to zone_a1_area_m2 flows into
-// scheme.treatments automatically, and a Treatment-tab zone edit refreshes
-// the mirror. The engine's deriveQuickInputsFromScheme reads treatments[],
-// so downstream BoQ auto-lines pick up the change on the next render.
-const ZONE_FIELD_RE = /^zone_a[1-5]_(description|area_m2|depth_mm|treatment)$/;
-
-function syncZoneMirror(current, updates) {
-  const touchesTreatments = Object.prototype.hasOwnProperty.call(updates, 'treatments');
-  const touchesZoneField  = Object.keys(updates).some(k => ZONE_FIELD_RE.test(k));
-  if (!touchesTreatments && !touchesZoneField) return updates;
-
-  const merged = { ...current, ...updates };
-  let zones;
-
-  if (touchesTreatments) {
-    zones = Array.isArray(merged.treatments) ? merged.treatments : [];
-  } else {
-    // Reconstruct from the 5 slots, preserving ids from existing treatments[]
-    // so per-zone identity survives Master-side edits.
-    const existing = Array.isArray(current.treatments) ? current.treatments : [];
-    zones = [];
-    for (let i = 1; i <= 5; i++) {
-      const desc      = merged[`zone_a${i}_description`];
-      const area      = +merged[`zone_a${i}_area_m2`]  || 0;
-      const depth     = +merged[`zone_a${i}_depth_mm`] || 0;
-      const treatment = merged[`zone_a${i}_treatment`];
-      const hasData   = (desc && String(desc).trim()) || area > 0 || depth > 0 || (treatment && String(treatment).trim());
-      if (!hasData) continue;
-      const prev = existing[i - 1] || {};
-      zones.push({
-        id:             prev.id || (1000 + i),
-        zone:           desc || prev.zone || '',
-        area_m2:        area,
-        depth_mm:       depth || prev.depth_mm || 40,
-        treatment_type: treatment || prev.treatment_type || '',
-      });
-    }
-  }
-
-  // Rebuild the Master-side mirror so both shapes always reflect `zones`.
-  const patched = { ...updates, treatments: zones };
-  for (let i = 1; i <= 5; i++) {
-    const z = zones[i - 1];
-    patched[`zone_a${i}_description`] = z ? (z.zone || '')           : '';
-    patched[`zone_a${i}_area_m2`]     = z ? (+z.area_m2 || 0)        : 0;
-    patched[`zone_a${i}_depth_mm`]    = z ? (+z.depth_mm || 0)       : 0;
-    patched[`zone_a${i}_treatment`]   = z ? (z.treatment_type || '') : '';
-  }
-  return patched;
-}
 
 // ── Supabase helpers ─────────────────────────────────────────────────────────
 const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
@@ -198,8 +176,8 @@ const SchemeProvider = ({ children }) => {
         const remoteMap = Object.fromEntries(rows.map(r => [r.id, r.data]));
         setSchemes(prev => {
           const localIds = new Set(prev.map(s => s.id));
-          const updated  = prev.map(s => remoteMap[s.id] ? withBoq({ ...s, ...remoteMap[s.id] }) : s);
-          const extras   = rows.filter(r => !localIds.has(r.id) && r.data).map(r => withBoq(r.data));
+          const updated  = prev.map(s => remoteMap[s.id] ? migrate({ ...s, ...remoteMap[s.id] }) : s);
+          const extras   = rows.filter(r => !localIds.has(r.id) && r.data).map(r => migrate(r.data));
           return extras.length ? [...extras, ...updated] : updated;
         });
       }
@@ -213,8 +191,7 @@ const SchemeProvider = ({ children }) => {
   const updateScheme = (id, updates) => {
     const current = latestSchemes.current.find(s => s.id === id);
     if (!current) return;
-    const normalised = syncZoneMirror(current, updates);
-    const merged = { ...current, ...normalised };
+    const merged = { ...current, ...updates };
     lsSet(id, merged);
     setSchemes(prev => prev.map(s => s.id === id ? merged : s));
     sbUpsertFn(id, merged, setSyncStatus, () => setLastSynced(new Date()));

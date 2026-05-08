@@ -1,10 +1,15 @@
 // ─── BoQTab.jsx ───────────────────────────────────────────────────────────────
-// Bill of Quantities tab — v2 (full 1,700-item catalogue).
+// Bill of Quantities tab — pricing, custom lines, totals, export.
+//
+// Quantities are NOT edited here — they come from scheme.design{} via the
+// Treatment Designer tab. The BoQ engine derives quick_inputs from the
+// Designer state on every render; this tab lets the user add custom lines,
+// adjust per-line bands / quantities, tune BoQ-level settings (BERR, VAT,
+// percent additions, area band override), and export the spreadsheet.
 //
 // Composition:
 //   <BoQTab>
-//     <BoQSummary />         — modernised top strip (header, cost bar, cards, totals)
-//     <QuickInputRail />     — fast-path form (auto-populates common lines)
+//     <BoQSummary />         — header, cost bar, series cards, totals
 //     <BoQLedger />          — grouped priced lines with per-line controls
 //     <CatalogueDrawer />    — searchable picker over every catalogue item
 //
@@ -13,466 +18,7 @@
 //             window.SchemeContext, window.Icon, window.BoQSummary.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const E   = window.BOQ_ENGINE;
-const MAT = E.MATERIALS;
-
-// ── Small presentational helpers (used across sub-components) ────────────────
-
-const BQSectionLabel = ({ n, label }) => (
-  <div style={{
-    fontSize:10, fontWeight:700, textTransform:'uppercase',
-    letterSpacing:'0.08em', color:'var(--ink-3)',
-    padding:'14px 0 6px', borderTop:'1px solid var(--line)', marginTop:12,
-  }}>
-    <span className="section-num" style={{fontSize:9,marginRight:6,verticalAlign:'middle'}}>{n}</span>{label}
-  </div>
-);
-
-const BQField = ({ label, children }) => (
-  <div style={{marginBottom:9}}>
-    <div style={{fontSize:11,fontWeight:500,color:'var(--ink-2)',marginBottom:3}}>{label}</div>
-    {children}
-  </div>
-);
-
-const BQToggle = ({ value, onChange, label }) => (
-  <label style={{
-    display:'flex',alignItems:'center',gap:6,fontSize:11,cursor:'pointer',
-    userSelect:'none',color:'var(--ink-2)',marginBottom:7,
-  }}>
-    <input type="checkbox" checked={!!value} onChange={e=>onChange(e.target.checked)}
-      style={{accentColor:'var(--accent)',width:14,height:14,flexShrink:0}} />
-    {label}
-  </label>
-);
-
-const BQNum = ({ value, onChange, label, unit, min=0, step=1 }) => (
-  <BQField label={label}>
-    <div style={{display:'flex',alignItems:'center',gap:6}}>
-      <input type="number" className="mono" min={min} step={step} value={value}
-        onChange={e=>onChange(+e.target.value)}
-        style={{width:84,fontSize:12}} />
-      {unit && <span style={{fontSize:11,color:'var(--ink-3)'}}>{unit}</span>}
-    </div>
-  </BQField>
-);
-
-const BQSelect = ({ value, onChange, label, options }) => (
-  <BQField label={label}>
-    <select value={value} onChange={e=>onChange(e.target.value)}
-      style={{width:'100%',fontSize:12}}>
-      {options.map(o => <option key={o.tag||o.value} value={o.tag||o.value}>{o.label}</option>)}
-    </select>
-  </BQField>
-);
-
-// Master-linked wrapper. Two states:
-//   - Linked (default): renders a read-only pill showing the Master-derived
-//     value + an "Override" micro-button that unlocks the underlying input.
-//   - Overridden: renders the input (children) with an orange dot, a badge,
-//     and a "Re-link to Master" micro-button.
-// `renderDisplay` formats the derived value for the linked state (lookup
-// friendly-labels for tags etc.). If omitted, JSON.stringify of the raw
-// value is used.
-const LinkedField = ({ label, overridden, derivedValue, renderDisplay, onOverride, onRelink, children }) => {
-  if (!overridden) {
-    const display = renderDisplay ? renderDisplay(derivedValue) :
-      (derivedValue === true ? 'Yes' : derivedValue === false ? 'No' :
-       derivedValue == null || derivedValue === '' ? '—' : String(derivedValue));
-    return (
-      <div style={{marginBottom:9}}>
-        <div style={{fontSize:11,fontWeight:500,color:'var(--ink-2)',marginBottom:3}}>{label}</div>
-        <div className="boq-linked" title="Pulled from the Master Workbook">
-          <div>
-            <span className="val mono">{display}</span>
-            <span className="src"> · 🔗 Master</span>
-          </div>
-          <button className="unlink" onClick={onOverride} title="Override this field in the BoQ only">
-            Override
-          </button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="boq-overridden" style={{marginBottom:9,paddingLeft:10,marginLeft:-4}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:3}}>
-        <div style={{fontSize:11,fontWeight:500,color:'var(--ink-2)'}}>
-          {label}
-          <span style={{fontSize:9,fontFamily:'var(--font-mono)',marginLeft:6,color:'#b45309',textTransform:'uppercase',letterSpacing:'0.05em'}}>
-            overridden
-          </span>
-        </div>
-        <button className="relink" onClick={onRelink} title="Discard the override and follow the Master">
-          ↩ Re-link
-        </button>
-      </div>
-      {children}
-    </div>
-  );
-};
-
-// Compact "Area (m²)" override input. Shows the carriageway_area default as
-// placeholder so designers see what blank means. null/''/0 → use default.
-const BQAreaOverride = ({ value, onChange, defaultArea }) => (
-  <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:9,marginTop:-2}}>
-    <span style={{fontSize:10,color:'var(--ink-3)',width:84,flexShrink:0}}>Area override</span>
-    <input
-      type="number" className="mono" min="0" step="1"
-      value={value ?? ''}
-      placeholder={(+defaultArea > 0 ? (+defaultArea).toLocaleString() : '—')}
-      onChange={e => {
-        const raw = e.target.value;
-        onChange(raw === '' ? null : +raw);
-      }}
-      style={{width:72,fontSize:11,padding:'2px 6px'}}
-    />
-    <span style={{fontSize:10,color:'var(--ink-3)'}}>m²</span>
-  </div>
-);
-
-// Editable (depth, area) list for milling. `entries` is always an array;
-// defaults to a single row. Delete icon hidden when only one row remains.
-const BQMillingList = ({ entries, onChange, defaultArea }) => {
-  const list = (entries && entries.length) ? entries : [{ depth: 40, area: null }];
-  const update = (i, patch) => onChange(list.map((e, idx) => idx === i ? { ...e, ...patch } : e));
-  const add    = ()        => onChange([...list, { depth: 40, area: null }]);
-  const remove = (i)       => onChange(list.filter((_, idx) => idx !== i));
-
-  return (
-    <div style={{
-      background:'var(--bg)', border:'1px solid var(--line)',
-      borderRadius:'var(--radius-sm)', padding:'6px 8px', marginBottom:9, marginTop:-2,
-    }}>
-      {list.map((e, i) => (
-        <div key={i} style={{display:'flex',alignItems:'center',gap:6,marginBottom: i===list.length-1 ? 6 : 4}}>
-          <select value={E.snapMillingDepth(e.depth)} onChange={ev=>update(i,{depth:+ev.target.value})}
-            style={{fontSize:11,padding:'1px 4px',flex:'0 0 70px'}}>
-            {MAT.MILLING_DEPTHS.map(d => <option key={d} value={d}>{d}mm</option>)}
-          </select>
-          <input
-            type="number" className="mono" min="0" step="1"
-            value={e.area ?? ''}
-            placeholder={(+defaultArea > 0 ? (+defaultArea).toLocaleString() : '—')}
-            onChange={ev => update(i, { area: ev.target.value === '' ? null : +ev.target.value })}
-            style={{width:66,fontSize:11,padding:'1px 4px'}}
-          />
-          <span style={{fontSize:10,color:'var(--ink-3)'}}>m²</span>
-          {list.length > 1 && (
-            <button onClick={()=>remove(i)} title="Remove"
-              style={{marginLeft:'auto',background:'transparent',border:'none',color:'var(--red)',cursor:'pointer',padding:'0 4px',fontSize:13,lineHeight:1}}>✕</button>
-          )}
-        </div>
-      ))}
-      <button onClick={add} className="btn ghost sm"
-        style={{fontSize:10,padding:'2px 6px',width:'100%',justifyContent:'center',color:'var(--accent)'}}>
-        + Add milling depth
-      </button>
-    </div>
-  );
-};
-
-// ── QuickInputRail ───────────────────────────────────────────────────────────
-// Left-rail form. Reads/writes boq.quick_inputs. Calls onApply() to regenerate
-// the auto-line set; user-added lines are preserved by the caller.
-const QuickInputRail = ({ inputs, overrides, onChange, onOverride, onRelink, onApply, dirty }) => {
-  // set(): for non-linked fields and for fields that are already overridden —
-  // writes straight through to quick_inputs. For linked-but-not-yet-overridden
-  // fields the Override button in LinkedField flips the flag first, so by the
-  // time the input is rendered the field's override === true.
-  const set = (k, v) => onChange({ ...inputs, [k]: v });
-  const isOver = (k) => !!(overrides && overrides[k]);
-
-  // Zones drive the pavement lines when the Treatment tab has populated them.
-  const zonesActive = Array.isArray(inputs.surface_zones) && inputs.surface_zones.length > 0;
-
-  // Lookup labels for display-only rendering of linked tag / enum values.
-  const surfaceLabel = (tag) => (MAT.SURFACE_OPTIONS.find(o => o.tag === tag) || {}).label || tag || '—';
-  const tmLabel      = (t)   => ({
-    'full_closure': 'Full road closure',
-    'portable_signals': 'Portable traffic signals',
-    'stop_go': 'Stop/Go boards',
-    'footway_works': 'Works on footways only',
-    'none': 'None',
-  })[t] || t || '—';
-
-  const bandLabel = React.useMemo(() => {
-    const a = +inputs.carriageway_area || 0;
-    if (a === 0)   return '';
-    if (a < 500)   return 'Band A (<500 m²)';
-    if (a < 5000)  return 'Band B (500–5000 m²)';
-    return 'Band C (>5000 m²)';
-  }, [inputs.carriageway_area]);
-
-  return (
-    <div className="boq-rail" style={{
-      background:'var(--bg-elev)', border:'1px solid var(--line)',
-      borderRadius:'var(--radius)', padding:'0 16px 20px',
-      overflowY:'auto', maxHeight:'calc(100vh - 260px)',
-    }}>
-
-      <div style={{
-        position:'sticky', top:0, background:'var(--bg-elev)',
-        padding:'12px 0 10px', borderBottom:'1px solid var(--line)',
-        marginBottom:4, zIndex:2,
-      }}>
-        <div style={{fontSize:12,fontWeight:700,color:'var(--ink)',marginBottom:6}}>Quick Input</div>
-        <button className={"btn sm " + (dirty ? "accent" : "")} onClick={onApply}
-          style={{width:'100%',justifyContent:'center'}}>
-          {dirty ? 'Regenerate auto-lines' : 'Regenerated ✓'}
-        </button>
-        <div style={{fontSize:10,color:'var(--ink-3)',marginTop:6,lineHeight:1.4}}>
-          Rebuilds auto-populated lines from this form. User-added lines from the
-          catalogue are preserved.
-        </div>
-      </div>
-
-      {/* 01 Carriageway */}
-      <BQSectionLabel n="01" label="Carriageway Treatment" />
-
-      <LinkedField label="Default area (m²)" overridden={isOver('carriageway_area')}
-        derivedValue={inputs.carriageway_area}
-        renderDisplay={v => (+v || 0).toLocaleString() + ' m²'}
-        onOverride={()=>onOverride('carriageway_area', inputs.carriageway_area)}
-        onRelink={()=>onRelink('carriageway_area')}>
-        <BQNum value={inputs.carriageway_area} onChange={v=>set('carriageway_area',v)} label="" unit="m²" />
-      </LinkedField>
-      <div style={{fontSize:10,color:'var(--ink-3)',marginBottom:6,marginTop:-4,lineHeight:1.3}}>
-        Used by any layer that doesn't override it.
-      </div>
-      {bandLabel && (
-        <div style={{fontSize:10,color:'var(--accent)',fontFamily:'var(--font-mono)',marginBottom:8}}>
-          {bandLabel}
-        </div>
-      )}
-
-      {zonesActive ? (
-        <div className="boq-zones-banner" title="Treatment tab drives the surface + milling lines">
-          <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',color:'var(--accent)',marginBottom:6}}>
-            📐 Driven by {inputs.surface_zones.length} Treatment Zone{inputs.surface_zones.length === 1 ? '' : 's'}
-          </div>
-          {inputs.surface_zones.map((z, i) => (
-            <div key={i} style={{fontSize:11,color:'var(--ink-2)',lineHeight:1.5,display:'flex',justifyContent:'space-between',gap:8}}>
-              <span style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                <span className="mono" style={{fontSize:10,color:'var(--ink-3)',marginRight:4}}>{z.zoneLabel || ('Zone ' + (i+1))}</span>
-                {surfaceLabel(z.tag)}
-              </span>
-              <span className="mono" style={{fontSize:10,color:'var(--ink-3)',flexShrink:0}}>
-                {(+z.area || 0).toLocaleString()} m² · {z.depth} mm
-              </span>
-            </div>
-          ))}
-          <div style={{fontSize:10,color:'var(--ink-3)',marginTop:8,fontStyle:'italic'}}>
-            Edit materials and areas in the Treatment tab.
-          </div>
-        </div>
-      ) : (
-        <>
-          <LinkedField label="Surface course" overridden={isOver('surface_tag')}
-            derivedValue={inputs.surface_tag} renderDisplay={surfaceLabel}
-            onOverride={()=>onOverride('surface_tag', inputs.surface_tag)}
-            onRelink={()=>onRelink('surface_tag')}>
-            <BQSelect value={inputs.surface_tag} onChange={v=>set('surface_tag',v)} label="" options={MAT.SURFACE_OPTIONS} />
-          </LinkedField>
-          <BQAreaOverride value={inputs.surface_area} onChange={v=>set('surface_area',v)} defaultArea={inputs.carriageway_area} />
-        </>
-      )}
-
-      <BQToggle value={inputs.include_milling} onChange={v=>set('include_milling',v)} label="Include milling" />
-      {inputs.include_milling && !zonesActive && (
-        <BQMillingList
-          entries={inputs.milling_entries || [{ depth: inputs.milling_depth || 40, area: null }]}
-          onChange={v=>set('milling_entries',v)}
-          defaultArea={inputs.carriageway_area}
-        />
-      )}
-
-      <LinkedField label="Include tack coat" overridden={isOver('include_tack')}
-        derivedValue={inputs.include_tack}
-        onOverride={()=>onOverride('include_tack', inputs.include_tack)}
-        onRelink={()=>onRelink('include_tack')}>
-        <BQToggle value={inputs.include_tack} onChange={v=>set('include_tack',v)} label="Include tack coat" />
-      </LinkedField>
-      {inputs.include_tack && (
-        <BQAreaOverride value={inputs.tack_area} onChange={v=>set('tack_area',v)} defaultArea={inputs.carriageway_area} />
-      )}
-
-      {/* 02 Layer build-up */}
-      <BQSectionLabel n="02" label="Layer Build-Up" />
-      <LinkedField label="Binder course" overridden={isOver('include_binder')}
-        derivedValue={inputs.include_binder}
-        onOverride={()=>onOverride('include_binder', inputs.include_binder)}
-        onRelink={()=>onRelink('include_binder')}>
-        <BQToggle value={inputs.include_binder} onChange={v=>set('include_binder',v)} label="Binder course" />
-      </LinkedField>
-      <div style={{fontSize:10,color:'var(--ink-3)',margin:'0 0 6px',lineHeight:1.4}}>
-        Optional 60mm · 20mm binder — pairs with any of the three 40mm surface courses.
-      </div>
-      {inputs.include_binder && (
-        <>
-          <BQSelect value={inputs.binder_tag} onChange={v=>set('binder_tag',v)} label="Binder type" options={MAT.BINDER_OPTIONS} />
-          <BQAreaOverride value={inputs.binder_area} onChange={v=>set('binder_area',v)} defaultArea={inputs.carriageway_area} />
-        </>
-      )}
-      <LinkedField label="Base course" overridden={isOver('include_base')}
-        derivedValue={inputs.include_base}
-        onOverride={()=>onOverride('include_base', inputs.include_base)}
-        onRelink={()=>onRelink('include_base')}>
-        <BQToggle value={inputs.include_base} onChange={v=>set('include_base',v)} label="Base course" />
-      </LinkedField>
-      {inputs.include_base && (
-        <>
-          <BQSelect value={inputs.base_tag} onChange={v=>set('base_tag',v)} label="Base type" options={MAT.BASE_OPTIONS} />
-          <BQAreaOverride value={inputs.base_area} onChange={v=>set('base_area',v)} defaultArea={inputs.carriageway_area} />
-        </>
-      )}
-      <LinkedField label="Granular sub-base (Type 1)" overridden={isOver('include_subbase')}
-        derivedValue={inputs.include_subbase}
-        onOverride={()=>onOverride('include_subbase', inputs.include_subbase)}
-        onRelink={()=>onRelink('include_subbase')}>
-        <BQToggle value={inputs.include_subbase} onChange={v=>set('include_subbase',v)} label="Granular sub-base (Type 1)" />
-      </LinkedField>
-      {inputs.include_subbase && (
-        <>
-          <LinkedField label="Sub-base depth (mm)" overridden={isOver('subbase_depth')}
-            derivedValue={inputs.subbase_depth} renderDisplay={v=>v+' mm'}
-            onOverride={()=>onOverride('subbase_depth', inputs.subbase_depth)}
-            onRelink={()=>onRelink('subbase_depth')}>
-            <BQNum value={inputs.subbase_depth} onChange={v=>set('subbase_depth',v)} label="" unit="mm" />
-          </LinkedField>
-          <BQAreaOverride value={inputs.subbase_area} onChange={v=>set('subbase_area',v)} defaultArea={inputs.carriageway_area} />
-        </>
-      )}
-
-      {/* 03 TM */}
-      <BQSectionLabel n="03" label="Traffic Management" />
-      <LinkedField label="TM type" overridden={isOver('tm_type')}
-        derivedValue={inputs.tm_type} renderDisplay={tmLabel}
-        onOverride={()=>onOverride('tm_type', inputs.tm_type)}
-        onRelink={()=>onRelink('tm_type')}>
-        <BQField label="">
-          <select value={inputs.tm_type} onChange={e=>set('tm_type',e.target.value)} style={{width:'100%',fontSize:12}}>
-            <option value="full_closure">Full road closure (Type 1)</option>
-            <option value="portable_signals">Portable traffic signals</option>
-            <option value="stop_go">Stop/Go boards</option>
-            <option value="footway_works">Works on footways only</option>
-            <option value="none">None</option>
-          </select>
-        </BQField>
-      </LinkedField>
-      <LinkedField label="Duration (working days)" overridden={isOver('duration_days')}
-        derivedValue={inputs.duration_days} renderDisplay={v=>v+' days'}
-        onOverride={()=>onOverride('duration_days', inputs.duration_days)}
-        onRelink={()=>onRelink('duration_days')}>
-        <BQNum value={inputs.duration_days} onChange={v=>set('duration_days',v)} label="" unit="days" min={1} />
-      </LinkedField>
-      {inputs.tm_type === 'full_closure' && (
-        <LinkedField label="Include diversion route" overridden={isOver('include_diversion')}
-          derivedValue={inputs.include_diversion}
-          onOverride={()=>onOverride('include_diversion', inputs.include_diversion)}
-          onRelink={()=>onRelink('include_diversion')}>
-          <BQToggle value={inputs.include_diversion} onChange={v=>set('include_diversion',v)} label="Include diversion route" />
-        </LinkedField>
-      )}
-      {inputs.tm_type === 'give_take' && (
-        <div style={{
-          fontSize:10, color:'var(--ink-2)', lineHeight:1.5,
-          background:'var(--bg-sunken)', border:'1px dashed var(--line)',
-          borderRadius:'var(--radius-sm)', padding:'8px 10px', marginBottom:9,
-        }}>
-          <strong style={{fontWeight:600}}>No TM lines emitted.</strong> Give &amp;
-          Take is an informal passing-place method with no formal signage or
-          dedicated traffic-control operatives. If the scheme still needs a
-          small provisional sum for site supervision, add it manually from the
-          catalogue.
-        </div>
-      )}
-      {inputs.tm_type === 'partial_closure' && (
-        <div style={{
-          fontSize:10, color:'var(--ink-2)', lineHeight:1.5,
-          background:'var(--bg-sunken)', border:'1px dashed var(--line)',
-          borderRadius:'var(--radius-sm)', padding:'8px 10px', marginBottom:9,
-        }}>
-          Partial Road Closure currently uses the full-closure day rate as
-          the nearest JMCA equivalent. If the running-lane maintenance on
-          your scheme warrants a different rate, add the appropriate
-          Series 100 line from the catalogue and adjust manually.
-        </div>
-      )}
-
-      {/* 04 Ironwork */}
-      <BQSectionLabel n="04" label="Ironwork (Accommodation Works)" />
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 10px'}}>
-        <LinkedField label="SW — C'way" overridden={isOver('iw_sw_cway')}
-          derivedValue={inputs.iw_sw_cway} renderDisplay={v=>(+v||0)+' No'}
-          onOverride={()=>onOverride('iw_sw_cway', inputs.iw_sw_cway)}
-          onRelink={()=>onRelink('iw_sw_cway')}>
-          <BQNum value={inputs.iw_sw_cway} onChange={v=>set('iw_sw_cway',v)} label="" unit="No" />
-        </LinkedField>
-        <BQNum value={inputs.iw_sw_fw}    onChange={v=>set('iw_sw_fw',v)}    label="SW — F'way"  unit="No" />
-        <BQNum value={inputs.iw_sse_cway} onChange={v=>set('iw_sse_cway',v)} label="SSE — C'way" unit="No" />
-        <BQNum value={inputs.iw_sse_fw}   onChange={v=>set('iw_sse_fw',v)}   label="SSE — F'way" unit="No" />
-        <LinkedField label="BT — C'way" overridden={isOver('iw_bt_cway')}
-          derivedValue={inputs.iw_bt_cway} renderDisplay={v=>(+v||0)+' No'}
-          onOverride={()=>onOverride('iw_bt_cway', inputs.iw_bt_cway)}
-          onRelink={()=>onRelink('iw_bt_cway')}>
-          <BQNum value={inputs.iw_bt_cway} onChange={v=>set('iw_bt_cway',v)} label="" unit="No" />
-        </LinkedField>
-        <BQNum value={inputs.iw_bt_fw}    onChange={v=>set('iw_bt_fw',v)}    label="BT — F'way"  unit="No" />
-        <LinkedField label="Gas — C'way" overridden={isOver('iw_gas_cway')}
-          derivedValue={inputs.iw_gas_cway} renderDisplay={v=>(+v||0)+' No'}
-          onOverride={()=>onOverride('iw_gas_cway', inputs.iw_gas_cway)}
-          onRelink={()=>onRelink('iw_gas_cway')}>
-          <BQNum value={inputs.iw_gas_cway} onChange={v=>set('iw_gas_cway',v)} label="" unit="No" />
-        </LinkedField>
-        <BQNum value={inputs.iw_gas_fw}   onChange={v=>set('iw_gas_fw',v)}   label="Gas — F'way" unit="No" />
-      </div>
-      <LinkedField label="Gullies — reset (carriageway)" overridden={isOver('iw_gully_cway')}
-        derivedValue={inputs.iw_gully_cway} renderDisplay={v=>(+v||0)+' No'}
-        onOverride={()=>onOverride('iw_gully_cway', inputs.iw_gully_cway)}
-        onRelink={()=>onRelink('iw_gully_cway')}>
-        <BQNum value={inputs.iw_gully_cway} onChange={v=>set('iw_gully_cway',v)} label="" unit="No" />
-      </LinkedField>
-
-      {/* 05 Footways & Kerbs */}
-      <BQSectionLabel n="05" label="Footways & Kerbs" />
-      <LinkedField label="Footway area (m²)" overridden={isOver('footway_area')}
-        derivedValue={inputs.footway_area} renderDisplay={v=>(+v||0).toLocaleString()+' m²'}
-        onOverride={()=>onOverride('footway_area', inputs.footway_area)}
-        onRelink={()=>onRelink('footway_area')}>
-        <BQNum value={inputs.footway_area} onChange={v=>set('footway_area',v)} label="" unit="m²" />
-      </LinkedField>
-      {+inputs.footway_area > 0 && (
-        <>
-          <BQSelect value={inputs.fw_surface_tag} onChange={v=>set('fw_surface_tag',v)} label="Footway surface" options={MAT.FOOTWAY_SURFACE_OPTIONS} />
-          <BQToggle value={inputs.include_fw_subbase} onChange={v=>set('include_fw_subbase',v)} label="Include footway sub-base (150mm)" />
-        </>
-      )}
-      <LinkedField label="Kerb length (m)" overridden={isOver('kerb_length')}
-        derivedValue={inputs.kerb_length} renderDisplay={v=>(+v||0)+' m'}
-        onOverride={()=>onOverride('kerb_length', inputs.kerb_length)}
-        onRelink={()=>onRelink('kerb_length')}>
-        <BQNum value={inputs.kerb_length} onChange={v=>set('kerb_length',v)} label="" unit="m" />
-      </LinkedField>
-      {+inputs.kerb_length > 0 && (
-        <BQSelect value={inputs.kerb_type} onChange={v=>set('kerb_type',v)} label="Kerb type" options={MAT.KERB_OPTIONS} />
-      )}
-
-      {/* 06 Road markings */}
-      <BQSectionLabel n="06" label="Road Markings" />
-      <BQToggle value={inputs.include_markings} onChange={v=>set('include_markings',v)} label="Solid area markings (m²)" />
-      {inputs.include_markings && (
-        <BQNum value={inputs.markings_area} onChange={v=>set('markings_area',v)} label="Markings area (m²)" unit="m²" />
-      )}
-      <BQToggle value={inputs.include_line_marks} onChange={v=>set('include_line_marks',v)} label="Line markings 100mm (m)" />
-      {inputs.include_line_marks && (
-        <BQNum value={inputs.line_marks_m} onChange={v=>set('line_marks_m',v)} label="Total line length (m)" unit="m" />
-      )}
-    </div>
-  );
-};
-
-window.QuickInputRail = QuickInputRail;
+const E = window.BOQ_ENGINE;
 
 // ── LedgerRow ────────────────────────────────────────────────────────────────
 // One priced line with inline controls: qty edit, A/B/C band override,
@@ -816,21 +362,21 @@ const CatalogueDrawer = ({ open, onClose, onPick, recent = [] }) => {
 };
 
 // ── Top-level BoQTab ─────────────────────────────────────────────────────────
-const BoQTab = ({ schemeId }) => {
+const BoQTab = ({ schemeId, onOpenDesigner }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
   const boq    = scheme.boq || window.defaultBoq();
 
   const commit = (patch) => updateScheme(schemeId, { boq: { ...boq, ...patch } });
 
-  const [quickDirty, setQuickDirty]     = React.useState(false);
-  const [drawerOpen, setDrawerOpen]     = React.useState(false);
-  const [downloading, setDownloading]   = React.useState(false);
+  const [drawerOpen, setDrawerOpen]       = React.useState(false);
+  const [downloading, setDownloading]     = React.useState(false);
   const [downloadingTC, setDownloadingTC] = React.useState(false);
 
-  // Effective quick inputs = Master-derived values merged with user
-  // overrides. This is the single shape the rail renders and the engine
-  // prices against.
+  // Quick inputs are sourced entirely from scheme.design{} via the BoQ
+  // engine's deriveQuickInputsFromScheme. The override layer the old Quick
+  // Input rail managed has been removed — pricing-only edits live on the
+  // ledger lines themselves now.
   const effective = React.useMemo(
     () => E.effectiveQuickInputs(scheme, boq),
     [scheme, boq]
@@ -838,71 +384,32 @@ const BoQTab = ({ schemeId }) => {
 
   // Seed auto-lines once per scheme (first time .boq.touched is false).
   // Runs against `effective` so the initial BoQ reflects whatever the
-  // Master already says, without storing a copy of those values.
+  // Designer already says. We deliberately skip the seed when regen returns
+  // an empty list — flipping touched=true on an empty Designer would lock
+  // the user into clicking "Regenerate from Designer" later, which is a
+  // surprising failure mode. Wait until there's something to seed.
   React.useEffect(() => {
     if (boq.touched) return;
     const autoLines = E.regenAutoLines(effective);
+    if (autoLines.length === 0) return;
     commit({ custom_lines: autoLines, touched: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schemeId]);
+  }, [schemeId, effective]);
 
   const computed = React.useMemo(
     () => E.buildBoQLines({ ...boq, quick_inputs: effective }, scheme),
     [boq, effective, scheme]
   );
 
-  const handleApplyQuick = () => {
+  // Pull fresh auto-lines from the current Designer state, preserving any
+  // user-added custom (non-auto) lines so manually-priced ironwork or
+  // bespoke Series 6400 entries aren't lost. Triggered by the "Regenerate
+  // from Designer" button — needed when the designer adds a zone after the
+  // BoQ tab's first-mount auto-line seed has already run.
+  const regenerateFromDesigner = () => {
     const auto   = E.regenAutoLines(effective);
     const custom = (boq.custom_lines || []).filter(l => !l.auto);
     commit({ custom_lines: [...auto, ...custom] });
-    setQuickDirty(false);
-  };
-
-  // Called by the rail when a linked OR overridden field is edited. Always
-  // writes to quick_inputs; the override flag is managed separately by
-  // overrideField / relinkField.
-  const handleQuickChange = (qi) => {
-    commit({ quick_inputs: qi });
-    setQuickDirty(true);
-  };
-
-  // Flip a linked field into an overridden field. The stored value seeds
-  // from whatever the Master currently derives so the user's starting point
-  // is never surprising.
-  const overrideField = (key, currentValue) => {
-    const overrides = { ...(boq.overrides || {}), [key]: true };
-    const quick_inputs = { ...(boq.quick_inputs || {}), [key]: currentValue };
-    commit({ overrides, quick_inputs });
-    setQuickDirty(true);
-  };
-
-  // Drop the override for a field so it follows the Master again. The
-  // stored value is removed so stale data can't re-emerge later.
-  const relinkField = (key) => {
-    const overrides = { ...(boq.overrides || {}) };
-    delete overrides[key];
-    const quick_inputs = { ...(boq.quick_inputs || {}) };
-    delete quick_inputs[key];
-    commit({ overrides, quick_inputs });
-    setQuickDirty(true);
-  };
-
-  // Push an overridden BoQ value up to its Master field. Clears the
-  // override flag afterwards so the field follows the Master again.
-  const pushToMaster = (key, value) => {
-    const patch = E.schemePatchForOverride(key, value, scheme);
-    if (!patch) return;
-    // Merge scheme patch + cleared override in a single updateScheme call so
-    // the subsequent re-render sees a consistent state.
-    const overrides = { ...(boq.overrides || {}) };
-    delete overrides[key];
-    const quick_inputs = { ...(boq.quick_inputs || {}) };
-    delete quick_inputs[key];
-    updateScheme(schemeId, {
-      ...patch,
-      boq: { ...boq, overrides, quick_inputs },
-    });
-    setQuickDirty(true);
   };
 
   const editLine = (uid, patch) => {
@@ -996,32 +503,37 @@ const BoQTab = ({ schemeId }) => {
           downloading={downloading}
           onDownloadTC={handleDownloadTC}
           downloadingTC={downloadingTC}
-          onRelink={relinkField}
-          onPushToMaster={pushToMaster}
         />
       )}
 
-      <div className="boq-body">
-        <QuickInputRail
-          inputs={effective}
-          overrides={boq.overrides || {}}
-          dirty={quickDirty}
-          onChange={handleQuickChange}
-          onOverride={overrideField}
-          onRelink={relinkField}
-          onApply={handleApplyQuick}
-        />
-        <div style={{minWidth:0}}>
-          <BoQLedger
-            computed={computed}
-            onEditLine={editLine}
-            onDeleteLine={deleteLine}
-            onMoveLine={moveLine}
-            onDuplicateLine={duplicateLine}
-            onOpenCatalogue={() => setDrawerOpen(true)}
-          />
-        </div>
+      <div className="boq-designer-banner" style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+        background: 'var(--accent-wash)', border: '1px solid var(--accent)',
+        borderRadius: 'var(--radius-sm)', margin: '12px 0',
+        fontSize: 12, color: 'var(--accent-ink)',
+      }}>
+        <span style={{ flex: 1 }}>
+          Quantities are sourced from the <strong>Treatment Designer</strong> —
+          edit zones, ironworks, kerbs, lining or TM there. Use this tab to add
+          custom lines, adjust per-line bands, and tune BoQ-level settings.
+        </span>
+        {onOpenDesigner && (
+          <button className="btn sm" onClick={onOpenDesigner}>Open Designer →</button>
+        )}
+        <button className="btn sm" onClick={regenerateFromDesigner}
+          title="Replace auto-generated lines with a fresh pull from the Designer. Custom (non-auto) lines you've added are preserved.">
+          ↻ Regenerate from Designer
+        </button>
       </div>
+
+      <BoQLedger
+        computed={computed}
+        onEditLine={editLine}
+        onDeleteLine={deleteLine}
+        onMoveLine={moveLine}
+        onDuplicateLine={duplicateLine}
+        onOpenCatalogue={() => setDrawerOpen(true)}
+      />
 
       <CatalogueDrawer
         open={drawerOpen}
