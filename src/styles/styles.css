@@ -608,3 +608,97 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
 .boot-skel-table{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;min-height:240px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @media (max-width:768px){.boot-skel-sidebar{display:none}.boot-skel-cards{grid-template-columns:repeat(2,1fr)}}
+
+/* ─── Mobile-pass additions ──────────────────────────────────────────────── */
+
+/* iOS Safari: dvh accounts for the browser chrome / home indicator. The
+   100vh fallback stays for older browsers via the cascade. */
+.app{height:100vh;height:100dvh}
+
+/* New Scheme modal — was a hardcoded inline width:480 that broke on phones. */
+.modal.new-scheme-modal{width:min(520px,100%)}
+
+/* Treatment Designer surface-zones grid moved out of inline style so a
+   480px breakpoint can collapse it to a single column. */
+.td-zones-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.td-num-narrow{max-width:90px}
+
+/* BoQ ledger row — desktop grid lifted out of inline style so the
+   <600px media query can swap it for a card-stack layout. Padding +
+   border + alignment kept here too; only the dynamic background stays
+   inline (since it depends on warn / missing / alt state). */
+.boq-ledger-row{
+  display:grid;
+  grid-template-columns:76px minmax(0,1fr) 96px 44px 76px 92px 34px;
+  padding:5px 10px;
+  border-bottom:1px solid var(--line);
+  align-items:center;
+  position:relative;
+}
+
+/* Two-pane preview modal: tab-switched on mobile.
+   Desktop keeps the existing rsr-body grid behaviour unchanged. */
+.modal-tabs{display:none}
+
+@media (max-width:768px){
+  .modal-tabs{
+    display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--bg);z-index:2;
+  }
+  .modal-tab{
+    flex:1;padding:10px 12px;border:1px solid var(--line);background:var(--bg);
+    color:var(--ink-3);font-size:13px;font-weight:500;cursor:pointer;
+    border-radius:var(--radius-sm);min-height:44px;
+  }
+  .modal-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .rsr-body[data-pane="form"]    .rsr-preview-pane{display:none}
+  .rsr-body[data-pane="preview"] .rsr-side{display:none}
+  /* Modal head + foot keep clear of iOS notch / home indicator. */
+  .modal-head{padding-top:max(16px,env(safe-area-inset-top))}
+  .modal-foot{padding-bottom:max(14px,env(safe-area-inset-bottom))}
+}
+
+/* BoQ ledger card-stack at large-phone width and below. */
+@media (max-width:600px){
+  .boq-ledger-row{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    padding:10px 12px;
+  }
+  .boq-ledger-row > div{min-width:0}
+  /* keep the delete button (last child) anchored top-right */
+  .boq-ledger-row > div:last-child{position:absolute;top:6px;right:8px}
+}
+
+/* Hover-only affordances → also fire on tap for touch devices. Without
+   this, a phone tap on .nav-item / .chip / .btn / table row gives no
+   feedback because :hover requires hover capability. */
+@media (hover:none){
+  .nav-item:active{background:rgba(255,255,255,0.07);color:#dde0e6}
+  .chip:active{border-color:var(--line);color:var(--ink)}
+  .btn:active{background:var(--bg-sunken)}
+  .btn.ghost:active{background:var(--bg-sunken);color:var(--ink)}
+  .schemes tbody tr:active{background:var(--accent-wash)}
+  .portal-card:active{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+  .letter-recip:active{border-color:var(--accent)}
+  .tab:active{color:var(--ink)}
+  .ward-btn:active{border-color:var(--accent)}
+}
+
+/* Tap-target sweep — small interactive elements grow on phones. */
+@media (max-width:768px){
+  .btn-construct{width:36px;height:36px;font-size:14px}
+  .boq-chip{padding:8px 12px;min-height:36px}
+  /* mwb-row collapses to single column on tiny screens — the 200px
+     key column is already display:none at 768px, so the remaining
+     value+input pair stacks vertically. */
+}
+@media (max-width:480px){
+  .td-zones-grid{grid-template-columns:1fr}
+  .mwb-row{grid-template-columns:1fr}
+  .util-row,.util-row--tracker{grid-template-columns:1fr 1fr}
+}
+@media (max-width:360px){
+  .util-row,.util-row--tracker{grid-template-columns:1fr}
+}

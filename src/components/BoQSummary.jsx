@@ -217,7 +217,7 @@ const SettingsPopover = ({ boq, onClose, onSettingsChange }) => {
             }} style={{fontSize:11,flex:1}}>
               {BERR_PRESETS.map(p => <option key={p.value} value={p.value}>{p.label} · ×{p.value.toFixed(3)}</option>)}
             </select>
-            <input type="number" step="0.001" min="0.5" max="2" className="mono"
+            <input type="number" inputMode="decimal" step="0.001" min="0.5" max="2" className="mono"
               value={s.berrIndex} onChange={e=>set({berrIndex:+e.target.value,berrDate:'Custom'})}
               style={{width:70,fontSize:11}} />
           </div>
@@ -231,7 +231,7 @@ const SettingsPopover = ({ boq, onClose, onSettingsChange }) => {
             <input type="checkbox" checked={!!add.enabled} onChange={e=>setPctAdd(key,{enabled:e.target.checked})}
               style={{accentColor:'var(--accent)',flexShrink:0}} />
             <span style={{fontSize:11,flex:1}}>{add.label || key}</span>
-            <input type="number" step="0.01" min="0" className="mono"
+            <input type="number" inputMode="decimal" step="0.01" min="0" className="mono"
               value={(+add.pct * 100).toFixed(2).replace(/\.?0+$/,'')}
               onChange={e=>setPctAdd(key,{pct:(+e.target.value)/100})}
               style={{width:60,fontSize:11,textAlign:'right'}} />

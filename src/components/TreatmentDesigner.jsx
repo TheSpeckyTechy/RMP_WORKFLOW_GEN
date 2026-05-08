@@ -203,7 +203,7 @@ const TDZonesPanel = ({ scheme, write }) => {
             <button className="btn ghost sm" onClick={() => rmZone(zone.id)} title="Remove zone"><window.Icon.X /></button>
           </div>
 
-          <div style={{ padding: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div className="td-zones-grid" style={{ padding: 14 }}>
             <div className="field">
               <label>Surface treatment</label>
               <select value={zone.surface} onChange={e => updZone(zone.id, { surface: e.target.value })}>
@@ -213,17 +213,17 @@ const TDZonesPanel = ({ scheme, write }) => {
             </div>
             <div className="field">
               <label>Area (m²)</label>
-              <input type="number" className="mono" value={zone.area_m2}
+              <input type="number" inputMode="decimal" className="mono" value={zone.area_m2}
                 onChange={e => updZone(zone.id, { area_m2: +e.target.value || 0 })} />
             </div>
             <div className="field">
               <label>Total depth (mm)</label>
-              <input type="number" className="mono" value={zone.depth_mm}
+              <input type="number" inputMode="decimal" className="mono" value={zone.depth_mm}
                 onChange={e => updZone(zone.id, { depth_mm: +e.target.value || 0 })} />
             </div>
             <div className="field">
               <label>Milling depth (mm)</label>
-              <input type="number" className="mono" value={zone.milling_depth_mm}
+              <input type="number" inputMode="decimal" className="mono" value={zone.milling_depth_mm}
                 onChange={e => updZone(zone.id, { milling_depth_mm: +e.target.value || 0 })} />
             </div>
 
@@ -242,7 +242,7 @@ const TDZonesPanel = ({ scheme, write }) => {
                       style={{ flex: 1, fontSize: 11, maxWidth: 280 }}>
                       {TD_BINDER_OPTIONS.map(o => <option key={o.tag} value={o.tag}>{o.label}</option>)}
                     </select>
-                    <input type="number" className="mono" placeholder="depth mm" style={{ width: 70, fontSize: 11 }}
+                    <input type="number" inputMode="decimal" className="mono" placeholder="depth mm" className="td-num-narrow" style={{ fontSize: 11 }}
                       value={zone.binder_depth_mm}
                       onChange={e => updZone(zone.id, { binder_depth_mm: +e.target.value || 0 })} />
                   </>
@@ -263,7 +263,7 @@ const TDZonesPanel = ({ scheme, write }) => {
                       style={{ flex: 1, fontSize: 11, maxWidth: 280 }}>
                       {TD_BASE_OPTIONS.map(o => <option key={o.tag} value={o.tag}>{o.label}</option>)}
                     </select>
-                    <input type="number" className="mono" placeholder="depth mm" style={{ width: 70, fontSize: 11 }}
+                    <input type="number" inputMode="decimal" className="mono" placeholder="depth mm" className="td-num-narrow" style={{ fontSize: 11 }}
                       value={zone.base_depth_mm}
                       onChange={e => updZone(zone.id, { base_depth_mm: +e.target.value || 0 })} />
                   </>
@@ -279,7 +279,7 @@ const TDZonesPanel = ({ scheme, write }) => {
                   Sub-base
                 </label>
                 {zone.includes_subbase && (
-                  <input type="number" className="mono" placeholder="depth mm" style={{ width: 70, fontSize: 11 }}
+                  <input type="number" inputMode="decimal" className="mono" placeholder="depth mm" className="td-num-narrow" style={{ fontSize: 11 }}
                     value={zone.subbase_depth_mm}
                     onChange={e => updZone(zone.id, { subbase_depth_mm: +e.target.value || 0 })} />
                 )}
@@ -351,7 +351,7 @@ const TDIronworksPanel = ({ scheme, write }) => {
   const Counter = ({ section, k, label }) => (
     <div className="field">
       <label>{label}</label>
-      <input type="number" className="mono" min="0" value={iw[section]?.[k] || 0}
+      <input type="number" inputMode="decimal" className="mono" min="0" value={iw[section]?.[k] || 0}
         onChange={e => setSection(section, { [k]: Math.max(0, +e.target.value || 0) })} />
     </div>
   );
@@ -418,7 +418,7 @@ const TDKerbsPanel = ({ scheme, write }) => {
           </div>
           <div className="field">
             <label>Length (m)</label>
-            <input type="number" className="mono" min="0" value={k.length_m}
+            <input type="number" inputMode="decimal" className="mono" min="0" value={k.length_m}
               onChange={e => updKerb(k.id, { length_m: Math.max(0, +e.target.value || 0) })} />
           </div>
           <button className="btn ghost sm" onClick={() => rmKerb(k.id)} title="Remove kerb row" style={{ marginBottom: 2 }}><window.Icon.X /></button>
@@ -478,7 +478,7 @@ const TDLiningPanel = ({ scheme, write }) => {
             </div>
             <div className="field">
               <label>Quantity</label>
-              <input type="number" className="mono" min="0" value={r.quantity}
+              <input type="number" inputMode="decimal" className="mono" min="0" value={r.quantity}
                 onChange={e => updRow(r.id, { quantity: Math.max(0, +e.target.value || 0) })} />
             </div>
             <div className="field">
@@ -528,12 +528,12 @@ const TDTMPanel = ({ scheme, write }) => {
         </div>
         <div className="field">
           <label>Phases</label>
-          <input type="number" className="mono" min="1" value={tm.phases || 1}
+          <input type="number" inputMode="numeric" className="mono" min="1" value={tm.phases || 1}
             onChange={e => setTm({ phases: Math.max(1, +e.target.value || 1) })} />
         </div>
         <div className="field">
           <label>Duration (working days)</label>
-          <input type="number" className="mono" min="0" value={tm.duration_days ?? ''} placeholder="auto from dates"
+          <input type="number" inputMode="numeric" className="mono" min="0" value={tm.duration_days ?? ''} placeholder="auto from dates"
             onChange={e => setTm({ duration_days: e.target.value === '' ? null : Math.max(0, +e.target.value || 0) })} />
         </div>
         <div className="field">
