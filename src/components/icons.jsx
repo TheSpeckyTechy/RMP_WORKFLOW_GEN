@@ -38,7 +38,22 @@ const fmtGBP = (n) => "£" + Number(n).toLocaleString("en-GB", { maximumFraction
 const fmtDate = (iso) => { const d = new Date(iso); return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }); };
 const STATUS_LABELS = { design: "In Design", review: "In Review", ready: "Ready to Issue", works: "On Site", archived: "Archived", constructed: "Constructed" };
 
-const htmlToPdf = async (element, filename) => {
+// Render an offscreen DOM element into one or more A4 pages.
+//
+// The naive paginator is `for y in [0, pageH, 2*pageH, …) addImage`, but that
+// produces nasty artefacts for documents that *almost* fit on one page:
+// the Front Sheet renders to ~1130px tall (one mm over A4), the RSR renders
+// just past A4 because of its image grid, and both used to spill onto a
+// blank-looking second page in the compiled handover pack.
+//
+// The fix: if the content is within ~12% of one A4 page, scale it down to
+// fit a single page (preserving aspect ratio). Otherwise paginate as
+// before. The threshold is generous enough to absorb common DOM rounding
+// (sub-pixel cell heights, table border collapse) without compressing
+// genuinely multi-page documents into a tiny single page.
+const SINGLE_PAGE_TOLERANCE = 1.12;
+
+const _renderToPdf = async (element) => {
   if (!window.html2canvas || !window.jspdf) throw new Error('PDF libraries not loaded');
   const { jsPDF } = window.jspdf;
   const canvas = await window.html2canvas(element, {
@@ -47,32 +62,32 @@ const htmlToPdf = async (element, filename) => {
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pageW = 210, pageH = 297;
   const imgData = canvas.toDataURL('image/jpeg', 0.92);
-  const imgH = (canvas.height * pageW) / canvas.width;
-  let y = 0;
-  while (y < imgH) {
-    if (y > 0) pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, -y, pageW, imgH);
-    y += pageH;
+  const fullImgH = (canvas.height * pageW) / canvas.width;
+
+  if (fullImgH <= pageH * SINGLE_PAGE_TOLERANCE) {
+    // Single-page document — scale to fit one A4 (no spill, no blank page).
+    const fittedH = Math.min(fullImgH, pageH);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pageW, fittedH);
+  } else {
+    // Multi-page document — paginate by sliding the same image up one
+    // page-height at a time. Each addImage clip-renders the visible band.
+    let y = 0;
+    while (y < fullImgH) {
+      if (y > 0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, -y, pageW, fullImgH);
+      y += pageH;
+    }
   }
+  return pdf;
+};
+
+const htmlToPdf = async (element, filename) => {
+  const pdf = await _renderToPdf(element);
   pdf.save(filename);
 };
 
 const htmlToPdfBuffer = async (element) => {
-  if (!window.html2canvas || !window.jspdf) throw new Error('PDF libraries not loaded');
-  const { jsPDF } = window.jspdf;
-  const canvas = await window.html2canvas(element, {
-    scale: 2, backgroundColor: '#ffffff', useCORS: true, allowTaint: true, logging: false,
-  });
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const pageW = 210, pageH = 297;
-  const imgData = canvas.toDataURL('image/jpeg', 0.92);
-  const imgH = (canvas.height * pageW) / canvas.width;
-  let y = 0;
-  while (y < imgH) {
-    if (y > 0) pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, -y, pageW, imgH);
-    y += pageH;
-  }
+  const pdf = await _renderToPdf(element);
   return pdf.output('arraybuffer');
 };
 
