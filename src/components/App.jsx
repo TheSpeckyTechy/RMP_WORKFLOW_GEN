@@ -77,6 +77,14 @@ function dataUrlToBuffer(dataUrl) {
   return bytes.buffer;
 }
 
+// Pack-compile build tag. Bumped each time the GenerateModal logic changes
+// so we can prove from a screenshot which version of the code is running —
+// the modal renders this in the footer. If the tag below doesn't match the
+// `?v=` query in index.html for App.jsx, the browser is serving stale code
+// (cache, service worker, or stale deploy) and any "still failing" reports
+// are about the old logic.
+const PACK_BUILD_TAG = 'pack-single-doc-v2';
+
 const GenerateModal = ({ scheme, onClose }) => {
   // status per section: 'pending' | 'active' | 'done' | 'skipped' | 'error'
   // Letter is excluded — requires recipient list (mail-merge workflow). The
@@ -96,6 +104,8 @@ const GenerateModal = ({ scheme, onClose }) => {
     setSteps(prev => prev.map(s => s.key === key ? { ...s, status, note } : s));
 
   React.useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.info(`[Pack compile] build tag: ${PACK_BUILD_TAG}`);
     (async () => {
       if (!window.PDFLib) {
         setPackError('pdf-lib not loaded — refresh the page and try again.');
@@ -163,7 +173,7 @@ const GenerateModal = ({ scheme, onClose }) => {
         } catch (e) {
           console.warn(`Pack compile — ${section.name}:`, e);
           skip.push(section.name);
-          markStep(section.key, 'error', e.message.slice(0, 60));
+          markStep(section.key, 'error', e.message);
         }
       }
 
@@ -201,7 +211,7 @@ const GenerateModal = ({ scheme, onClose }) => {
         } catch (e) {
           console.warn('Pack compile — Front Sheet:', e);
           skip.push(FRONT_DOC.name);
-          markStep('front', 'error', e.message.slice(0, 80));
+          markStep('front', 'error', e.message);
         }
       }
 
@@ -319,6 +329,7 @@ const GenerateModal = ({ scheme, onClose }) => {
         <div className="modal-foot">
           <div style={{ fontSize: 11, color: "var(--ink-3)", flex: 1 }}>
             Individual source files (DOCX / XLSX) — download from Pack tab document cards.
+            <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.7 }}>build {PACK_BUILD_TAG}</span>
           </div>
           <button className="btn primary" onClick={onClose} disabled={!finished}>
             {finished ? 'Done' : 'Working…'}
