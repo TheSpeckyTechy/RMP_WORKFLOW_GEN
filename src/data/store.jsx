@@ -48,7 +48,7 @@ window.WARDS = [
 // Default shape for the BoQ tab. Quantities are derived from scheme.design{}
 // at render time by the BoQ engine — this record only carries the things
 // the BoQ tab itself owns: custom (user-added) lines, recent catalogue
-// picks, BERR/VAT/percent-addition settings, and the touched flag that
+// picks, BERR/percent-addition settings, and the touched flag that
 // gates first-mount auto-line seeding.
 window.defaultBoq = () => ({
   // User-added (custom) lines only. Auto-lines are derived from the

@@ -3,10 +3,10 @@
 //   1. Project header card
 //   2. Cost breakdown bar (SVG stacked)
 //   3. Series cards grid (click a card to expand its line list)
-//   4. Grand total adjustment ladder (subtotal → additions → BERR → PWP → VAT → total)
+//   4. Grand total adjustment ladder (subtotal → additions → BERR → PWP → total)
 //   5. Rates & adjustments footer (small-print context)
 //
-// Also renders a settings popover for the BERR / VAT / % Additions controls,
+// Also renders a settings popover for the BERR / % Additions controls,
 // since those live visibly next to the totals they affect.
 //
 // Exports: window.BoQSummary
@@ -56,7 +56,7 @@ const ProjectHeader = ({ scheme, computed, onDownload, downloading, onDownloadTC
       </div>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
         <div style={{textAlign:'right',marginRight:4}}>
-          <div style={{fontSize:10,color:'var(--ink-3)',textTransform:'uppercase',letterSpacing:'0.07em'}}>Total inc VAT</div>
+          <div style={{fontSize:10,color:'var(--ink-3)',textTransform:'uppercase',letterSpacing:'0.07em'}}>BoQ Total</div>
           <div className="mono" style={{fontSize:20,fontWeight:700,letterSpacing:'-0.02em'}}>{_E.fmtGBP(computed.totalIncVat)}</div>
         </div>
         <button className="btn" onClick={onDownloadTC} disabled={downloadingTC || !computed.lines?.length}
@@ -175,7 +175,7 @@ const SeriesCardGrid = ({ groups, subtotal }) => {
   );
 };
 
-// ── Settings popover (BERR / VAT / % additions) ──────────────────────────────
+// ── Settings popover (BERR / % additions) ──────────────────────────────
 const SettingsPopover = ({ boq, onClose, onSettingsChange }) => {
   const s = boq.settings || {};
   const set = (patch) => onSettingsChange({ ...s, ...patch });
@@ -240,23 +240,6 @@ const SettingsPopover = ({ boq, onClose, onSettingsChange }) => {
         ))}
       </div>
 
-      <div style={{marginBottom:4}}>
-        <div style={{fontSize:11,fontWeight:600,color:'var(--ink-2)',marginBottom:6}}>VAT Rate</div>
-        <div style={{display:'flex',gap:4}}>
-          {[0, 0.05, 0.20].map(v => (
-            <button key={v}
-              className={"btn ghost sm" + (+s.vatRate === v ? " active" : "")}
-              onClick={() => set({vatRate: v})}
-              style={{fontSize:11, padding:'3px 8px',
-                background: +s.vatRate === v ? 'var(--accent)' : undefined,
-                color:      +s.vatRate === v ? 'white' : undefined,
-              }}>
-              {(v*100).toFixed(0)}%
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div style={{marginTop:14,paddingTop:10,borderTop:'1px solid var(--line)'}}>
         <div style={{fontSize:11,fontWeight:600,color:'var(--ink-2)',marginBottom:6}}>Force Area Band</div>
         <div style={{display:'flex',gap:4}}>
@@ -291,7 +274,7 @@ const GrandTotalPanel = ({ computed, boq, onSettingsChange }) => {
         </button>
       </div>
 
-      <div className="row"><span>Subtotal (ex-VAT)</span><span className="mono">{_E.fmtGBP(computed.subtotal)}</span></div>
+      <div className="row"><span>Subtotal</span><span className="mono">{_E.fmtGBP(computed.subtotal)}</span></div>
 
       {computed.adjustments.map(a => (
         <div key={a.key} className="row">
@@ -314,15 +297,8 @@ const GrandTotalPanel = ({ computed, boq, onSettingsChange }) => {
         </div>
       )}
 
-      {computed.vatRate > 0 && (
-        <div className="row">
-          <span>+ VAT ({(computed.vatRate*100).toFixed(0)}%)</span>
-          <span className="mono">{_E.fmtGBP(computed.vat)}</span>
-        </div>
-      )}
-
       <div className="row final">
-        <span>TOTAL {computed.vatRate > 0 ? 'incl. VAT' : 'ex-VAT'}</span>
+        <span>TOTAL</span>
         <span className="mono">{_E.fmtGBP(computed.totalIncVat)}</span>
       </div>
 

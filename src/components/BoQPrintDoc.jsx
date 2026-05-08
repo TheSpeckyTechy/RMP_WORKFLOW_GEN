@@ -6,7 +6,7 @@
 // linear A4-friendly doc:
 //
 //   1. Header band  — project ref, road, ward, area, date
-//   2. Totals card  — subtotal → additions → BERR → PWP → VAT → total
+//   2. Totals card  — subtotal → additions → BERR → PWP → total
 //   3. Series cards — one row per Series with subtotal + % share
 //   4. Priced lines — full ledger grouped by Series; each row shows id,
 //                     description, qty, unit, rate (band shown as suffix),
@@ -46,7 +46,7 @@ const BoQPrintDoc = ({ scheme, computed }) => {
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 9, textTransform: 'uppercase', color: '#888', letterSpacing: '0.07em' }}>Total inc VAT</div>
+            <div style={{ fontSize: 9, textTransform: 'uppercase', color: '#888', letterSpacing: '0.07em' }}>BoQ Total</div>
             <div style={{ ...mono, fontSize: 18, fontWeight: 700 }}>{fmtGBP(computed.totalIncVat || 0)}</div>
           </div>
         </div>
@@ -63,7 +63,7 @@ const BoQPrintDoc = ({ scheme, computed }) => {
         <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: '#666', letterSpacing: '0.07em', marginBottom: 6 }}>Totals</div>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
           <tbody>
-            <tr><td style={{ padding: '2px 0' }}>Subtotal (ex VAT)</td><td style={{ ...mono, textAlign: 'right' }}>{fmtGBP(subtotal)}</td></tr>
+            <tr><td style={{ padding: '2px 0' }}>Subtotal</td><td style={{ ...mono, textAlign: 'right' }}>{fmtGBP(subtotal)}</td></tr>
             {(computed.adjustments || []).map(a => (
               <tr key={a.key}>
                 <td style={{ padding: '2px 0' }}>+ {a.label} <span style={{ color: '#888' }}>({fmtPct(a.pct)})</span></td>
@@ -82,14 +82,8 @@ const BoQPrintDoc = ({ scheme, computed }) => {
                 <td style={{ ...mono, textAlign: 'right', color: '#555' }}>{fmtGBP(computed.pwp || 0)}</td>
               </tr>
             )}
-            {+computed.vatRate > 0 && (
-              <tr>
-                <td style={{ padding: '2px 0' }}>+ VAT ({((+computed.vatRate || 0) * 100).toFixed(0)}%)</td>
-                <td style={{ ...mono, textAlign: 'right' }}>{fmtGBP(computed.vat || 0)}</td>
-              </tr>
-            )}
             <tr style={{ borderTop: '2px solid #1a3a5c' }}>
-              <td style={{ padding: '6px 0 2px', fontWeight: 700, fontSize: 11 }}>TOTAL {(+computed.vatRate || 0) > 0 ? 'incl. VAT' : 'ex VAT'}</td>
+              <td style={{ padding: '6px 0 2px', fontWeight: 700, fontSize: 11 }}>TOTAL</td>
               <td style={{ ...mono, textAlign: 'right', fontWeight: 700, fontSize: 11 }}>{fmtGBP(computed.totalIncVat || 0)}</td>
             </tr>
           </tbody>

@@ -82,7 +82,7 @@ function dataUrlToBuffer(dataUrl) {
 // version is running — the modal footer renders this. If the tag
 // below doesn't match the actual deployed code, the browser is on a
 // stale cache and any "still failing" report is about old logic.
-const PACK_BUILD_TAG = 'pack-page-numbers';
+const PACK_BUILD_TAG = 'no-vat-boq-cover';
 
 const GenerateModal = ({ scheme, onClose }) => {
   // status per section: 'pending' | 'active' | 'done' | 'skipped' | 'error'

@@ -319,9 +319,9 @@
 
   // ── buildBoQLines ──────────────────────────────────────────────────────────
   // Price every line in boq.custom_lines, group by series, apply Series 6400
-  // percentage additions, BERR index and VAT to produce the totals ladder.
+  // percentage additions and BERR index to produce the totals ladder.
   //
-  //   Subtotal (ex-VAT) → + Series 6400 additions → × BERR → PWP → + VAT → Total
+  //   Subtotal → + Series 6400 additions → × BERR → PWP → Total
   function buildBoQLines(boq, scheme) {
     if (!boq) return emptyResult();
     const settings  = (boq.settings  || {});
@@ -389,9 +389,13 @@
     const berrIndex = settings.useBERR ? (+settings.berrIndex || 1) : 1;
     const berrAdjustmentAmt = runningAfterAdds * (berrIndex - 1);
     const pwp = runningAfterAdds + berrAdjustmentAmt;   // Works value
-    const vatRate = +settings.vatRate || 0;
-    const vat = pwp * vatRate;
-    const totalIncVat = pwp + vat;
+    // VAT removed — Dundee CC is a government body and doesn't apply
+    // VAT to its own works. The vatRate / vat / totalIncVat fields are
+    // retained on the result (with zero / pwp values) so persisted
+    // schemes and downstream consumers don't break.
+    const vatRate = 0;
+    const vat = 0;
+    const totalIncVat = pwp;
 
     return {
       groups,
