@@ -113,6 +113,35 @@ window.defaultBoq = () => ({
   touched: false,   // flipped to true once the designer has interacted
 });
 
+// Treatment Designer model — single source of truth for everything that ends
+// up in the BoQ. Master holds the canonical totals (carriageway_area_m2,
+// footway_area_m2); the designer subdivides them into zones and adds the
+// ironworks / kerbs / lining / TM data the BoQ engine quantifies. Phase 1
+// keeps the legacy fields (treatments[], iron_*, kerb_length, tm_*) populated
+// alongside design{} via the SchemeContext migration shim; Phases 2-6 swap
+// every reader/writer onto design{} and strip the legacy fields.
+window.defaultDesign = () => ({
+  zones: [],
+  ironworks: {
+    cway:  { mh: 0, water: 0, bt: 0, gas: 0, gullies: 0 },
+    fway:  { mh: 0, water: 0, bt: 0, gas: 0 },
+    raise: { mh: 0, water: 0, bt: 0, gas: 0, gullies: 0 },
+  },
+  kerbs:  [],
+  lining: [],
+  tm: {
+    type: '',
+    hours: '',
+    phases: 1,
+    diversion_by: '',
+    compound: '',
+    duration_days: null,
+  },
+  // Phase 2 designer flips this true on the first user edit, which freezes
+  // the persisted shape so SchemeContext stops back-filling from legacy.
+  touched: false,
+});
+
 // Full scheme record — uses the exact named-range keys from the workbook
 const baseScheme = (overrides) => ({
   // 1. Scheme Identity
@@ -120,7 +149,11 @@ const baseScheme = (overrides) => ({
   road_name: "",
   project_number: "",
   financial_year: "2026/27",
-  area_m2: 0,
+  // Canonical sketch totals. Carriageway and footway are tracked separately
+  // so a junction or mixed scheme can populate both. Designer zones must sum
+  // to whichever total matches their surface kind (warning, no auto-correct).
+  carriageway_area_m2: 0,
+  footway_area_m2:     0,
   scheme_extent: "",
   grid_ref: "",
   // 2. Treatment
@@ -227,6 +260,10 @@ const baseScheme = (overrides) => ({
   // above for shape. SchemeContext back-fills this for schemes loaded from
   // pre-v2 storage.
   boq: window.defaultBoq(),
+  // Treatment Designer state (Phase 1+). SchemeContext back-fills this from
+  // legacy fields (treatments[], iron_*, kerb_length, tm_*) on load so old
+  // schemes get a populated design{} without manual migration.
+  design: window.defaultDesign(),
   // Meta
   status: "design",
   packProgress: 0,
@@ -239,6 +276,12 @@ const baseScheme = (overrides) => ({
 
 window.baseScheme = baseScheme;
 
+// Total scheme footprint in m² — sum of carriageway + footway. Use anywhere
+// a single "scheme area" number is shown (Dashboard tile, BoQ chip, £/m²
+// denominator, etc.). For BoQ-engine math that needs the two split out, read
+// the underlying fields directly.
+window.schemeArea = (s) => (+s?.carriageway_area_m2 || 0) + (+s?.footway_area_m2 || 0);
+
 window.SCHEMES = [
   baseScheme({
     id: "R5008",
@@ -246,7 +289,7 @@ window.SCHEMES = [
     project_number: "R6016",
     scheme_extent: "Balgray Pl to Hindmarsh Ave",
     grid_ref: "340227 732142",
-    area_m2: 2370,
+    carriageway_area_m2: 2370,
     treatment_type: "HRA 30/14F surf 40/60",
     surface_depth_mm: 40, binder_depth_mm: 50, subbase_depth_mm: 10, total_depth_mm: 100,
     traffic_category: "Medium-High",
@@ -298,7 +341,7 @@ window.SCHEMES = [
     project_number: "",
     scheme_extent: "Arran Drive — whole length",
     grid_ref: "",
-    area_m2: 668,
+    carriageway_area_m2: 668,
     scheme_type: "Carriageway",
     treatment_type: "AC14 close binder 40/60",
     surface_depth_mm: 40, binder_depth_mm: 0, subbase_depth_mm: 0, total_depth_mm: 40,
@@ -372,7 +415,7 @@ window.SCHEMES = [
   baseScheme({ id:"PR011", road_name:"Guthrie Terrace", project_number:"R6083",
     scheme_type:"Carriageway",
     scheme_extent: "Guthrie Terrace Full Length",
-    area_m2: 2250,
+    carriageway_area_m2: 2250,
     grid_ref: "N04788931637",
     treatment_type:"AC10 Taycoat 100/150",
     surface_depth_mm: 40, binder_depth_mm: 0, subbase_depth_mm: 0, total_depth_mm: 40,
@@ -540,7 +583,8 @@ window.WORKBOOK_SCHEMA = [
     { key: "road_name", label: "Road Name", type: "text" },
     { key: "project_number", label: "Project Number", type: "text", mono: true },
     { key: "financial_year", label: "Financial Year", type: "text", mono: true },
-    { key: "area_m2", label: "Area (m²)", type: "number", mono: true },
+    { key: "carriageway_area_m2", label: "Carriageway Area (m²)", type: "number", mono: true },
+    { key: "footway_area_m2",     label: "Footway Area (m²)",     type: "number", mono: true },
     { key: "scheme_extent", label: "Scheme Extent", type: "text" },
     { key: "grid_ref", label: "Grid Reference", type: "text", mono: true },
   ]},
@@ -654,7 +698,10 @@ window.WORKBOOK_SCHEMA = [
   { section: "7. Budget & Tender", fields: [
     { key: "budget", label: "Budget Allocation (£)", type: "number", mono: true },
     { key: "tender_total", label: "Tender Total (£)", type: "number", mono: true },
-    { key: "cost_per_m2", label: "Cost per m² (£)", type: "calc", mono: true, formula: s => s.area_m2 ? (+s.tender_total / +s.area_m2).toFixed(2) : 0 },
+    { key: "cost_per_m2", label: "Cost per m² (£)", type: "calc", mono: true, formula: s => {
+      const total = (+s.carriageway_area_m2 || 0) + (+s.footway_area_m2 || 0);
+      return total ? (+s.tender_total / total).toFixed(2) : 0;
+    }},
     { key: "network_length", label: "Network Length (m)", type: "number", mono: true },
     { key: "budget_code", label: "Budget Code", type: "text", mono: true },
     { key: "cpp_ref", label: "CPP Reference", type: "text", mono: true },

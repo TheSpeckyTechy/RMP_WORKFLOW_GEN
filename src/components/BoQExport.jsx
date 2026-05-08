@@ -158,7 +158,7 @@
     const ext = scheme.scheme_extent ? ' — ' + scheme.scheme_extent : '';
     rows.push([cell('BILL OF QUANTITIES', S.title), blank(), blank(), blank(), blank(), blank(), blank()]);
     rows.push([cell((scheme.road_name || '') + ext, S.titleSub), blank(), blank(), blank(), blank(), blank(), blank()]);
-    rows.push([cell(`Ref ${scheme.project_number || '—'}  ·  ${scheme.ward_selected || 'Ward —'}  ·  ${(+scheme.area_m2 || 0).toLocaleString()} m²`, S.titleSub), blank(), blank(), blank(), blank(), blank(), blank()]);
+    rows.push([cell(`Ref ${scheme.project_number || '—'}  ·  ${scheme.ward_selected || 'Ward —'}  ·  ${window.schemeArea(scheme).toLocaleString()} m²`, S.titleSub), blank(), blank(), blank(), blank(), blank(), blank()]);
     rows.push(Array(7).fill(blank()));
 
     // Column header
@@ -275,7 +275,7 @@
 
     // Project meta — 2 column block
     const meta = [
-      ['Project ref',      scheme.project_number || '—',                'Area',        (+scheme.area_m2 || 0).toLocaleString() + ' m²'],
+      ['Project ref',      scheme.project_number || '—',                'Area',        window.schemeArea(scheme).toLocaleString() + ' m²'],
       ['Ward',             scheme.ward_selected ? `${scheme.ward_num} · ${scheme.ward_selected}` : '—', 'Treatment', scheme.treatment_type || '—'],
       ['Start',            scheme.date_start || '—',                   'Finish',      scheme.date_finish || '—'],
       ['Contractor',       scheme.contractor || '—',                   'Designer',    scheme.prepared_by || '—'],

@@ -45,7 +45,7 @@ const SchemeMobileCard = ({ scheme, onExpand, onBack, onGenerate }) => {
       </div>
       <div className="smc-meta">
         {[["Start date",scheme.date_start||"—"],["Finish date",scheme.date_finish||"—"],
-          ["Area",(+(scheme.area_m2)||0).toLocaleString()+" m²"],["Treatment",scheme.treatment_type||"—"],
+          ["Area",window.schemeArea(scheme).toLocaleString()+" m²"],["Treatment",scheme.treatment_type||"—"],
           ["Ward",scheme.ward||"—"],["TM type",scheme.tm_type||"—"]].map(([label,val])=>(
           <div key={label} className="smc-meta-item">
             <div className="smc-meta-label">{label}</div>
@@ -109,7 +109,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
           <h1 className="page-title">{scheme.road_name}</h1>
           <p className="page-sub" style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
             <span>{scheme.scheme_extent}</span>
-            <span>·</span><span className="mono">{(+scheme.area_m2).toLocaleString()} m²</span>
+            <span>·</span><span className="mono">{window.schemeArea(scheme).toLocaleString()} m²</span>
             <span>·</span><span>{scheme.treatment_type}</span>
             <span>·</span>
             <select
@@ -150,12 +150,13 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
           );
         }
         const zoneFlags = [];
-        if (scheme.treatments && scheme.treatments.length && +scheme.area_m2 > 0) {
+        if (scheme.treatments && scheme.treatments.length && window.schemeArea(scheme) > 0) {
           const zoneTotal = scheme.treatments.reduce((s, z) => s + (+z.area_m2 || 0), 0);
-          const diff = zoneTotal - (+scheme.area_m2 || 0);
+          const masterArea = window.schemeArea(scheme);
+          const diff = zoneTotal - masterArea;
           if (Math.abs(diff) > 0.5) {
             zoneFlags.push(
-              `Treatment zones sum to ${zoneTotal.toLocaleString()} m² but scheme area is ${(+scheme.area_m2).toLocaleString()} m² ` +
+              `Treatment zones sum to ${zoneTotal.toLocaleString()} m² but scheme area is ${masterArea.toLocaleString()} m² ` +
               `(${diff > 0 ? '+' : ''}${diff.toLocaleString()} m² ${diff > 0 ? 'over' : 'under'})`
             );
           }
@@ -225,7 +226,7 @@ const TreatmentTab = ({ schemeId }) => {
 
   // ── Treatment zones ──────────────────────────────────────────────────────────
   const TREATMENTS = ["HRA 30/14F surf 40/60","HRA 55/10F surf 40/60","AC14 close binder 40/60","AC10 Taycoat 100/150","AC6 dense 100/150","SMA 10 surf 40/60","Micro-asphalt","Other"];
-  const zones    = (scheme.treatments && scheme.treatments.length > 0) ? scheme.treatments : [{ id:1, zone:"Main carriageway", area_m2:+scheme.area_m2||0, depth_mm:+scheme.total_depth_mm||40, treatment_type:"" }];
+  const zones    = (scheme.treatments && scheme.treatments.length > 0) ? scheme.treatments : [{ id:1, zone:"Main carriageway", area_m2:window.schemeArea(scheme), depth_mm:+scheme.total_depth_mm||40, treatment_type:"" }];
   const setZones = (z) => {
     const zoneUpdates = {};
     for (let i = 0; i < 5; i++) {
@@ -253,7 +254,7 @@ const TreatmentTab = ({ schemeId }) => {
     updateScheme(schemeId, { treatment_type:treatment, total_depth_mm:zone.depth_mm, traffic_category:rec.category, treatments:zones.map(z => z.id===zone.id ? {...z, treatment_type:treatment} : z) });
   };
   const totalZoneArea = zones.reduce((s, z) => s + (+z.area_m2||0), 0);
-  const schemeArea    = +scheme.area_m2 || 0;
+  const schemeArea    = window.schemeArea(scheme);
   const areaDiff      = totalZoneArea - schemeArea;
 
   const FactorGroup = ({ factors }) => (
@@ -547,7 +548,7 @@ const FrontSheetDoc = ({ scheme }) => {
 
       {/* Status bar */}
       <div style={{background:statusColor,color:'white',padding:'12px 40px',display:'flex',gap:32,alignItems:'center',fontSize:12,flexWrap:'wrap'}}>
-        {[["Status",statusLabels[scheme.status]||scheme.status||'—'],["Treatment",scheme.treatment_type||'—'],["Area",`${(+scheme.area_m2||0).toLocaleString()} m²`],["Works Period",scheme.date_start&&scheme.date_finish?`${scheme.date_start} → ${scheme.date_finish}`:scheme.date_start||'—']].map(([l,v])=>(
+        {[["Status",statusLabels[scheme.status]||scheme.status||'—'],["Treatment",scheme.treatment_type||'—'],["Area",`${window.schemeArea(scheme).toLocaleString()} m²`],["Works Period",scheme.date_start&&scheme.date_finish?`${scheme.date_start} → ${scheme.date_finish}`:scheme.date_start||'—']].map(([l,v])=>(
           <div key={l}>
             <div style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.1em',opacity:0.8,marginBottom:2}}>{l}</div>
             <div style={{fontWeight:700}}>{v}</div>
@@ -718,7 +719,7 @@ const DocPreview = ({ docKey, scheme }) => {
       <div style={{height:12,background:'#3b82f6',margin:'3px 0',borderRadius:1,display:'flex',alignItems:'center',paddingLeft:3}}>
         <span style={{fontSize:3,color:'white',fontWeight:700}}>{(STATUS_LABELS[scheme.status]||scheme.status||'').toUpperCase()}</span>
       </div>
-      <div style={{fontSize:4,marginTop:3}}>Area: {(+scheme.area_m2||0).toLocaleString()} m²<br/>{scheme.date_start} → {scheme.date_finish}</div>
+      <div style={{fontSize:4,marginTop:3}}>Area: {window.schemeArea(scheme).toLocaleString()} m²<br/>{scheme.date_start} → {scheme.date_finish}</div>
     </div>
   );
   if(docKey==="rsr") return <div><div style={{background:"#1f4e79",color:"white",fontSize:5,padding:"2px 3px",fontWeight:700,textAlign:"center"}}>TEMPORARY ROAD CLOSURES</div><div style={{fontSize:4,marginTop:2,marginBottom:3,textAlign:"center",fontStyle:"italic",color:"#555"}}>Info sheet — Network Management</div><div style={{fontSize:4,color:"#1f4e79",fontWeight:700,marginTop:3}}>1. Applicant Details</div><div style={{fontSize:4}}>Applicant: {scheme.prepared_by}<br/>Road: {scheme.road_name}<br/>Ref: {scheme.project_number}</div></div>;

@@ -24,7 +24,7 @@ const exportRegister = (list) => {
   const rows = list.map(s => [
     s.project_number||"", s.road_name||"",
     s.ward_selected||"", s.treatment_type||"",
-    +s.area_m2||0, +s.tender_total||0,
+    window.schemeArea(s), +s.tender_total||0,
     window.STATUS_LABELS[s.status]||s.status,
     s.date_start||"", s.date_finish||"",
   ]);
@@ -84,7 +84,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
     live: activeSchemes.length,
     urgent: activeSchemes.filter(s => isUrgentScheme(s)).length,
     tender: activeSchemes.reduce((a,s) => a + (+s.tender_total||0), 0),
-    m2: activeSchemes.reduce((a,s) => a + (+s.area_m2||0), 0),
+    m2: activeSchemes.reduce((a,s) => a + (window.schemeArea(s)), 0),
     ready: activeSchemes.filter(s => s.packProgress === s.packTotal).length,
   };
   const filters = [
@@ -134,7 +134,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
                   <td className="mono" style={{fontSize:11,whiteSpace:'nowrap'}}>{s.date_start||'—'}</td>
                   <td><span className="mono" style={{fontSize:11,color:"var(--ink-3)"}}>W{ward?.num}</span> <span style={{fontSize:12}}>{ward?.name}</span></td>
                   <td style={{fontSize:12,color:"var(--ink-2)"}}>{s.treatment_type}<div className="row-sub">{s.total_depth_mm}mm · {s.scheme_type}</div></td>
-                  <td className="mono" style={{fontSize:12}}>{(+s.area_m2).toLocaleString()} m²</td>
+                  <td className="mono" style={{fontSize:12}}>{window.schemeArea(s).toLocaleString()} m²</td>
                   <td className="mono" style={{fontSize:12}}>{fmtGBP(+s.tender_total||0)}</td>
                   <td><div className="pack-bar"><div className="pack-bar-track"><div className={"pack-bar-fill "+(pct===100?"full":"")} style={{width:pct+"%"}}></div></div><div className="pack-bar-count">{s.packProgress}/{s.packTotal}</div></div></td>
                   <td><span className="mono" style={{fontSize:12,fontWeight:600,color:scoreColor}}>{score}%</span></td>

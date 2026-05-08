@@ -31,7 +31,7 @@ const MasterPreviewBar = ({ scheme }) => {
 
   if (!computed) return null;
 
-  const cwArea  = +scheme.carriageway_area_m2 || +(scheme.boq?.quick_inputs?.carriageway_area) || 0;
+  const cwArea  = window.schemeArea(scheme);
   const total   = +computed.totalIncVat || 0;
   const perM2   = cwArea > 0 ? total / cwArea : 0;
   const dominant = (computed.groups || []).slice().sort((a, b) => (+b.subtotal || 0) - (+a.subtotal || 0))[0];
@@ -104,7 +104,7 @@ const masterIssues = (scheme) => {
   const issues = [];
   if (!String(scheme.road_name || '').trim())                                    issues.push('Road name');
   if (!String(scheme.project_number || '').trim())                               issues.push('Project number');
-  if (!(+scheme.carriageway_area_m2 > 0))                                        issues.push('Carriageway area');
+  if (!(window.schemeArea(scheme) > 0))                                          issues.push('Scheme area');
   if (!scheme.ward_num || !String(scheme.ward_selected || '').trim())            issues.push('Ward');
   if (!Array.isArray(scheme.treatments) || scheme.treatments.length === 0)       issues.push('Treatment zones');
   if (!String(scheme.contractor || '').trim())                                   issues.push('Contractor');

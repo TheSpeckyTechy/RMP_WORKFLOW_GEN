@@ -506,7 +506,6 @@
   // effectively feeds the BoQ without the designer re-entering anything.
   function deriveQuickInputsFromScheme(scheme) {
     const s = scheme || {};
-    const isFootway = s.scheme_type === 'Footway';
     const wd = computeWorkingDays(s.date_start, s.date_finish, s.working_pattern);
 
     const zones = (s.treatments || []).filter(z => +z.area_m2 > 0);
@@ -544,8 +543,8 @@
     const anyZoneNeedsBase   = zones.some(zoneNeedsBase);
 
     return {
-      carriageway_area:  isFootway ? 0 : (+s.area_m2 || 0),
-      footway_area:      isFootway ? (+s.area_m2 || 0) : 0,
+      carriageway_area:  +s.carriageway_area_m2 || 0,
+      footway_area:      +s.footway_area_m2     || 0,
       surface_tag:       matchSurfaceTag(s.treatment_type),
       include_binder:    anyZoneNeedsBinder || +s.binder_depth_mm  > 0,
       include_base:      anyZoneNeedsBase,
@@ -617,8 +616,8 @@
     const num = () => +overrideValue || 0;
     const bool = () => !!overrideValue;
     switch (key) {
-      case 'carriageway_area': return { area_m2: num() };
-      case 'footway_area':     return { area_m2: num() };   // footway schemes store area here too
+      case 'carriageway_area': return { carriageway_area_m2: num() };
+      case 'footway_area':     return { footway_area_m2:     num() };
       case 'kerb_length':      return { kerb_length: num() };
       case 'subbase_depth':    return { subbase_depth_mm: num() };
       case 'milling_depth':    return { surface_depth_mm: num() };

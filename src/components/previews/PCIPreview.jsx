@@ -88,7 +88,7 @@ const buildAutoDescription = (scheme) => {
     const total = zones.reduce((s,z)=>s+(+z.area_m2),0);
     lines.push(`Total scheme area: ${total.toLocaleString()} m².`);
   } else {
-    const area = +scheme.area_m2;
+    const area = window.schemeArea(scheme);
     if (area > 0) lines.push(`Total scheme area: ${area.toLocaleString()} m².`);
     if (+scheme.surface_depth_mm > 0) lines.push(`Surface course: ${treatment} at ${scheme.surface_depth_mm}mm nominal depth.`);
     if (+scheme.binder_depth_mm > 0)  lines.push(`Binder course: ${scheme.binder_depth_mm}mm.`);

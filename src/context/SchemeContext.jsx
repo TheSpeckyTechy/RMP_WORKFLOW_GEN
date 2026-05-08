@@ -25,6 +25,73 @@ const lsSet    = (id, s) => { try { localStorage.setItem(LS_PREFIX + id, JSON.st
 const lsGetIds = ()    => { try { const v = localStorage.getItem(LS_IDS); return v ? JSON.parse(v) : []; } catch { return []; } };
 const lsSetIds = (ids) => { try { localStorage.setItem(LS_IDS, JSON.stringify(ids)); } catch {} };
 
+// Build the Treatment Designer model (scheme.design) from the legacy fields
+// it replaces — treatments[] for zones, iron_* for ironworks, kerb_length
+// for kerbs, tm_* for traffic management. Used by withDesign during the
+// silent migration; also called when a fresh scheme has no design{} yet.
+const deriveDesignFromLegacy = (s) => ({
+  zones: (s.treatments || []).map((t, i) => ({
+    id:               t.id || (1000 + i + 1),
+    label:            t.zone || '',
+    surface:          t.treatment_type || s.treatment_type || '',
+    area_m2:          +t.area_m2 || 0,
+    depth_mm:         +t.depth_mm || +s.surface_depth_mm || 40,
+    milling_depth_mm: +t.depth_mm || +s.surface_depth_mm || 40,
+    includes_binder:  +s.binder_depth_mm > 0,
+    includes_base:    false,
+    includes_subbase: +s.subbase_depth_mm > 0,
+    binder_depth_mm:  +s.binder_depth_mm || 0,
+    base_depth_mm:    0,
+    subbase_depth_mm: +s.subbase_depth_mm || 0,
+  })),
+  ironworks: {
+    cway:  { mh: +s.iron_mh||0, water: +s.iron_water||0, bt: +s.iron_bt||0, gas: +s.iron_gas||0, gullies: +s.iron_gullies||0 },
+    fway:  { mh: 0, water: 0, bt: 0, gas: 0 },
+    raise: { mh: 0, water: 0, bt: 0, gas: 0, gullies: 0 },
+  },
+  kerbs:  +s.kerb_length > 0 ? [{ id: 1, type: 'K1 (kerb laid)', length_m: +s.kerb_length }] : [],
+  lining: [],
+  tm: {
+    type:          s.tm_type || '',
+    hours:         s.tm_hours || '',
+    phases:        +s.tm_phases || 1,
+    diversion_by:  s.tm_diversion_by || '',
+    compound:      s.tm_compound || '',
+    duration_days: null,
+  },
+});
+
+// Silent migration: rename the pre-Phase-1 area_m2 field into the explicit
+// carriageway_area_m2 / footway_area_m2 split, and back-fill scheme.design
+// from legacy treatment / ironwork / kerb / TM fields. Persists on the first
+// updateScheme call.
+const withDesign = (s) => {
+  if (!s) return s;
+  let next = s;
+
+  // 1. area_m2 → carriageway_area_m2 / footway_area_m2. The legacy field is
+  //    left in place so any unmigrated readers keep working through Phase 1.
+  const hasNewArea = next.carriageway_area_m2 != null || next.footway_area_m2 != null;
+  if (next.area_m2 != null && !hasNewArea) {
+    const isFootway = next.scheme_type === 'Footway';
+    next = {
+      ...next,
+      carriageway_area_m2: isFootway ? 0 : (+next.area_m2 || 0),
+      footway_area_m2:     isFootway ? (+next.area_m2 || 0) : 0,
+    };
+  }
+
+  // 2. design{} back-fill. The Phase-2 designer flips design.touched=true on
+  //    first user edit, which freezes the persisted shape. Until then we
+  //    re-derive from legacy on every load so the mirror stays current as
+  //    designers edit treatments[] / iron_* / tm_* via the legacy UI.
+  if (!next.design || !next.design.touched) {
+    next = { ...next, design: { ...deriveDesignFromLegacy(next), touched: false } };
+  }
+
+  return next;
+};
+
 // Silent migration: ensure every scheme loaded from storage has a .boq that
 // matches the current shape — per-layer areas, milling_entries, and
 // Master-linked override flags. Persists on the first updateScheme call.
@@ -108,10 +175,15 @@ const withBoq = (s) => {
   return boq === s.boq ? s : { ...s, boq };
 };
 
+// Order matters: withDesign renames area_m2 → carriageway_area_m2/footway_area_m2,
+// and withBoq's override-detection reads those fields via the BoQ engine when
+// back-filling boq.overrides. Run the rename first.
+const migrate = (s) => withBoq(withDesign(s));
+
 const initSchemes = () => {
-  const base = window.SCHEMES.map(s => { const saved = lsGet(s.id); return withBoq(saved ? { ...s, ...saved } : s); });
+  const base = window.SCHEMES.map(s => { const saved = lsGet(s.id); return migrate(saved ? { ...s, ...saved } : s); });
   const defaultIds = new Set(window.SCHEMES.map(s => s.id));
-  const extras = lsGetIds().filter(id => !defaultIds.has(id)).map(id => lsGet(id)).filter(Boolean).map(withBoq);
+  const extras = lsGetIds().filter(id => !defaultIds.has(id)).map(id => lsGet(id)).filter(Boolean).map(migrate);
   return [...extras, ...base];
 };
 
@@ -198,8 +270,8 @@ const SchemeProvider = ({ children }) => {
         const remoteMap = Object.fromEntries(rows.map(r => [r.id, r.data]));
         setSchemes(prev => {
           const localIds = new Set(prev.map(s => s.id));
-          const updated  = prev.map(s => remoteMap[s.id] ? withBoq({ ...s, ...remoteMap[s.id] }) : s);
-          const extras   = rows.filter(r => !localIds.has(r.id) && r.data).map(r => withBoq(r.data));
+          const updated  = prev.map(s => remoteMap[s.id] ? migrate({ ...s, ...remoteMap[s.id] }) : s);
+          const extras   = rows.filter(r => !localIds.has(r.id) && r.data).map(r => migrate(r.data));
           return extras.length ? [...extras, ...updated] : updated;
         });
       }

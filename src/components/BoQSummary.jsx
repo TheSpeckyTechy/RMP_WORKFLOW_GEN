@@ -119,7 +119,7 @@ const ProjectHeader = ({ scheme, boq, computed, onDownload, downloading, onDownl
         <div style={{fontSize:12,color:'var(--ink-3)',display:'flex',flexWrap:'wrap',gap:'6px 10px',alignItems:'center'}}>
           {scheme.scheme_extent && <span>{scheme.scheme_extent}</span>}
           {scheme.ward_selected && <><span>·</span><span>Ward {scheme.ward_num}: {scheme.ward_selected}</span></>}
-          {scheme.area_m2 > 0 && <><span>·</span><span className="mono">{(+scheme.area_m2).toLocaleString()} m²</span></>}
+          {window.schemeArea(scheme) > 0 && <><span>·</span><span className="mono">{window.schemeArea(scheme).toLocaleString()} m²</span></>}
           {scheme.date_start && <><span>·</span><span className="mono">{scheme.date_start}{scheme.date_finish ? ` → ${scheme.date_finish}` : ''}</span></>}
           {workingDays && <><span>·</span><span className="mono">{workingDays} wd</span></>}
           {scheme.treatment_type && <><span>·</span><span>{scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type}</span></>}
