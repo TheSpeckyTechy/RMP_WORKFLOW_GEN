@@ -55,7 +55,18 @@ function resolveValue(scheme, path) {
 }
 
 // ── Auto-description builder ──────────────────────────────────────────────────
-const pciWorkingDays = (dmyA, dmyB) => {
+// Working-day counter — routes through the BoQ engine's calendar walk so
+// the PCI auto-description, the RSR Duration cell, the BoQ summary chip
+// and the Designer TM panel all agree. The previous primitive ratio
+// formula gave 3 working days for Mon→Fri (real answer: 5) and 1 for
+// Mon→Wed (real answer: 3), which surfaced in generated packs as
+// "Works programme: 3 working days (15/06 to 19/06)".
+const pciWorkingDays = (dmyA, dmyB, pattern) => {
+  const E = window.BOQ_ENGINE;
+  if (E?.computeWorkingDays) return E.computeWorkingDays(dmyA, dmyB, pattern);
+  return _pciWorkingDaysLegacy(dmyA, dmyB);
+};
+const _pciWorkingDaysLegacy = (dmyA, dmyB) => {
   const p = s => { const [d,m,y]=(s||'').split('/'); return new Date(+y,+m-1,+d); };
   const a=p(dmyA), b=p(dmyB);
   if(isNaN(a)||isNaN(b)) return null;
@@ -76,15 +87,44 @@ const buildAutoDescription = (scheme) => {
   // Opening
   lines.push(`${scheme.scheme_type || 'Carriageway'} resurfacing of ${scheme.road_name}${ext}.`);
 
-  // Programme
-  const days = pciWorkingDays(scheme.date_start, scheme.date_finish);
+  // Programme — Designer's manual override (design.tm.duration_days) wins
+  // over the date-range walk so the PCI agrees with the Designer chip.
+  const designerDays = scheme?.design?.tm?.duration_days;
+  const days = (designerDays != null && designerDays !== '')
+    ? +designerDays
+    : pciWorkingDays(scheme.date_start, scheme.date_finish, scheme.working_pattern);
   const dateRange = [scheme.date_start, scheme.date_finish].filter(Boolean).join(' to ');
   if (days) lines.push(`Works programme: ${days} working day${days!==1?'s':''}${dateRange ? ` (${dateRange})` : ''}.`);
 
-  // Treatment zones — multiple zones get itemised, single zone collapses
-  // to the scheme-level summary line. Surface course depth is taken from
-  // the dominant zone's depth_mm; binder/sub-base lines fire when any
-  // zone has the matching Designer toggle on.
+  // Surface course depth = total inlay depth minus the structural layers
+  // beneath it (binder, sub-base — base sits between binder and sub-base
+  // and is included implicitly when total exceeds binder). For a single-
+  // zone scheme that's just total minus binder; for the multi-layer case
+  // the user has set the per-layer depths explicitly.
+  const surfaceDepthOf = (z) => {
+    const total = +z.depth_mm || 0;
+    const binder = z.includes_binder  ? (+z.binder_depth_mm  || 0) : 0;
+    const base   = z.includes_base    ? (+z.base_depth_mm    || 0) : 0;
+    const sub    = z.includes_subbase ? (+z.subbase_depth_mm || 0) : 0;
+    return Math.max(20, total - binder - base - sub);
+  };
+  // Look up the human-readable material label from the engine's option
+  // tables so binder/base lines name the chosen material rather than a
+  // bare depth. Falls back to the tag itself if the engine hasn't loaded.
+  const materialLabel = (tag, options) => {
+    if (!tag) return null;
+    const opt = (options || []).find(o => o.tag === tag);
+    return opt?.label || tag;
+  };
+  const E = window.BOQ_ENGINE;
+  const BINDER_OPTS = E?.MATERIALS?.BINDER_OPTIONS || [];
+  const BASE_OPTS   = E?.MATERIALS?.BASE_OPTIONS   || [];
+
+  // Treatment zones — multi-zone schemes get itemised, single zone collapses
+  // to the scheme-level summary lines. Surface / binder / base / sub-base
+  // depths each get their own line, so a 100mm deep inlay reads as
+  // "Surface course: HRA 30/14F at 40mm. Binder course: HRA 50/20 at 60mm."
+  // rather than the previous misleading "Surface course: HRA at 100mm".
   if (designZones.length > 1) {
     lines.push('\nTreatment zones:');
     designZones.forEach(z => {
@@ -96,15 +136,33 @@ const buildAutoDescription = (scheme) => {
   } else {
     const area = window.schemeArea(scheme);
     if (area > 0) lines.push(`Total scheme area: ${area.toLocaleString()} m².`);
-    if (dominant && +dominant.depth_mm > 0) lines.push(`Surface course: ${treatment} at ${dominant.depth_mm}mm nominal depth.`);
+    if (dominant && +dominant.depth_mm > 0) {
+      lines.push(`Surface course: ${treatment} at ${surfaceDepthOf(dominant)}mm nominal depth.`);
+    }
   }
   const anyBinder = designZones.some(z => z.includes_binder);
   const anyBase   = designZones.some(z => z.includes_base);
+  const anySubbase = designZones.some(z => z.includes_subbase);
   if (anyBinder) {
-    const bd = designZones.reduce((m, z) => z.includes_binder ? Math.max(m, +z.binder_depth_mm || 0) : m, 0);
-    if (bd > 0) lines.push(`Binder course: ${bd}mm.`);
+    // Pick the binder spec from the deepest binder-bearing zone — for a
+    // mixed scheme this is the dominant build-up; for a single-zone
+    // scheme it's the only zone's binder.
+    const z = designZones.filter(z => z.includes_binder).sort((a,b) => (+b.binder_depth_mm||0) - (+a.binder_depth_mm||0))[0];
+    const matLabel = materialLabel(z?.binder_tag, BINDER_OPTS) || 'binder course';
+    const bd = +z?.binder_depth_mm || 0;
+    lines.push(bd > 0 ? `Binder course: ${matLabel} at ${bd}mm.` : `Binder course: ${matLabel}.`);
   }
-  if (anyBase) lines.push('Base course: applied on deep-inlay zones (>100mm).');
+  if (anyBase) {
+    const z = designZones.filter(z => z.includes_base).sort((a,b) => (+b.base_depth_mm||0) - (+a.base_depth_mm||0))[0];
+    const matLabel = materialLabel(z?.base_tag, BASE_OPTS) || 'base course';
+    const bd = +z?.base_depth_mm || 0;
+    lines.push(bd > 0 ? `Base course: ${matLabel} at ${bd}mm.` : `Base course: ${matLabel}.`);
+  }
+  if (anySubbase) {
+    const z = designZones.filter(z => z.includes_subbase).sort((a,b) => (+b.subbase_depth_mm||0) - (+a.subbase_depth_mm||0))[0];
+    const sd = +z?.subbase_depth_mm || 150;
+    lines.push(`Sub-base: Type 1 sub-base at ${sd}mm.`);
+  }
 
   // Traffic management
   const tm = design.tm || {};
