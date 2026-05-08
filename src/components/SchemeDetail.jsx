@@ -366,26 +366,27 @@ const FrontSheetDoc = ({ scheme, contents }) => {
         </div>
       </div>
 
-      {/* Contents (pack compile path) or Pack Checklist (standalone preview) */}
+      {/* Contents — checklist-style grid with page ranges (pack compile)
+          or generated-doc state (standalone preview). The compile path
+          passes a `contents` array including a present:true/false flag
+          and exact page numbers; standalone falls back to docs_generated. */}
       {hasContents ? (
         <div style={{padding:'0 40px 28px'}}>
           <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#888',paddingBottom:6,borderBottom:'2px solid #1a3a5c',marginBottom:12}}>Contents</div>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-            <tbody>
-              <tr>
-                <td style={{padding:'4px 0',color:'#555',width:36,fontFamily:'monospace',fontSize:11}}>1</td>
-                <td style={{padding:'4px 0'}}>Front Sheet</td>
-                <td style={{padding:'4px 0',color:'#888',textAlign:'right',fontFamily:'monospace',fontSize:11}}>1 page</td>
-              </tr>
-              {contents.map(c => (
-                <tr key={c.key} style={{borderTop:'1px dotted #d0d7de'}}>
-                  <td style={{padding:'4px 0',color:'#555',fontFamily:'monospace',fontSize:11}}>{c.page}</td>
-                  <td style={{padding:'4px 0'}}>{c.name}</td>
-                  <td style={{padding:'4px 0',color:'#888',textAlign:'right',fontFamily:'monospace',fontSize:11}}>{c.pageCount} page{c.pageCount === 1 ? '' : 's'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
+            {contents.map(c => {
+              const range = !c.present ? '—'
+                          : c.pageCount <= 1 ? `p. ${c.page}`
+                          : `pp. ${c.page}–${c.page + c.pageCount - 1}`;
+              return (
+                <div key={c.key} style={{display:'flex',alignItems:'center',gap:8,fontSize:11,padding:'8px 12px',background:c.present?'#f0fdf4':'#f9fafb',borderRadius:5,border:`1px solid ${c.present?'#86efac':'#e5e7eb'}`}}>
+                  <span style={{width:16,height:16,borderRadius:'50%',background:c.present?'#22c55e':'#d1d5db',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{c.present?'✓':'○'}</span>
+                  <span style={{flex:1,fontWeight:c.present?600:400,color:c.present?'#166534':'#9ca3af',lineHeight:1.2}}>{c.name}</span>
+                  <span style={{fontFamily:'monospace',fontSize:10,color:c.present?'#166534':'#bbb',whiteSpace:'nowrap'}}>{range}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div style={{padding:'0 40px 28px'}}>

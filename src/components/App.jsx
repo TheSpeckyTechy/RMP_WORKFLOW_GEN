@@ -82,7 +82,7 @@ function dataUrlToBuffer(dataUrl) {
 // version is running — the modal footer renders this. If the tag
 // below doesn't match the actual deployed code, the browser is on a
 // stale cache and any "still failing" report is about old logic.
-const PACK_BUILD_TAG = 'pack-front-sheet-fix';
+const PACK_BUILD_TAG = 'pack-page-numbers';
 
 const GenerateModal = ({ scheme, onClose }) => {
   // status per section: 'pending' | 'active' | 'done' | 'skipped' | 'error'
@@ -180,17 +180,26 @@ const GenerateModal = ({ scheme, onClose }) => {
 
       // ── Pass 2: build the contents listing from the gathered page counts,
       // render the front sheet, and load it as a srcDoc. The contents block
-      // numbers each section from page 2 (front sheet is page 1).
+      // numbers each section from page 2 (front sheet is page 1) and includes
+      // every PACK_DOC — `present: true/false` lets the front sheet render
+      // ✓ for included sections and ○ for missing ones, with page ranges.
       let frontResolved = null;
       if (FRONT_DOC) {
         markStep('front', 'active');
         await new Promise(r => setTimeout(r, 30));
         try {
-          const contents = [];
+          const contents = [
+            { key: 'front', name: FRONT_DOC.name, page: 1, pageCount: 1, present: true },
+          ];
           let cursor = 2; // page 1 = front sheet, sections start at page 2
-          for (const r of resolved) {
-            contents.push({ key: r.section.key, name: r.section.name, page: cursor, pageCount: r.pageCount });
-            cursor += r.pageCount;
+          for (const d of NON_FRONT_DOCS) {
+            const r = resolved.find(x => x.section.key === d.key);
+            if (r) {
+              contents.push({ key: d.key, name: d.name, page: cursor, pageCount: r.pageCount, present: true });
+              cursor += r.pageCount;
+            } else {
+              contents.push({ key: d.key, name: d.name, page: null, pageCount: 0, present: false });
+            }
           }
 
           const pf = scheme.pack_file_front;
@@ -232,6 +241,7 @@ const GenerateModal = ({ scheme, onClose }) => {
       // was the root cause of the recurring "page not contained within
       // this document" error in the previous body+finalDoc structure.
       try {
+        const { StandardFonts, rgb } = window.PDFLib;
         const merged = await PDFDocument.create();
         const addAll = async (srcDoc) => {
           const pages = await merged.copyPages(srcDoc, srcDoc.getPageIndices());
@@ -244,6 +254,27 @@ const GenerateModal = ({ scheme, onClose }) => {
             await addAll(part.srcDoc);
           }
         }
+
+        // Stamp "Page N / M" centred at the bottom of every page so the
+        // pack reads as a single document regardless of source-PDF
+        // numbering. Drawn after merging so the count covers every page
+        // including front sheet + uploaded multi-page PDFs.
+        const helv = await merged.embedFont(StandardFonts.Helvetica);
+        const pages = merged.getPages();
+        const total = pages.length;
+        pages.forEach((page, idx) => {
+          const { width } = page.getSize();
+          const text = `Page ${idx + 1} of ${total}`;
+          const size = 9;
+          const textWidth = helv.widthOfTextAtSize(text, size);
+          page.drawText(text, {
+            x: (width - textWidth) / 2,
+            y: 18,
+            size,
+            font: helv,
+            color: rgb(0.42, 0.45, 0.50),
+          });
+        });
 
         const bytes = await merged.save();
         const blob  = new Blob([bytes], { type: 'application/pdf' });
