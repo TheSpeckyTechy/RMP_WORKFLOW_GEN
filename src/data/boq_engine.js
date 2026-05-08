@@ -246,14 +246,16 @@
       if (sA > 0 && q.surface_tag) pushByTag(q.surface_tag, sA);
     }
 
-    // Sub-base is scheme-wide (rarely zone-driven — it's a full reconstruction
-    // layer). If zoned, uses the sum of zone areas that need base (ie.
-    // zones deep enough to warrant sub-base).
+    // Sub-base is scheme-wide for the manual path; zone-driven path sums the
+    // areas of zones whose Designer subbase toggle is on. Migrated legacy
+    // schemes get the per-zone needsSubbase flag set by the depth heuristic
+    // (zones deeper than surface+binder), reproducing the engine's pre-
+    // Phase-3 output exactly.
     if (q.include_subbase) {
       let area = 0;
       if (zonesPath) {
         area = q.surface_zones
-          .filter(sz => sz.needsBase)
+          .filter(sz => sz.needsSubbase)
           .reduce((t, sz) => t + (+sz.area || 0), 0);
       } else {
         area = layerArea(q.subbase_area);
@@ -500,73 +502,104 @@
     return /\b7\b|sun|weekend/.test(t);
   }
 
-  // Core derivation — everything that the BoQ can look up from the Master.
-  // When scheme.treatments has priced zones, their (area, depth, material)
-  // trios drive the milling and surface-course lines so the Treatment tab
-  // effectively feeds the BoQ without the designer re-entering anything.
+  // Core derivation — every quick-input the BoQ engine reads is sourced from
+  // scheme.design{}, the Treatment Designer's single-source-of-truth model.
+  // Untouched legacy schemes get their design{} back-filled by the
+  // SchemeContext migration shim before the engine ever sees them, so this
+  // function never has to fall through to the legacy fields directly.
   function deriveQuickInputsFromScheme(scheme) {
     const s = scheme || {};
+    const design = s.design || (window.defaultDesign ? window.defaultDesign() : { zones: [], ironworks: { cway: {}, fway: {} }, kerbs: [], lining: [], tm: {} });
     const wd = computeWorkingDays(s.date_start, s.date_finish, s.working_pattern);
 
-    const zones = (s.treatments || []).filter(z => +z.area_m2 > 0);
+    // Filter zones with no area so a fresh "Add zone" placeholder doesn't
+    // pollute the milling / surface_zones arrays.
+    const zones = (design.zones || []).filter(z => +z.area_m2 > 0);
 
-    // Per-zone layer build-up. Designers set `zone.depth_mm` as the TOTAL
-    // excavation depth, not per-layer depths. We derive which structural
-    // layers are needed from the depth relative to the Master's surface +
-    // binder depths:
-    //   depth ≤ surface_depth              → surface only (standard inlay)
-    //   surface < depth ≤ surface+binder   → surface + binder (deep inlay)
-    //   depth > surface + binder           → surface + binder + base
-    const surfaceDepth = +s.surface_depth_mm || 40;
-    const binderDepth  = +s.binder_depth_mm  || 60;
-    const zoneNeedsBinder = z => (+z.depth_mm || 40) > surfaceDepth;
-    const zoneNeedsBase   = z => (+z.depth_mm || 40) > (surfaceDepth + binderDepth);
-
+    // Per-zone milling and surface entries. The engine's line-builder reads
+    // surface_zones[].needsBinder / needsBase / needsSubbase to decide which
+    // structural layers each zone gets — those flags come straight from the
+    // Designer's per-zone toggles.
     const millingFromZones = zones.map(z => ({
-      depth:     +z.depth_mm || 40,
+      depth:     +z.milling_depth_mm || +z.depth_mm || 40,
       area:      +z.area_m2,
       zoneId:    z.id,
-      zoneLabel: z.zone || '',
+      zoneLabel: z.label || '',
     }));
     const surfaceFromZones = zones.map(z => ({
       area:      +z.area_m2,
-      tag:       matchSurfaceTag(z.treatment_type || s.treatment_type),
+      tag:       matchSurfaceTag(z.surface || ''),
       depth:     +z.depth_mm || 40,
       zoneId:    z.id,
-      zoneLabel: z.zone || '',
-      needsBinder: zoneNeedsBinder(z),
-      needsBase:   zoneNeedsBase(z),
+      zoneLabel: z.label || '',
+      needsBinder:  !!z.includes_binder,
+      needsBase:    !!z.includes_base,
+      needsSubbase: !!z.includes_subbase,
     }));
-    // Any zone deep enough to warrant a binder/base drives the scheme-level
-    // toggle on. Designers can still explicitly override via the rail.
-    const anyZoneNeedsBinder = zones.some(zoneNeedsBinder);
-    const anyZoneNeedsBase   = zones.some(zoneNeedsBase);
+
+    // Dominant zone (largest area) drives the scheme-level fallbacks for the
+    // non-zoned manual path and the surface_tag chip.
+    const dominant      = zones.slice().sort((a, b) => (+b.area_m2 || 0) - (+a.area_m2 || 0))[0];
+    const dominantDepth = +dominant?.depth_mm         || 40;
+    const dominantMill  = +dominant?.milling_depth_mm || dominantDepth;
+
+    const anyBinder  = surfaceFromZones.some(z => z.needsBinder);
+    const anyBase    = surfaceFromZones.some(z => z.needsBase);
+    const anySubbase = surfaceFromZones.some(z => z.needsSubbase);
+    // Subbase depth = max across the zones that include it; typical default
+    // 150mm if explicit toggle is set without a depth.
+    const subbaseDepth = zones.reduce((max, z) =>
+      z.includes_subbase ? Math.max(max, +z.subbase_depth_mm || 0) : max, 0) || 150;
+
+    // Ironworks. iw_sw_* combines manhole + water covers — Scottish Water
+    // pricing tag covers both. Footway block introduced in Phase 1; legacy
+    // schemes get 0s through deriveDesignFromLegacy until the user populates.
+    const cway = design.ironworks?.cway || {};
+    const fway = design.ironworks?.fway || {};
+
+    // Kerbs: total length across rows. Tag picked from the first row, with a
+    // safe fallback. Phase 4+ will move kerbs to a per-row line-builder so
+    // mixed types coexist; for now the engine still emits a single kerb line.
+    const kerbTotal = (design.kerbs || []).reduce((t, k) => t + (+k.length_m || 0), 0);
+
+    // Lining → Series 1200. Linear items feed line_marks_m (continuous
+    // 100mm tag); area items feed markings_area (hatchings, boxes, symbols).
+    const lining   = design.lining || [];
+    const liningM  = lining.filter(r => r.unit === 'm').reduce((t, r) => t + (+r.quantity || 0), 0);
+    const liningM2 = lining.filter(r => r.unit === 'm²').reduce((t, r) => t + (+r.quantity || 0), 0);
+
+    const tm = design.tm || {};
 
     return {
       carriageway_area:  +s.carriageway_area_m2 || 0,
       footway_area:      +s.footway_area_m2     || 0,
-      surface_tag:       matchSurfaceTag(s.treatment_type),
-      include_binder:    anyZoneNeedsBinder || +s.binder_depth_mm  > 0,
-      include_base:      anyZoneNeedsBase,
-      include_subbase:   +s.subbase_depth_mm > 0,
-      subbase_depth:     +s.subbase_depth_mm || 150,
-      milling_depth:     snapMillingDepth(+s.surface_depth_mm || 40),
+      surface_tag:       matchSurfaceTag(dominant?.surface || ''),
+      include_binder:    anyBinder,
+      include_base:      anyBase,
+      include_subbase:   anySubbase,
+      subbase_depth:     subbaseDepth,
+      milling_depth:     snapMillingDepth(dominantMill),
       include_milling:   true,
       include_tack:      true,
-      kerb_length:       +s.kerb_length || 0,
-      iw_sw_cway:        (+s.iron_mh || 0) + (+s.iron_water || 0),
-      iw_bt_cway:        +s.iron_bt  || 0,
-      iw_gas_cway:       +s.iron_gas || 0,
-      iw_gully_cway:     +s.iron_gullies || 0,
-      tm_type:           mapSchemeTmType(s.tm_type),
-      include_diversion: /diversion/i.test(s.tm_type || ''),
-      // Fall back to 1 day (not 5) when dates are missing/invalid so a bare
-      // date_start (or no dates) doesn't masquerade as a real one-week
-      // duration. Filling date_finish drives a real count.
-      duration_days:     wd != null ? wd : 1,
-      // Zone-driven shapes. When zones.length > 0 these win over the
-      // scalar surface_tag / milling_entries values above.
-      milling_entries:   zones.length ? millingFromZones : [{ depth: snapMillingDepth(+s.surface_depth_mm || 40), area: null }],
+      kerb_length:       kerbTotal,
+      iw_sw_cway:        (+cway.mh || 0) + (+cway.water || 0),
+      iw_bt_cway:        +cway.bt  || 0,
+      iw_gas_cway:       +cway.gas || 0,
+      iw_gully_cway:     +cway.gullies || 0,
+      iw_sw_fw:          (+fway.mh || 0) + (+fway.water || 0),
+      iw_bt_fw:          +fway.bt  || 0,
+      iw_gas_fw:         +fway.gas || 0,
+      include_markings:   liningM2 > 0,
+      markings_area:      liningM2,
+      include_line_marks: liningM  > 0,
+      line_marks_m:       liningM,
+      tm_type:           mapSchemeTmType(tm.type),
+      include_diversion: /diversion/i.test(tm.type || ''),
+      // Designer-set duration wins over the date-based count, falling back
+      // to 1 day (not 5) when neither is available so a bare date_start
+      // doesn't masquerade as a real one-week duration.
+      duration_days:     tm.duration_days != null ? +tm.duration_days : (wd != null ? wd : 1),
+      milling_entries:   zones.length ? millingFromZones : [{ depth: snapMillingDepth(dominantMill), area: null }],
       surface_zones:     zones.length ? surfaceFromZones : null,
     };
   }

@@ -116,8 +116,13 @@ const legacyMirrorFromDesign = (design) => {
     tm_phases:       +tm.phases      || 1,
     tm_diversion_by: tm.diversion_by || '',
     tm_compound:     tm.compound     || '',
-    treatment_type:    dominant?.treatment_type || '',
-    surface_depth_mm:  +dominant?.depth_mm      || 0,
+    // treatment_type mirror (read by PCIPreview / Dashboard / Master) picks
+    // the dominant zone's surface so the Master's "Treatment Type" cell
+    // stays in sync. surface_depth_mm intentionally NOT mirrored — the
+    // Designer's per-zone depth_mm is total excavation depth, not surface
+    // course thickness, so writing it would corrupt the Master's distinct
+    // surface_depth_mm field. Phase 6 retires those legacy readers.
+    treatment_type: dominant?.treatment_type || '',
   };
 };
 

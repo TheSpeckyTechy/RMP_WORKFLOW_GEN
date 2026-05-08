@@ -29,37 +29,51 @@ const lsSetIds = (ids) => { try { localStorage.setItem(LS_IDS, JSON.stringify(id
 // it replaces — treatments[] for zones, iron_* for ironworks, kerb_length
 // for kerbs, tm_* for traffic management. Used by withDesign during the
 // silent migration; also called when a fresh scheme has no design{} yet.
-const deriveDesignFromLegacy = (s) => ({
-  zones: (s.treatments || []).map((t, i) => ({
-    id:               t.id || (1000 + i + 1),
-    label:            t.zone || '',
-    surface:          t.treatment_type || s.treatment_type || '',
-    area_m2:          +t.area_m2 || 0,
-    depth_mm:         +t.depth_mm || +s.surface_depth_mm || 40,
-    milling_depth_mm: +t.depth_mm || +s.surface_depth_mm || 40,
-    includes_binder:  +s.binder_depth_mm > 0,
-    includes_base:    false,
-    includes_subbase: +s.subbase_depth_mm > 0,
-    binder_depth_mm:  +s.binder_depth_mm || 0,
-    base_depth_mm:    0,
-    subbase_depth_mm: +s.subbase_depth_mm || 0,
-  })),
-  ironworks: {
-    cway:  { mh: +s.iron_mh||0, water: +s.iron_water||0, bt: +s.iron_bt||0, gas: +s.iron_gas||0, gullies: +s.iron_gullies||0 },
-    fway:  { mh: 0, water: 0, bt: 0, gas: 0 },
-    raise: { mh: 0, water: 0, bt: 0, gas: 0, gullies: 0 },
-  },
-  kerbs:  +s.kerb_length > 0 ? [{ id: 1, type: 'K1 (kerb laid)', length_m: +s.kerb_length }] : [],
-  lining: [],
-  tm: {
-    type:          s.tm_type || '',
-    hours:         s.tm_hours || '',
-    phases:        +s.tm_phases || 1,
-    diversion_by:  s.tm_diversion_by || '',
-    compound:      s.tm_compound || '',
-    duration_days: null,
-  },
-});
+//
+// Per-zone includes_binder / includes_base / includes_subbase flags match
+// the depth heuristic the BoQ engine used pre-Phase-3 (zone deeper than
+// surface_depth → needs binder; deeper than surface+binder → needs base /
+// subbase) so migrated schemes produce byte-identical BoQ output.
+const deriveDesignFromLegacy = (s) => {
+  const surfaceCourseDepth = +s.surface_depth_mm || 40;
+  const binderCourseDepth  = +s.binder_depth_mm  || 60;
+  const masterHasSubbase   = +s.subbase_depth_mm > 0;
+
+  return {
+    zones: (s.treatments || []).map((t, i) => {
+      const total = +t.depth_mm || surfaceCourseDepth;
+      return {
+        id:               t.id || (1000 + i + 1),
+        label:            t.zone || '',
+        surface:          t.treatment_type || s.treatment_type || '',
+        area_m2:          +t.area_m2 || 0,
+        depth_mm:         total,
+        milling_depth_mm: total,
+        includes_binder:  total > surfaceCourseDepth,
+        includes_base:    total > (surfaceCourseDepth + binderCourseDepth),
+        includes_subbase: masterHasSubbase && total > (surfaceCourseDepth + binderCourseDepth),
+        binder_depth_mm:  +s.binder_depth_mm || 0,
+        base_depth_mm:    0,
+        subbase_depth_mm: +s.subbase_depth_mm || 0,
+      };
+    }),
+    ironworks: {
+      cway:  { mh: +s.iron_mh||0, water: +s.iron_water||0, bt: +s.iron_bt||0, gas: +s.iron_gas||0, gullies: +s.iron_gullies||0 },
+      fway:  { mh: 0, water: 0, bt: 0, gas: 0 },
+      raise: { mh: 0, water: 0, bt: 0, gas: 0, gullies: 0 },
+    },
+    kerbs:  +s.kerb_length > 0 ? [{ id: 1, type: 'K1 half-batter — laid', length_m: +s.kerb_length }] : [],
+    lining: [],
+    tm: {
+      type:          s.tm_type || '',
+      hours:         s.tm_hours || '',
+      phases:        +s.tm_phases || 1,
+      diversion_by:  s.tm_diversion_by || '',
+      compound:      s.tm_compound || '',
+      duration_days: null,
+    },
+  };
+};
 
 // Silent migration: rename the pre-Phase-1 area_m2 field into the explicit
 // carriageway_area_m2 / footway_area_m2 split, and back-fill scheme.design
