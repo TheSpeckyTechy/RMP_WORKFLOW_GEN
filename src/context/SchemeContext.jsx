@@ -168,24 +168,11 @@ const withBoq = (s) => {
     };
   }
 
-  // ── 2. Master-linked overrides. Compare each stored value against the
-  //     value the Master would produce now. If they match, the field can
-  //     cleanly follow the Master; if they differ, preserve the BoQ value
-  //     by flagging it as overridden.
-  if (!boq.overrides) {
-    const E = window.BOQ_ENGINE;
-    const overrides = {};
-    if (E && E.deriveQuickInputsFromScheme && E.LINKED_FIELDS) {
-      const derived = E.deriveQuickInputsFromScheme(s);
-      const stored  = boq.quick_inputs || {};
-      for (const { key } of E.LINKED_FIELDS) {
-        if (!(key in stored)) continue;
-        if (stored[key] !== derived[key]) overrides[key] = true;
-      }
-    }
-    boq = { ...boq, overrides };
-  }
-
+  // The pre-Phase-4 BoQ tab back-filled boq.overrides here by comparing
+  // stored quick_inputs against Master-derived values. The Designer is
+  // the only quantity writer now and the engine ignores boq.overrides
+  // entirely, so this back-fill is gone. Persisted override flags from
+  // older schemes are left on disk and become inert.
   return boq === s.boq ? s : { ...s, boq };
 };
 

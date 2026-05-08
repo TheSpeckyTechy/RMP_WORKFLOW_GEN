@@ -140,20 +140,10 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
         // zone-area / scheme-area mismatches so every form of drift is
         // visible at the top of the page.
         const persisted = scheme.flags || [];
-        const E = window.BOQ_ENGINE;
-        let overrideFlags = [];
-        if (E && scheme.boq && scheme.boq.overrides) {
-          const derived = E.deriveQuickInputsFromScheme(scheme);
-          const stored  = scheme.boq.quick_inputs || {};
-          const labelOf = (key) => (E.LINKED_FIELDS.find(f => f.key === key) || { label: key }).label;
-          const fmt     = v => v === true ? 'Yes' : v === false ? 'No' : v == null || v === '' ? '—' : String(v);
-          overrideFlags = Object.keys(scheme.boq.overrides).map(k =>
-            `BoQ "${labelOf(k)}" overridden — Master: ${fmt(derived[k])} · BoQ: ${fmt(stored[k])}`
-          );
-        }
+        const zones = (scheme.design && scheme.design.zones) || [];
         const zoneFlags = [];
-        if (scheme.treatments && scheme.treatments.length && window.schemeArea(scheme) > 0) {
-          const zoneTotal = scheme.treatments.reduce((s, z) => s + (+z.area_m2 || 0), 0);
+        if (zones.length && window.schemeArea(scheme) > 0) {
+          const zoneTotal = zones.reduce((s, z) => s + (+z.area_m2 || 0), 0);
           const masterArea = window.schemeArea(scheme);
           const diff = zoneTotal - masterArea;
           if (Math.abs(diff) > 0.5) {
@@ -163,7 +153,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
             );
           }
         }
-        const flags = [...persisted, ...zoneFlags, ...overrideFlags];
+        const flags = [...persisted, ...zoneFlags];
         if (!flags.length) return null;
         return (
           <div style={{background:"var(--amber-wash)",border:"1px solid var(--amber)",padding:"10px 14px",borderRadius:"var(--radius-sm)",marginBottom:20,display:"flex",gap:10,alignItems:"flex-start",fontSize:13}}>
@@ -179,7 +169,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
       {tab==="treatment"&&<window.TreatmentDesigner schemeId={schemeId} />}
       {tab==="ward"&&<WardTab schemeId={schemeId} />}
       {tab==="utilities"&&<UtilitiesTab scheme={scheme} />}
-      {tab==="boq"&&<BoQTab schemeId={schemeId} />}
+      {tab==="boq"&&<BoQTab schemeId={schemeId} onOpenDesigner={()=>setTab("treatment")} />}
       {tab==="pack"&&<PackTab scheme={scheme} onGenerate={onGenerate} onPreview={onPreview} onTabSwitch={setTab} />}
       {showSketch && <SketchModal pdf={scheme.sketch_pdf} road={scheme.road_name} onClose={()=>setShowSketch(false)} />}
     </>

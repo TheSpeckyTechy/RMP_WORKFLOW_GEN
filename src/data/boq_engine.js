@@ -144,7 +144,7 @@
   };
 
   // ── regenAutoLines ─────────────────────────────────────────────────────────
-  // Build the auto-populated BoQ line set from the QuickInputRail fields.
+  // Build the auto-populated BoQ line set from the design-derived inputs.
   // Every line is tagged auto:true so the designer's regen button can strip
   // old auto lines without touching user-added ones.
   function regenAutoLines(q) {
@@ -604,17 +604,14 @@
     };
   }
 
-  // Effective quick inputs = stored values for overridden keys, Master-derived
-  // for everything else, with non-linked stored keys passed through verbatim.
-  function effectiveQuickInputs(scheme, boq) {
-    const derived    = deriveQuickInputsFromScheme(scheme);
-    const overridden = (boq && boq.overrides)    || {};
-    const stored     = (boq && boq.quick_inputs) || {};
-    const out = { ...stored, ...derived };
-    for (const k in derived) {
-      if (overridden[k] && (k in stored)) out[k] = stored[k];
-    }
-    return out;
+  // Effective quick inputs are now sourced purely from the Treatment
+  // Designer's data model — the per-field override layer the old Quick
+  // Input rail managed has been removed (Phase 4). Pre-Phase-4 schemes
+  // may still have boq.overrides / boq.quick_inputs persisted; they're
+  // ignored by the engine but kept on disk so a future cleanup can
+  // surface or purge them in one place.
+  function effectiveQuickInputs(scheme, _boq) {
+    return deriveQuickInputsFromScheme(scheme);
   }
 
   // Reverse map from internal surface tag to the canonical Master
