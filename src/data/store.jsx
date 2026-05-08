@@ -160,7 +160,6 @@ const baseScheme = (overrides) => ({
   // 4. Budget
   budget: 0, tender_total: 0, cost_per_m2: 0,
   budget_code: "", cpp_ref: "", drawing_ref: "", sketch_pdf: "", network_length: 0,
-  rsr_image_1: "", rsr_image_2: "",
   // 8. Ward & Correspondence
   ward_selected: "",
   ward_num: 1,

@@ -26,52 +26,11 @@ const _daysBetweenLegacy = (dmyA, dmyB) => {
   return Math.max(1, Math.round((b-a)/86400000*5/7));
 };
 
-const compressImage = (file, maxWidth = 1000) => new Promise((resolve, reject) => {
-  const img = new Image();
-  const url = URL.createObjectURL(file);
-  img.onload = () => {
-    const scale = Math.min(1, maxWidth / img.width);
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(img.width * scale);
-    canvas.height = Math.round(img.height * scale);
-    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-    URL.revokeObjectURL(url);
-    resolve(canvas.toDataURL('image/jpeg', 0.82));
-  };
-  img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read image')); };
-  img.src = url;
-});
-
-const RoadSpaceRequestDoc = ({ scheme, onUpload }) => {
+const RoadSpaceRequestDoc = ({ scheme }) => {
   const Bound = ({ k, children, fallback }) => {
     const v = scheme[k];
     const show = v!==undefined&&v!=="" ? (children||v) : (fallback||`[${k}]`);
     return <span className="bound" data-field={k}>{show}</span>;
-  };
-  const ImageSlot = ({ field, label }) => {
-    const src = scheme[field];
-    if (onUpload) {
-      return (
-        <label className="rsr-image rsr-image-upload" style={{display:"block",cursor:"pointer",position:"relative"}}>
-          <input type="file" accept="image/*" style={{display:"none"}}
-            onChange={e => { const f = e.target.files[0]; if (f) onUpload(field, f); e.target.value=''; }} />
-          <div className="rsr-image-label">{label}<span className="rsr-upload-hint"> · click to upload</span></div>
-          {src
-            ? <><img src={src} alt={label} style={{width:"100%",height:"auto",display:"block"}} /><div className="rsr-image-replace">↺ Replace</div></>
-            : <div className="rsr-image-body">Click to upload photo or map</div>
-          }
-        </label>
-      );
-    }
-    return (
-      <div className="rsr-image">
-        <div className="rsr-image-label">{label}</div>
-        {src
-          ? <img src={src} alt={label} style={{width:"100%",height:"auto",display:"block"}} />
-          : <div className="rsr-image-body">Paste site image here</div>
-        }
-      </div>
-    );
   };
   return (
     <div className="rsr-doc">
@@ -106,12 +65,7 @@ const RoadSpaceRequestDoc = ({ scheme, onUpload }) => {
           <tr><td className="rsr-th">Working Hours</td><td><Bound k="tm_hours" /></td></tr>
           <tr><td className="rsr-th">Diversion Route(s)</td><td><Bound k="tm_diversion" fallback="—" /></td></tr>
         </tbody></table>
-        <div className="rsr-section-title">3. Supporting Images</div>
-        <div className="rsr-image-grid">
-          <ImageSlot field="rsr_image_1" label="IMAGE 1 — SITE LOCATION" />
-          <ImageSlot field="rsr_image_2" label="IMAGE 2 — DIVERSION DRAWING" />
-        </div>
-        <div className="rsr-section-title">4. Sign-Off</div>
+        <div className="rsr-section-title">3. Sign-Off</div>
         <table className="rsr-table"><tbody>
           <tr><td className="rsr-th">Signed:</td><td><Bound k="prepared_by" /></td></tr>
           <tr><td className="rsr-th">Date:</td><td><Bound k="date_prepared" /></td></tr>
@@ -290,13 +244,6 @@ const RSRModal = ({ scheme, onClose }) => {
 
   const set = (k, v) => updateScheme(scheme.id, { [k]: v });
 
-  const handleUpload = async (field, file) => {
-    try {
-      const dataUrl = await compressImage(file);
-      updateScheme(scheme.id, { [field]: dataUrl });
-    } catch(err) { alert('Image upload failed: ' + err.message); }
-  };
-
   const handleDownload = async () => {
     setDownloading(true);
     try {
@@ -329,8 +276,6 @@ const RSRModal = ({ scheme, onClose }) => {
             <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{scheme.project_number} · {scheme.road_name} · {bindings.length-missing.length}/{bindings.length} fields bound</div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            {(scheme.rsr_image_1||scheme.rsr_image_2) &&
-              <button className="btn ghost sm" style={{color:"var(--red)"}} onClick={()=>updateScheme(scheme.id,{rsr_image_1:"",rsr_image_2:""})} title="Clear both images">✕ Clear images</button>}
             <button className="btn ghost sm" onClick={handleDownloadDocx} disabled={downloadingDocx}><Icon.Download /> {downloadingDocx?"Generating…":"Download .docx"}</button>
             <button className="btn sm" onClick={handleDownload} disabled={downloading}><Icon.Download /> {downloading?"Generating…":"Download .pdf"}</button>
             <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
@@ -361,19 +306,6 @@ const RSRModal = ({ scheme, onClose }) => {
                   </div>
                 );
               })}
-            </div>
-            <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--line)"}}>
-              <div className="rsr-side-title">Images</div>
-              {[{field:"rsr_image_1",label:"Image 1 — Site location"},{field:"rsr_image_2",label:"Image 2 — Diversion drawing"}].map(({field,label})=>(
-                <label key={field} className="rsr-image-bind" style={{display:"block",cursor:"pointer"}}>
-                  <input type="file" accept="image/*" style={{display:"none"}}
-                    onChange={e => { const f = e.target.files[0]; if(f) handleUpload(field,f); e.target.value=''; }} />
-                  {scheme[field]
-                    ? <img src={scheme[field]} alt={label} style={{width:"100%",borderRadius:3,display:"block",marginBottom:4}} />
-                    : <div className="rsr-image-bind-empty">+ Upload {label}</div>}
-                  <div style={{fontSize:10,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{label}</div>
-                </label>
-              ))}
             </div>
             {missing.length>0&&<div style={{fontSize:11,color:"var(--amber)",marginTop:10,padding:8,background:"var(--amber-wash)",borderRadius:4}}><Icon.Alert /> {missing.length} field{missing.length>1?"s":""} empty</div>}
           </div>

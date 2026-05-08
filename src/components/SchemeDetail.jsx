@@ -287,10 +287,15 @@ const UtilitiesTab = ({ scheme }) => {
 
 const FRONT_STATUS_COLORS = { design:"#3b82f6", review:"#f59e0b", ready:"#22c55e", works:"#6366f1", archived:"#9ca3af", constructed:"#0f5c42" };
 
-const FrontSheetDoc = ({ scheme }) => {
+const FrontSheetDoc = ({ scheme, contents }) => {
   const docsGen = scheme.docs_generated || {};
   const statusLabels = { design:"In Design", review:"In Review", ready:"Ready to Issue", works:"On Site", archived:"Archived", constructed:"Constructed" };
   const statusColor = FRONT_STATUS_COLORS[scheme.status] || "#6b7280";
+  // Pack compile passes the contents listing — { name, page, pageCount }
+  // entries — when it knows the real per-section page numbers. Standalone
+  // previews (Pack tab card) render without contents and still see the
+  // checklist fallback below.
+  const hasContents = Array.isArray(contents) && contents.length > 0;
   const teamRows = [
     ["Designer",      scheme.prepared_by],
     ["Reviewer",      scheme.reviewer_name],
@@ -361,21 +366,43 @@ const FrontSheetDoc = ({ scheme }) => {
         </div>
       </div>
 
-      {/* Pack checklist */}
-      <div style={{padding:'0 40px 28px'}}>
-        <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#888',paddingBottom:6,borderBottom:'2px solid #1a3a5c',marginBottom:12}}>Pack Checklist</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
-          {window.PACK_DOCS.map(d=>{
-            const done = !!docsGen[d.key];
-            return (
-              <div key={d.key} style={{display:'flex',alignItems:'center',gap:7,fontSize:11,padding:'7px 10px',background:done?'#f0fdf4':'#f9fafb',borderRadius:5,border:`1px solid ${done?'#86efac':'#e5e7eb'}`}}>
-                <span style={{width:16,height:16,borderRadius:'50%',background:done?'#22c55e':'#d1d5db',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{done?'✓':'○'}</span>
-                <span style={{fontWeight:done?600:400,color:done?'#166534':'#9ca3af',lineHeight:1.2}}>{d.name}</span>
-              </div>
-            );
-          })}
+      {/* Contents (pack compile path) or Pack Checklist (standalone preview) */}
+      {hasContents ? (
+        <div style={{padding:'0 40px 28px'}}>
+          <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#888',paddingBottom:6,borderBottom:'2px solid #1a3a5c',marginBottom:12}}>Contents</div>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+            <tbody>
+              <tr>
+                <td style={{padding:'4px 0',color:'#555',width:36,fontFamily:'monospace',fontSize:11}}>1</td>
+                <td style={{padding:'4px 0'}}>Front Sheet</td>
+                <td style={{padding:'4px 0',color:'#888',textAlign:'right',fontFamily:'monospace',fontSize:11}}>1 page</td>
+              </tr>
+              {contents.map(c => (
+                <tr key={c.key} style={{borderTop:'1px dotted #d0d7de'}}>
+                  <td style={{padding:'4px 0',color:'#555',fontFamily:'monospace',fontSize:11}}>{c.page}</td>
+                  <td style={{padding:'4px 0'}}>{c.name}</td>
+                  <td style={{padding:'4px 0',color:'#888',textAlign:'right',fontFamily:'monospace',fontSize:11}}>{c.pageCount} page{c.pageCount === 1 ? '' : 's'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
+      ) : (
+        <div style={{padding:'0 40px 28px'}}>
+          <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'#888',paddingBottom:6,borderBottom:'2px solid #1a3a5c',marginBottom:12}}>Pack Checklist</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
+            {window.PACK_DOCS.map(d=>{
+              const done = !!docsGen[d.key];
+              return (
+                <div key={d.key} style={{display:'flex',alignItems:'center',gap:7,fontSize:11,padding:'7px 10px',background:done?'#f0fdf4':'#f9fafb',borderRadius:5,border:`1px solid ${done?'#86efac':'#e5e7eb'}`}}>
+                  <span style={{width:16,height:16,borderRadius:'50%',background:done?'#22c55e':'#d1d5db',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{done?'✓':'○'}</span>
+                  <span style={{fontWeight:done?600:400,color:done?'#166534':'#9ca3af',lineHeight:1.2}}>{d.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div style={{padding:'14px 40px',background:'#f8f9fa',borderTop:'1px solid #e5e7eb',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:10,color:'#aaa'}}>
@@ -409,13 +436,13 @@ async function downloadFrontPdf(scheme) {
 // Expose at file scope so GenerateModal can use it without PackTab being mounted.
 window.__downloadFrontPdf = downloadFrontPdf;
 
-window.__getFrontPdfBuffer = async (scheme) => {
+window.__getFrontPdfBuffer = async (scheme, opts) => {
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
   document.body.appendChild(container);
   try {
     const root = ReactDOM.createRoot(container);
-    root.render(React.createElement(FrontSheetDoc, { scheme }));
+    root.render(React.createElement(FrontSheetDoc, { scheme, contents: opts?.contents }));
     await new Promise(r => setTimeout(r, 500));
     const buf = await window.htmlToPdfBuffer(container.firstChild || container);
     root.unmount();
