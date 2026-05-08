@@ -77,6 +77,13 @@ function dataUrlToBuffer(dataUrl) {
   return bytes.buffer;
 }
 
+// Build tag for the pack-compile pipeline. Bumped each time the
+// GenerateModal logic changes so we can prove from a screenshot which
+// version is running — the modal footer renders this. If the tag
+// below doesn't match the actual deployed code, the browser is on a
+// stale cache and any "still failing" report is about old logic.
+const PACK_BUILD_TAG = 'pack-front-sheet-fix';
+
 const GenerateModal = ({ scheme, onClose }) => {
   // status per section: 'pending' | 'active' | 'done' | 'skipped' | 'error'
   // Letter is excluded — requires recipient list (mail-merge workflow). The
@@ -96,6 +103,8 @@ const GenerateModal = ({ scheme, onClose }) => {
     setSteps(prev => prev.map(s => s.key === key ? { ...s, status, note } : s));
 
   React.useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.info(`[Pack compile] build tag: ${PACK_BUILD_TAG}`);
     (async () => {
       if (!window.PDFLib) {
         setPackError('pdf-lib not loaded — refresh the page and try again.');
@@ -103,115 +112,99 @@ const GenerateModal = ({ scheme, onClose }) => {
         return;
       }
       const { PDFDocument } = window.PDFLib;
-      const body  = await PDFDocument.create();   // everything except the front sheet
       const inc = [], skip = [];
-      // Each section's first body-page index (0-based, body-only). Used by
-      // the front sheet to render a contents listing with real page numbers
-      // — the +2 offset (1 for 1-based numbering, 1 for the front sheet
-      // itself) is added when the contents block is built.
-      const sectionStarts = [];
 
-      // Compile every NON-front section first. We collect page counts here
-      // so we can render the front sheet's contents listing after we know
-      // exactly where each section lands.
+      // ── Pass 1: resolve every NON-front section into a {srcDoc, pageCount}
+      // record. We deliberately don't merge anything yet — pdf-lib enforces
+      // that pages added to a document be created in that document, and the
+      // safest way to honour that is to defer every addPage call to a
+      // single final document at the very end (Pass 3). Page counts gathered
+      // here also drive the front-sheet contents listing in Pass 2.
+      // resolved[i] = { section, parts: [{ srcDoc, pageCount }], pageCount }
+      const resolved = [];
+
       for (const section of NON_FRONT_DOCS) {
         markStep(section.key, 'active');
-        await new Promise(r => setTimeout(r, 30)); // allow React to paint
+        await new Promise(r => setTimeout(r, 30)); // let React paint
 
         try {
-          const startBefore = body.getPageCount();
+          const parts = [];
 
-          // Multi-file sections: merge all uploaded files in order
           if (section.key === 'drawings' || section.key === 'utilities' || section.key === 'tm') {
+            // Multi-file: every uploaded PDF, in order
             const multiFiles = scheme[`pack_files_${section.key}`] || [];
-            // Fall back to legacy single-file if multi array is empty
-            const legacy = scheme[`pack_file_${section.key}`];
-            const toMerge = multiFiles.length > 0 ? multiFiles : (legacy?.data ? [legacy] : []);
-            if (toMerge.length > 0) {
-              let totalPages = 0;
-              for (const f of toMerge) {
-                const fbuf = dataUrlToBuffer(f.data);
-                const fsrc = await PDFDocument.load(fbuf, { ignoreEncryption: true });
-                const fpages = await body.copyPages(fsrc, fsrc.getPageIndices());
-                fpages.forEach(p => body.addPage(p));
-                totalPages += fsrc.getPageCount();
-              }
-              inc.push(section.name);
-              sectionStarts.push({ key: section.key, name: section.name, startBefore, pageCount: totalPages });
-              markStep(section.key, 'done', `${toMerge.length} file${toMerge.length!==1?'s':''} · ${totalPages}pp`);
-            } else {
-              skip.push(section.name);
-              markStep(section.key, 'skipped', 'no PDFs uploaded');
+            const legacy     = scheme[`pack_file_${section.key}`];
+            const toMerge    = multiFiles.length > 0 ? multiFiles : (legacy?.data ? [legacy] : []);
+            for (const f of toMerge) {
+              const srcDoc = await PDFDocument.load(dataUrlToBuffer(f.data), { ignoreEncryption: true });
+              parts.push({ srcDoc, pageCount: srcDoc.getPageCount() });
             }
-            continue;
-          }
-
-          // Single-file sections: uploaded PDF wins, then auto-render fallback
-          let buf = null;
-          const pf = scheme[`pack_file_${section.key}`];
-          if (pf && pf.data) {
-            buf = dataUrlToBuffer(pf.data);
-          } else if (section.key === 'rsr' && window.__getRSRPdfBuffer) {
-            buf = await window.__getRSRPdfBuffer(scheme);
-          } else if (section.key === 'boq' && window.__getBoQPdfBuffer) {
-            buf = await window.__getBoQPdfBuffer(scheme);
-          }
-          // PCI: no auto-fallback — user must upload via Pack tab → Upload Pack PDF
-
-          if (buf) {
-            const src   = await PDFDocument.load(buf, { ignoreEncryption: true });
-            const pages = await body.copyPages(src, src.getPageIndices());
-            pages.forEach(p => body.addPage(p));
-            inc.push(section.name);
-            sectionStarts.push({ key: section.key, name: section.name, startBefore, pageCount: src.getPageCount() });
-            markStep(section.key, 'done', `${src.getPageCount()} page${src.getPageCount() !== 1 ? 's' : ''}`);
           } else {
-            const reason = section.key === 'pci'
-              ? 'upload via Pack tab → Upload Pack PDF'
-              : section.auto ? 'render failed' : 'no PDF uploaded';
+            // Single-file: uploaded PDF wins, then auto-render fallback
+            let buf = null;
+            const pf = scheme[`pack_file_${section.key}`];
+            if (pf && pf.data) {
+              buf = dataUrlToBuffer(pf.data);
+            } else if (section.key === 'rsr' && window.__getRSRPdfBuffer) {
+              buf = await window.__getRSRPdfBuffer(scheme);
+            } else if (section.key === 'boq' && window.__getBoQPdfBuffer) {
+              buf = await window.__getBoQPdfBuffer(scheme);
+            }
+            if (buf) {
+              const srcDoc = await PDFDocument.load(buf, { ignoreEncryption: true });
+              parts.push({ srcDoc, pageCount: srcDoc.getPageCount() });
+            }
+          }
+
+          if (parts.length > 0) {
+            const totalPages = parts.reduce((t, p) => t + p.pageCount, 0);
+            const fileNote = parts.length > 1
+              ? `${parts.length} files · ${totalPages}pp`
+              : `${totalPages} page${totalPages !== 1 ? 's' : ''}`;
+            resolved.push({ section, parts, pageCount: totalPages });
+            inc.push(section.name);
+            markStep(section.key, 'done', fileNote);
+          } else {
+            const reason = section.key === 'pci' ? 'upload via Pack tab → Upload Pack PDF'
+                         : section.auto         ? 'render failed'
+                                                : 'no PDF uploaded';
             skip.push(section.name);
             markStep(section.key, 'skipped', reason);
           }
         } catch (e) {
           console.warn(`Pack compile — ${section.name}:`, e);
           skip.push(section.name);
-          markStep(section.key, 'error', e.message.slice(0, 60));
+          markStep(section.key, 'error', e.message);
         }
       }
 
-      // Front sheet — rendered last with the contents listing populated
-      // from sectionStarts. We always reserve page 1 for the front sheet
-      // itself; the +2 offset (1 for 1-based numbering, 1 for the front
-      // sheet) gives each section its real page number in the final pack.
-      let merged = body;
+      // ── Pass 2: build the contents listing from the gathered page counts,
+      // render the front sheet, and load it as a srcDoc. The contents block
+      // numbers each section from page 2 (front sheet is page 1).
+      let frontResolved = null;
       if (FRONT_DOC) {
         markStep('front', 'active');
         await new Promise(r => setTimeout(r, 30));
         try {
+          const contents = [];
+          let cursor = 2; // page 1 = front sheet, sections start at page 2
+          for (const r of resolved) {
+            contents.push({ key: r.section.key, name: r.section.name, page: cursor, pageCount: r.pageCount });
+            cursor += r.pageCount;
+          }
+
           const pf = scheme.pack_file_front;
           let frontBuf = null;
           if (pf && pf.data) {
             frontBuf = dataUrlToBuffer(pf.data);
           } else if (window.__getFrontPdfBuffer) {
-            const contents = sectionStarts.map(s => ({
-              key: s.key,
-              name: s.name,
-              page: s.startBefore + 2,            // 1-based, plus front sheet
-              pageCount: s.pageCount,
-            }));
             frontBuf = await window.__getFrontPdfBuffer(scheme, { contents });
           }
           if (frontBuf) {
-            const frontDoc   = await PDFDocument.load(frontBuf, { ignoreEncryption: true });
-            const frontPages = await frontDoc.copyPages(frontDoc, frontDoc.getPageIndices());
-            // Build the final pack: front sheet first, then everything else.
-            const finalDoc   = await PDFDocument.create();
-            frontPages.forEach(p => finalDoc.addPage(p));
-            const bodyPages  = await finalDoc.copyPages(body, body.getPageIndices());
-            bodyPages.forEach(p => finalDoc.addPage(p));
-            merged = finalDoc;
+            const srcDoc = await PDFDocument.load(frontBuf, { ignoreEncryption: true });
+            frontResolved = { srcDoc, pageCount: srcDoc.getPageCount() };
             inc.unshift(FRONT_DOC.name);
-            markStep('front', 'done', `${frontDoc.getPageCount()} page${frontDoc.getPageCount() !== 1 ? 's' : ''}`);
+            markStep('front', 'done', `${frontResolved.pageCount} page${frontResolved.pageCount !== 1 ? 's' : ''}`);
           } else {
             skip.push(FRONT_DOC.name);
             markStep('front', 'skipped', 'render failed');
@@ -219,20 +212,39 @@ const GenerateModal = ({ scheme, onClose }) => {
         } catch (e) {
           console.warn('Pack compile — Front Sheet:', e);
           skip.push(FRONT_DOC.name);
-          markStep('front', 'error', e.message.slice(0, 60));
+          markStep('front', 'error', e.message);
         }
       }
 
       setIncluded(inc);
       setSkipped(skip);
 
-      if (inc.length === 0) {
+      const haveAnything = !!frontResolved || resolved.length > 0;
+      if (!haveAnything) {
         setPackError('No pages could be generated — check browser console for details.');
         setFinished(true);
         return;
       }
 
+      // ── Pass 3: merge everything into a single PDFDocument. Every page
+      // copied here is created in `merged` (because copyPages is called on
+      // `merged`), so addPage never sees a foreign-document page — that
+      // was the root cause of the recurring "page not contained within
+      // this document" error in the previous body+finalDoc structure.
       try {
+        const merged = await PDFDocument.create();
+        const addAll = async (srcDoc) => {
+          const pages = await merged.copyPages(srcDoc, srcDoc.getPageIndices());
+          pages.forEach(p => merged.addPage(p));
+        };
+
+        if (frontResolved) await addAll(frontResolved.srcDoc);
+        for (const r of resolved) {
+          for (const part of r.parts) {
+            await addAll(part.srcDoc);
+          }
+        }
+
         const bytes = await merged.save();
         const blob  = new Blob([bytes], { type: 'application/pdf' });
         const a     = document.createElement('a');
@@ -244,6 +256,7 @@ const GenerateModal = ({ scheme, onClose }) => {
           detail: { label: `Compiled Pack — ${scheme.road_name}`, ref: scheme.project_number },
         }));
       } catch (e) {
+        console.error('Pack compile — final merge failed:', e);
         setPackError('PDF save failed: ' + e.message);
       }
 
@@ -317,6 +330,7 @@ const GenerateModal = ({ scheme, onClose }) => {
         <div className="modal-foot">
           <div style={{ fontSize: 11, color: "var(--ink-3)", flex: 1 }}>
             Individual source files (DOCX / XLSX) — download from Pack tab document cards.
+            <span style={{ marginLeft: 8, fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.7 }}>build {PACK_BUILD_TAG}</span>
           </div>
           <button className="btn primary" onClick={onClose} disabled={!finished}>
             {finished ? 'Done' : 'Working…'}
