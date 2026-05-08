@@ -2,10 +2,11 @@
 // Bill of Quantities tab — pricing, custom lines, totals, export.
 //
 // Quantities are NOT edited here — they come from scheme.design{} via the
-// Treatment Designer tab. The BoQ engine derives quick_inputs from the
-// Designer state on every render; this tab lets the user add custom lines,
-// adjust per-line bands / quantities, tune BoQ-level settings (BERR, VAT,
-// percent additions, area band override), and export the spreadsheet.
+// Treatment Designer tab. Auto-lines are derived from the current Designer
+// state at render time, so any zone / ironwork / kerb / lining / TM edit
+// flows straight through to the ledger without an extra "regenerate" step.
+// User-added custom lines (via the catalogue drawer) remain freely editable
+// — they're stored in boq.custom_lines and rendered below the auto lines.
 //
 // Composition:
 //   <BoQTab>
@@ -42,6 +43,11 @@ const LedgerRow = ({ line, alt, onEdit, onDelete, onMove, onDuplicate }) => {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const warnings = line.missing ? [] : lineWarnings(line);
   const hasWarning = warnings.length > 0;
+  // Auto-lines are derived from the Designer state every render; their
+  // qty / band can't be persisted here because they'd be regenerated away.
+  // Render them read-only so the UI doesn't promise editability that
+  // silently no-ops. Custom (user-added via catalogue) lines stay editable.
+  const isAuto = !!line.auto;
 
   React.useEffect(() => { setDraftQty(line.qty); }, [line.qty]);
 
@@ -77,13 +83,18 @@ const LedgerRow = ({ line, alt, onEdit, onDelete, onMove, onDuplicate }) => {
           >⚠</span>
         )}
         {line.desc || <em style={{color:'var(--red)'}}>{line.missing ? 'Item not found in catalogue' : '(no description)'}</em>}
-        {line.auto && <span style={{
+        {isAuto && <span title="Derived from the Treatment Designer — edit there to change the quantity." style={{
           marginLeft:6, fontSize:9, color:'var(--ink-3)', fontFamily:'var(--font-mono)',
           background:'var(--bg-sunken)', padding:'1px 4px', borderRadius:3, verticalAlign:'middle',
         }}>auto</span>}
       </div>
       <div style={{textAlign:'right'}}>
-        {editing ? (
+        {isAuto ? (
+          <span className="mono" style={{fontSize:11,padding:'2px 4px',color:'var(--ink-2)'}}
+            title="Quantity comes from the Designer. Open the Designer tab to change it.">
+            {E.fmtQty(line.qty, line.unit)}
+          </span>
+        ) : editing ? (
           <input
             type="number" className="mono" step="0.01" min="0" autoFocus
             value={draftQty} onChange={e => setDraftQty(e.target.value)}
@@ -99,22 +110,31 @@ const LedgerRow = ({ line, alt, onEdit, onDelete, onMove, onDuplicate }) => {
       </div>
       <div style={{fontSize:11,color:'var(--ink-3)'}}>{line.unit}</div>
       <div style={{textAlign:'right'}}>
-        <div className="boq-band-seg" title={`Rate band applied: ${line.bandApplied || '—'}`}>
-          {['A','B','C'].map(b => (
-            <button key={b}
-              className={(line.bandOverride === b ? 'active' : '') + (line.bandApplied === b && !line.bandOverride ? ' hinted' : '')}
-              onClick={() => setBand(line.bandOverride === b ? null : b)}
-              title={line.bandOverride === b ? 'Override ' + b + ' (click to clear)' : 'Force Band ' + b}>
-              {b}
-            </button>
-          ))}
-        </div>
+        {isAuto ? (
+          <span className="mono" style={{fontSize:10,color:'var(--ink-3)'}}
+            title={`Rate band applied: ${line.bandApplied || '—'}`}>
+            {line.bandApplied || '—'}
+          </span>
+        ) : (
+          <div className="boq-band-seg" title={`Rate band applied: ${line.bandApplied || '—'}`}>
+            {['A','B','C'].map(b => (
+              <button key={b}
+                className={(line.bandOverride === b ? 'active' : '') + (line.bandApplied === b && !line.bandOverride ? ' hinted' : '')}
+                onClick={() => setBand(line.bandOverride === b ? null : b)}
+                title={line.bandOverride === b ? 'Override ' + b + ' (click to clear)' : 'Force Band ' + b}>
+                {b}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="mono" style={{textAlign:'right',fontSize:11,fontWeight:500}}>{E.fmtGBP(line.total)}</div>
       <div style={{textAlign:'right',position:'relative'}}>
-        <button className="btn ghost sm" style={{padding:'2px 6px',fontSize:12}}
-          onClick={()=>setMenuOpen(o=>!o)} title="Row actions">⋯</button>
-        {menuOpen && (
+        {!isAuto && (
+          <button className="btn ghost sm" style={{padding:'2px 6px',fontSize:12}}
+            onClick={()=>setMenuOpen(o=>!o)} title="Row actions">⋯</button>
+        )}
+        {!isAuto && menuOpen && (
           <div onMouseLeave={()=>setMenuOpen(false)} style={{
             position:'absolute', right:0, top:'100%', zIndex:20,
             background:'var(--bg)', border:'1px solid var(--line)',
@@ -374,43 +394,27 @@ const BoQTab = ({ schemeId, onOpenDesigner }) => {
   const [downloadingTC, setDownloadingTC] = React.useState(false);
 
   // Quick inputs are sourced entirely from scheme.design{} via the BoQ
-  // engine's deriveQuickInputsFromScheme. The override layer the old Quick
-  // Input rail managed has been removed — pricing-only edits live on the
-  // ledger lines themselves now.
+  // engine's deriveQuickInputsFromScheme. No override layer — Designer is
+  // the source of truth, custom lines live on top.
   const effective = React.useMemo(
     () => E.effectiveQuickInputs(scheme, boq),
     [scheme, boq]
   );
 
-  // Seed auto-lines once per scheme (first time .boq.touched is false).
-  // Runs against `effective` so the initial BoQ reflects whatever the
-  // Designer already says. We deliberately skip the seed when regen returns
-  // an empty list — flipping touched=true on an empty Designer would lock
-  // the user into clicking "Regenerate from Designer" later, which is a
-  // surprising failure mode. Wait until there's something to seed.
-  React.useEffect(() => {
-    if (boq.touched) return;
-    const autoLines = E.regenAutoLines(effective);
-    if (autoLines.length === 0) return;
-    commit({ custom_lines: autoLines, touched: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schemeId, effective]);
-
-  const computed = React.useMemo(
-    () => E.buildBoQLines({ ...boq, quick_inputs: effective }, scheme),
-    [boq, effective, scheme]
+  // Auto-lines are derived from the current Designer state every render.
+  // Persisting them would require a "regenerate" step on Designer changes;
+  // by deriving on the fly we stay in sync with the Designer for free.
+  // User-added (non-auto) lines live in boq.custom_lines and are still
+  // freely editable inline.
+  const userLines = React.useMemo(
+    () => (boq.custom_lines || []).filter(l => !l.auto),
+    [boq.custom_lines]
   );
 
-  // Pull fresh auto-lines from the current Designer state, preserving any
-  // user-added custom (non-auto) lines so manually-priced ironwork or
-  // bespoke Series 6400 entries aren't lost. Triggered by the "Regenerate
-  // from Designer" button — needed when the designer adds a zone after the
-  // BoQ tab's first-mount auto-line seed has already run.
-  const regenerateFromDesigner = () => {
-    const auto   = E.regenAutoLines(effective);
-    const custom = (boq.custom_lines || []).filter(l => !l.auto);
-    commit({ custom_lines: [...auto, ...custom] });
-  };
+  const computed = React.useMemo(() => {
+    const autoLines = E.regenAutoLines(effective);
+    return E.buildBoQLines({ ...boq, custom_lines: [...autoLines, ...userLines], quick_inputs: effective }, scheme);
+  }, [boq, effective, userLines, scheme]);
 
   const editLine = (uid, patch) => {
     commit({ custom_lines: boq.custom_lines.map(l => l.uid === uid ? { ...l, ...patch } : l) });
@@ -513,17 +517,14 @@ const BoQTab = ({ schemeId, onOpenDesigner }) => {
         fontSize: 12, color: 'var(--accent-ink)',
       }}>
         <span style={{ flex: 1 }}>
-          Quantities are sourced from the <strong>Treatment Designer</strong> —
-          edit zones, ironworks, kerbs, lining or TM there. Use this tab to add
-          custom lines, adjust per-line bands, and tune BoQ-level settings.
+          Auto-lines update live from the <strong>Treatment Designer</strong> —
+          edit zones, ironworks, kerbs, lining or TM there to change them. Use
+          this tab to add custom lines, adjust per-line bands on custom lines,
+          and tune BoQ-level settings.
         </span>
         {onOpenDesigner && (
           <button className="btn sm" onClick={onOpenDesigner}>Open Designer →</button>
         )}
-        <button className="btn sm" onClick={regenerateFromDesigner}
-          title="Replace auto-generated lines with a fresh pull from the Designer. Custom (non-auto) lines you've added are preserved.">
-          ↻ Regenerate from Designer
-        </button>
       </div>
 
       <BoQLedger

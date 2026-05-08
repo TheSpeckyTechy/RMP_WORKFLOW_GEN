@@ -51,7 +51,9 @@ window.WARDS = [
 // picks, BERR/VAT/percent-addition settings, and the touched flag that
 // gates first-mount auto-line seeding.
 window.defaultBoq = () => ({
-  custom_lines: [],      // [{uid,id,desc,qty,unit,bandOverride?,series,auto?,notes?}]
+  // User-added (custom) lines only. Auto-lines are derived from the
+  // Designer state at render time and never persisted.
+  custom_lines: [],      // [{uid,id,desc,qty,unit,bandOverride?,series,notes?}]
   recent_items: [],      // last ≤20 catalogue picks; pinned at the top of the
                          // catalogue drawer when no search/filter is active.
                          // Each: {seriesKey,id,desc,unit,series,rateA,rateB,rateC}
@@ -75,7 +77,6 @@ window.defaultBoq = () => ({
       dundee_area:     { enabled: false, pct: 0.03,  label: 'Dundee City Council area (Series 6400/011)' },
     },
   },
-  touched: false,   // flipped to true once the designer has interacted
 });
 
 // Treatment Designer model — single source of truth for everything that ends
