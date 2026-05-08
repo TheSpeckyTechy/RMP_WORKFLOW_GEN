@@ -1,15 +1,16 @@
 // ─── SchemeDetail.jsx ────────────────────────────────────────────────────────
-// Per-scheme tabbed detail page with five tabs:
+// Per-scheme tabbed detail page:
 //
-//   Master Workbook  — all 49 named ranges (MasterWorkbook component)
-//   Treatment        — traffic-category-based treatment recommendation engine
+//   Master Workbook  — scheme identity + dates + people (MasterWorkbook)
+//   Designer         — surface zones, ironworks, kerbs, lining, TM
+//                      (TreatmentDesigner — owns scheme.design{})
 //   Ward & Copies    — ward picker + auto-generated councillor copy list
 //   Utilities        — 9-utility search tracker with date toggling
+//   Bill of Quantities — BoQTab
 //   Pack             — handover pack progress with live document previews
 //
 // Components exported:
 //   SchemeDetail   — tab shell + page header + flag banner
-//   TreatmentTab   — treatment selection with recommendation logic
 //   WardTab        — ward picker + copy list builder
 //   UtilitiesTab   — utility search status tracker
 //   DocPreview     — thumbnail for each pack document type
@@ -17,8 +18,9 @@
 //
 // Exports (via window): SchemeDetail
 // Depends on: React, window.SchemeContext, window.MasterWorkbook,
-//             window.Icon, window.WARDS, window.UTILITIES,
-//             window.PACK_DOCS, window.STATUS_LABELS, window.fmtDate
+//             window.TreatmentDesigner, window.Icon, window.WARDS,
+//             window.UTILITIES, window.PACK_DOCS, window.STATUS_LABELS,
+//             window.fmtDate
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SchemeMobileCard = ({ scheme, onExpand, onBack, onGenerate }) => {
@@ -80,7 +82,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
   const workbookFieldCount = window.WORKBOOK_SCHEMA.flatMap(s=>s.fields).filter(f=>f.type!=="subheader"&&f.type!=="zone-label").length;
   const tabs = [
     { k:"workbook", l:"Master Workbook", badge: String(workbookFieldCount) },
-    { k:"treatment", l:"Treatment" },
+    { k:"treatment", l:"Designer" },
     { k:"ward", l:"Ward & Copies" },
     { k:"utilities", l:"Utilities", badge: String(window.UTILITIES.length) },
     { k:"boq", l:"Bill of Quantities" },
@@ -174,222 +176,13 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
         {tabs.map(t=><div key={t.k} className={"tab "+(tab===t.k?"active":"")} onClick={()=>setTab(t.k)}>{t.l}{t.badge&&<span className="badge">{t.badge}</span>}</div>)}
       </div>
       {tab==="workbook"&&<MasterWorkbook schemeId={schemeId} />}
-      {tab==="treatment"&&<TreatmentTab schemeId={schemeId} />}
+      {tab==="treatment"&&<window.TreatmentDesigner schemeId={schemeId} />}
       {tab==="ward"&&<WardTab schemeId={schemeId} />}
       {tab==="utilities"&&<UtilitiesTab scheme={scheme} />}
       {tab==="boq"&&<BoQTab schemeId={schemeId} />}
       {tab==="pack"&&<PackTab scheme={scheme} onGenerate={onGenerate} onPreview={onPreview} onTabSwitch={setTab} />}
       {showSketch && <SketchModal pdf={scheme.sketch_pdf} road={scheme.road_name} onClose={()=>setShowSketch(false)} />}
     </>
-  );
-};
-
-// ─── Treatment Tab ────────────────────────────────────────────────────────────
-
-const TreatmentTab = ({ schemeId }) => {
-  const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
-  const scheme = getScheme(schemeId);
-
-  // ── Factors (grouped) ────────────────────────────────────────────────────────
-  const TRAFFIC_FACTORS = [
-    { key:"traffic",   label:"Traffic level",       opts:[["Light",0],["Moderate",2],["Heavy",4],["Very Heavy",6]] },
-    { key:"bus_stops", label:"Bus stops",            opts:[["None",0],["1–2",2],["3+",4]] },
-    { key:"junctions", label:"Junctions present",    opts:[["None",0],["Minor",1],["Major",2]] },
-    { key:"turning",   label:"Vehicle turning",      opts:[["None",0],["Occasional",1],["Frequent",2]] },
-    { key:"parking",   label:"Parking bays",         opts:[["No",0],["Yes",1]] },
-  ];
-  const SURFACE_FACTORS = [
-    { key:"condition", label:"Surface condition",    opts:[["Good",0],["Fair",1],["Poor",2],["Very Poor",3]] },
-    { key:"cracking",  label:"Cracking",             opts:[["None",0],["Edge / linear",1],["Block",2],["Alligator",3]] },
-    { key:"rutting",   label:"Rutting / deformation",opts:[["None",0],["< 5mm",1],["5–15mm",2],["> 15mm",3]] },
-  ];
-  const ALL_FACTORS = [...TRAFFIC_FACTORS, ...SURFACE_FACTORS];
-  const MAX_SCORE = 24;
-
-  const DEFAULT_MX = { traffic:"Moderate", bus_stops:"None", junctions:"None", turning:"None", parking:"No", condition:"Good", cracking:"None", rutting:"None" };
-  const mx    = { ...DEFAULT_MX, ...(scheme.matrix || {}) };
-  const setMx = (key, val) => updateScheme(schemeId, { matrix: { ...mx, [key]: val } });
-  const score = ALL_FACTORS.reduce((acc, f) => { const o = f.opts.find(([l]) => l === mx[f.key]); return acc + (o ? o[1] : 0); }, 0);
-
-  const getRec = (depthMm) => {
-    const d = +depthMm || 40;
-    if (score <= 3)  return { category:"Low",         material:"Micro-asphalt",           depthNote:"15–20mm overlay",                      notes:"A cold-applied emulsion-based surface treatment that restores waterproofing and surface texture. Adds no structural capacity — appropriate only where the existing pavement is structurally sound and the primary defect is surface oxidation or minor fretting." };
-    if (score <= 7)  return { category:"Low",         material:"AC10 Taycoat 100/150",    depthNote:"40mm SC only",                         notes:"Thin asphalt concrete with 10mm aggregate and a soft 100/150 pen binder. The softer binder grade improves low-temperature flexibility and reduces thermal cracking risk. Limited deformation resistance — appropriate where PSV loading is low and the existing base is structurally sound." };
-    if (score <= 11) return { category:"Medium",      material:"AC14 close binder 40/60", depthNote:"40mm inlay",                           notes:"Close-graded asphalt concrete with 14mm aggregate and 40/60 pen binder. The denser aggregate packing and stiffer binder provide improved rutting resistance under moderate axle loads compared to softer mixes. Suitable where the existing base is intact and surface-only intervention is appropriate." };
-    if (score <= 16) return { category:"Medium-High", material:"HRA 30/14F surf 40/60",   depthNote:d>=100?"100mm deep inlay":"40mm inlay", notes:"Gap-graded Hot Rolled Asphalt with 30% coarse aggregate by mass in a high-bitumen mortar matrix. The mortar-rich structure provides excellent durability and waterproofing. Pre-coated chippings rolled into the surface deliver the required PSV and macrotexture. 40/60 pen binder gives adequate stiffness for the Scottish climate — industry standard for medium-high traffic carriageways." };
-    if (score <= 20) return { category:"High",        material:"HRA 55/10F surf 40/60",   depthNote:"100mm deep inlay minimum",             notes:"High-aggregate-content HRA (55% coarse aggregate) with a stronger stone skeleton that resists permanent deformation under repeated heavy axle loading. The increased aggregate content stiffens the mix, making it suited to heavily trafficked routes and junction approaches where braking and turning forces are highest. Full-depth inlay required to address structural fatigue in the lower layers." };
-    return                  { category:"High",        material:"HRA 55/10F surf 40/60",   depthNote:"100mm deep inlay minimum — consider full reconstruction", notes:"HRA 55/10F with full structural investigation recommended. The combination of heavy loading and significant surface deterioration (cracking, rutting) indicates the pavement structure is likely fatigued beyond surface-only treatment. Core samples and FWD deflection testing should be considered before finalising the design." };
-  };
-
-  const scoreColor = score <= 7 ? "var(--green)" : score <= 16 ? "var(--accent)" : "var(--red)";
-  const scorePct   = Math.min(100, Math.round((score / MAX_SCORE) * 100));
-
-  // ── Treatment zones ──────────────────────────────────────────────────────────
-  const TREATMENTS = ["HRA 30/14F surf 40/60","HRA 55/10F surf 40/60","AC14 close binder 40/60","AC10 Taycoat 100/150","AC6 dense 100/150","SMA 10 surf 40/60","Micro-asphalt","Other"];
-  const zones    = (scheme.treatments && scheme.treatments.length > 0) ? scheme.treatments : [{ id:1, zone:"Main carriageway", area_m2:window.schemeArea(scheme), depth_mm:+scheme.total_depth_mm||40, treatment_type:"" }];
-  const setZones = (z) => {
-    const zoneUpdates = {};
-    for (let i = 0; i < 5; i++) {
-      const p = `zone_a${i + 1}`;
-      if (z[i]) {
-        zoneUpdates[`${p}_description`] = z[i].zone;
-        zoneUpdates[`${p}_area_m2`]     = z[i].area_m2;
-        zoneUpdates[`${p}_depth_mm`]    = z[i].depth_mm;
-        zoneUpdates[`${p}_treatment`]   = z[i].treatment_type;
-      } else {
-        zoneUpdates[`${p}_description`] = "";
-        zoneUpdates[`${p}_area_m2`]     = 0;
-        zoneUpdates[`${p}_depth_mm`]    = 0;
-        zoneUpdates[`${p}_treatment`]   = "";
-      }
-    }
-    updateScheme(schemeId, { treatments: z, ...zoneUpdates });
-  };
-  const updZone  = (id, p) => setZones(zones.map(z => z.id === id ? { ...z, ...p } : z));
-  const addZone  = () => setZones([...zones, { id:Date.now(), zone:"", area_m2:0, depth_mm:40, treatment_type:"" }]);
-  const rmZone   = (id) => setZones(zones.filter(z => z.id !== id));
-  const applyZone = (zone) => {
-    const rec = getRec(zone.depth_mm);
-    const treatment = zone.treatment_type || rec.material;
-    updateScheme(schemeId, { treatment_type:treatment, total_depth_mm:zone.depth_mm, traffic_category:rec.category, treatments:zones.map(z => z.id===zone.id ? {...z, treatment_type:treatment} : z) });
-  };
-  const totalZoneArea = zones.reduce((s, z) => s + (+z.area_m2||0), 0);
-  const schemeArea    = window.schemeArea(scheme);
-  const areaDiff      = totalZoneArea - schemeArea;
-
-  const FactorGroup = ({ factors }) => (
-    <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"14px 20px" }}>
-      {factors.map(f => (
-        <div key={f.key}>
-          <div style={{ fontSize:11, fontWeight:500, color:"var(--ink-2)", marginBottom:7 }}>{f.label}</div>
-          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-            {f.opts.map(([label]) => {
-              const active = mx[f.key] === label;
-              return <button key={label} onClick={() => setMx(f.key, label)} style={{ padding:"5px 11px", fontSize:12, borderRadius:"var(--radius-sm)", border: active?"1px solid var(--accent)":"1px solid var(--line)", background: active?"var(--accent-wash)":"var(--bg)", color: active?"var(--accent-ink)":"var(--ink-2)", cursor:"pointer", fontWeight: active?600:400, transition:"all 0.1s" }}>{label}</button>;
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const groupLabel = (text) => (
-    <div style={{ fontSize:10, fontWeight:700, color:"var(--ink-3)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>{text}</div>
-  );
-
-  return (
-    <div style={{ maxWidth:960 }}>
-
-      {/* ── 01 Site conditions ── */}
-      <div className="form-section" style={{ marginBottom:16 }}>
-        <div className="section-head">
-          <div className="section-title"><span className="section-num">01</span> Site conditions</div>
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:24, alignItems:"start" }}>
-
-          {/* Left: factor questions */}
-          <div>
-            {groupLabel("Traffic & Use")}
-            <FactorGroup factors={TRAFFIC_FACTORS} />
-            <div style={{ margin:"18px 0 10px", borderTop:"1px solid var(--line)" }} />
-            {groupLabel("Surface Condition")}
-            <FactorGroup factors={SURFACE_FACTORS} />
-          </div>
-
-          {/* Right: score + preview */}
-          <div style={{ background:"var(--bg-sunken)", borderRadius:"var(--radius)", padding:16, display:"flex", flexDirection:"column", gap:14 }}>
-            <div>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:7, fontSize:11 }}>
-                <span style={{ color:"var(--ink-3)" }}>Weighted score</span>
-                <span style={{ fontFamily:"var(--font-mono)", fontWeight:700, color:scoreColor }}>{score} / {MAX_SCORE}</span>
-              </div>
-              <div style={{ height:7, background:"var(--line)", borderRadius:4, overflow:"hidden", marginBottom:10 }}>
-                <div style={{ height:"100%", width:`${scorePct}%`, background:scoreColor, borderRadius:4, transition:"width 0.35s" }} />
-              </div>
-              <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-                {["Low","Medium","Medium-High","High"].map(cat => {
-                  const active = getRec(40).category === cat;
-                  return <span key={cat} className="pill" style={{ background: active?"var(--accent-wash)":"var(--bg)", color: active?"var(--accent-ink)":"var(--ink-3)", border:`1px solid ${active?"var(--accent)":"var(--line)"}`, fontSize:11 }}>{cat}</span>;
-                })}
-              </div>
-            </div>
-            <div style={{ borderTop:"1px solid var(--line)", paddingTop:14 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:"var(--ink-3)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Suggested material</div>
-              <div className="treatment-rec" style={{ margin:0 }}>
-                <div style={{ fontSize:14, fontWeight:700, marginBottom:3 }}>{getRec(40).material}</div>
-                <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--slate)", marginBottom:6 }}>{getRec(40).depthNote}</div>
-                <div style={{ fontSize:11, color:"var(--ink-2)" }}>{getRec(40).notes}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 02 Treatment zones ── */}
-      <div className="form-section">
-        <div className="section-head" style={{ marginBottom:14 }}>
-          <div className="section-title"><span className="section-num">02</span> Treatment zones</div>
-          <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:8, fontSize:11, fontFamily:"var(--font-mono)" }}>
-            <span style={{ color:"var(--ink-3)" }}>{totalZoneArea.toLocaleString()} / {schemeArea.toLocaleString()} m²</span>
-            {schemeArea > 0 && (
-              <span style={{ padding:"2px 8px", borderRadius:10, fontSize:10, fontWeight:600, background: Math.abs(areaDiff)<=5?"var(--green-wash)":"var(--amber-wash)", color: Math.abs(areaDiff)<=5?"var(--green)":"var(--amber)" }}>
-                {areaDiff===0 ? "✓ balanced" : areaDiff>0 ? `+${areaDiff} over` : `${Math.abs(areaDiff)} m² remaining`}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {zones.map((zone, idx) => {
-          const rec = getRec(zone.depth_mm);
-          return (
-            <div key={zone.id} style={{ border:"1px solid var(--line)", borderRadius:"var(--radius)", marginBottom:10, overflow:"hidden" }}>
-              {/* Zone header */}
-              <div style={{ background:"var(--bg-sunken)", padding:"8px 14px", display:"flex", alignItems:"center", gap:10, borderBottom:"1px solid var(--line)" }}>
-                <span className="section-num" style={{ fontSize:10, minWidth:26, textAlign:"center" }}>{`A${idx+1}`}</span>
-                <input value={zone.zone} onChange={e => updZone(zone.id, {zone:e.target.value})} placeholder="Zone description — e.g. Main carriageway" style={{ flex:1, border:"none", background:"transparent", fontWeight:500, fontSize:13, outline:"none", color:"var(--ink)" }} />
-                {zones.length > 1 && <button className="btn ghost sm" onClick={() => rmZone(zone.id)}><Icon.X /></button>}
-              </div>
-              {/* Zone body: two columns */}
-              <div style={{ display:"grid", gridTemplateColumns:"200px 1fr", gap:0 }}>
-                {/* Left: inputs */}
-                <div style={{ padding:"14px", borderRight:"1px solid var(--line)", display:"flex", flexDirection:"column", gap:12 }}>
-                  <div className="field"><label>Area (m²)</label><input type="number" className="mono" value={zone.area_m2} onChange={e => updZone(zone.id, {area_m2:+e.target.value})} /></div>
-                  <div className="field"><label>Depth (mm)</label><input type="number" className="mono" value={zone.depth_mm} onChange={e => updZone(zone.id, {depth_mm:+e.target.value})} /></div>
-                </div>
-                {/* Right: recommendation + override + apply */}
-                <div style={{ padding:"14px", display:"flex", flexDirection:"column", gap:10 }}>
-                  <div className="treatment-rec" style={{ margin:0 }}>
-                    <span className="label">Recommended treatment</span>
-                    <div style={{ fontSize:14, fontWeight:700, marginBottom:3 }}>{rec.material}</div>
-                    <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--slate)", marginBottom:5 }}>{rec.depthNote}</div>
-                    <div style={{ fontSize:11, color:"var(--ink-2)", lineHeight:1.6, borderTop:"1px solid var(--accent)", paddingTop:8, marginTop:6 }}>{rec.notes}</div>
-                  </div>
-                  <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-                    <select value={zone.treatment_type} onChange={e => updZone(zone.id, {treatment_type:e.target.value})} style={{ flex:1, minWidth:180 }}>
-                      <option value="">— Use recommended —</option>
-                      {TREATMENTS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    {zone.treatment_type === 'Other' && (
-                      <input type="text" placeholder="Describe custom treatment"
-                        value={zone.custom_description || ''}
-                        onChange={e => updZone(zone.id, {custom_description:e.target.value})}
-                        style={{flex:2,minWidth:200}} />
-                    )}
-                    <button className="btn sm primary" onClick={() => applyZone(zone)}>
-                      {idx===0 ? "Accept & apply to workbook" : "Apply to workbook"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
-        <button className="btn sm" onClick={addZone} style={{ marginTop:4 }}>
-          <Icon.Plus /> Add treatment zone
-        </button>
-      </div>
-    </div>
   );
 };
 
