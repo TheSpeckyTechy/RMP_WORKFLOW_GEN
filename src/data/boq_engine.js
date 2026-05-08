@@ -224,8 +224,8 @@
     // Structural layers — zone-driven path emits per-zone lines so deep
     // inlay zones get binder/base lines while shallow inlay zones don't.
     // Dedupe at the end folds same-material lines across zones together.
-    const binderTag = q.binder_tag || 'bin_hra5020_60';
-    const baseTag   = q.base_tag   || 'base_ac32d_100';
+    const defaultBinderTag = q.binder_tag || 'bin_hra5020_60';
+    const defaultBaseTag   = q.base_tag   || 'base_ac32d_100';
     const zonesPath = Array.isArray(q.surface_zones) && q.surface_zones.length;
 
     if (zonesPath) {
@@ -234,14 +234,16 @@
         if (a <= 0) continue;
         if (sz.tag)             pushByTag(sz.tag, a);        // surface
         if (q.include_tack)     pushByTag('tack', a);        // tack follows surface
-        if (q.include_binder && sz.needsBinder) pushByTag(binderTag, a);
-        if (q.include_base   && sz.needsBase)   pushByTag(baseTag,   a);
+        // Per-zone binder/base material wins; fall through to the
+        // scheme-level default for zones the Designer hasn't specified.
+        if (q.include_binder && sz.needsBinder) pushByTag(sz.binderTag || defaultBinderTag, a);
+        if (q.include_base   && sz.needsBase)   pushByTag(sz.baseTag   || defaultBaseTag,   a);
       }
     } else {
       // Manual (single-material) path.
       if (q.include_tack)   pushByTag('tack', layerArea(q.tack_area));
-      if (q.include_binder) pushByTag(binderTag, layerArea(q.binder_area));
-      if (q.include_base)   pushByTag(baseTag,   layerArea(q.base_area));
+      if (q.include_binder) pushByTag(defaultBinderTag, layerArea(q.binder_area));
+      if (q.include_base)   pushByTag(defaultBaseTag,   layerArea(q.base_area));
       const sA = layerArea(q.surface_area);
       if (sA > 0 && q.surface_tag) pushByTag(q.surface_tag, sA);
     }
@@ -531,6 +533,10 @@
       needsBinder:  !!z.includes_binder,
       needsBase:    !!z.includes_base,
       needsSubbase: !!z.includes_subbase,
+      // Per-zone binder / base material; null falls through to the
+      // scheme-level default in the line builder.
+      binderTag: z.binder_tag || null,
+      baseTag:   z.base_tag   || null,
     }));
 
     // Dominant zone (largest area) drives the scheme-level fallbacks for the
@@ -564,10 +570,16 @@
     const liningM2 = lining.filter(r => r.unit === 'm²').reduce((t, r) => t + (+r.quantity || 0), 0);
 
     const tm = design.tm || {};
+    const footway = design.footway || {};
 
     return {
       carriageway_area:  +s.carriageway_area_m2 || 0,
       footway_area:      +s.footway_area_m2     || 0,
+      // Footway surface tag is opt-in — empty means no fw_surface line.
+      // The engine's existing default (`fw_ac6_30`) only fires when this
+      // is non-empty AND footway_area > 0.
+      fw_surface_tag:    footway.surface_tag || '',
+      include_fw_subbase: !!footway.include_subbase,
       surface_tag:       matchSurfaceTag(dominant?.surface || ''),
       include_binder:    anyBinder,
       include_base:      anyBase,

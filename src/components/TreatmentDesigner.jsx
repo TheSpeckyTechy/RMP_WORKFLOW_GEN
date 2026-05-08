@@ -66,6 +66,20 @@ const TD_TM_TYPES = [
   'Full Closure + Diversion',
 ];
 
+// Catalogue-driven material lists. Pulled from the BoQ engine so the
+// dropdown options always match what the engine knows how to price; a
+// missing window.BOQ_ENGINE during early script load falls through to
+// empty arrays (the dropdown still renders, just with no options).
+const TD_BINDER_OPTIONS  = (window.BOQ_ENGINE?.MATERIALS?.BINDER_OPTIONS)  || [];
+const TD_BASE_OPTIONS    = (window.BOQ_ENGINE?.MATERIALS?.BASE_OPTIONS)    || [];
+const TD_FOOTWAY_OPTIONS = (window.BOQ_ENGINE?.MATERIALS?.FOOTWAY_SURFACE_OPTIONS) || [];
+
+// Default materials match the BoQ engine's pre-Designer fallbacks, so a
+// scheme that's never touched the dropdown produces the same lines it did
+// before per-zone material selection landed.
+const TD_DEFAULT_BINDER_TAG = 'bin_hra5020_60';
+const TD_DEFAULT_BASE_TAG   = 'base_ac32d_100';
+
 // Hook returning a writeDesign(patch) that merges the patch into
 // scheme.design with touched=true and persists it via updateScheme.
 const useDesignWriter = (schemeId) => {
@@ -141,9 +155,11 @@ const TDZonesPanel = ({ scheme, write }) => {
     includes_binder: false,
     includes_base: false,
     includes_subbase: false,
-    binder_depth_mm: 0,
-    base_depth_mm: 0,
-    subbase_depth_mm: 0,
+    binder_depth_mm: 60,
+    base_depth_mm: 100,
+    subbase_depth_mm: 150,
+    binder_tag: TD_DEFAULT_BINDER_TAG,
+    base_tag:   TD_DEFAULT_BASE_TAG,
   }]);
   const rmZone = (id) => setZones(zones.filter(z => z.id !== id));
 
@@ -211,37 +227,63 @@ const TDZonesPanel = ({ scheme, write }) => {
                 onChange={e => updZone(zone.id, { milling_depth_mm: +e.target.value || 0 })} />
             </div>
 
-            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 14, paddingTop: 6, borderTop: '1px solid var(--line)' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-2)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={!!zone.includes_binder}
-                  onChange={e => updZone(zone.id, { includes_binder: e.target.checked })} />
-                Binder course
-              </label>
-              {zone.includes_binder && (
-                <input type="number" className="mono" placeholder="depth mm" style={{ width: 80, fontSize: 11 }}
-                  value={zone.binder_depth_mm}
-                  onChange={e => updZone(zone.id, { binder_depth_mm: +e.target.value || 0 })} />
-              )}
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-2)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={!!zone.includes_base}
-                  onChange={e => updZone(zone.id, { includes_base: e.target.checked })} />
-                Base course
-              </label>
-              {zone.includes_base && (
-                <input type="number" className="mono" placeholder="depth mm" style={{ width: 80, fontSize: 11 }}
-                  value={zone.base_depth_mm}
-                  onChange={e => updZone(zone.id, { base_depth_mm: +e.target.value || 0 })} />
-              )}
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-2)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={!!zone.includes_subbase}
-                  onChange={e => updZone(zone.id, { includes_subbase: e.target.checked })} />
-                Sub-base
-              </label>
-              {zone.includes_subbase && (
-                <input type="number" className="mono" placeholder="depth mm" style={{ width: 80, fontSize: 11 }}
-                  value={zone.subbase_depth_mm}
-                  onChange={e => updZone(zone.id, { subbase_depth_mm: +e.target.value || 0 })} />
-              )}
+            <div style={{ gridColumn: '1 / -1', paddingTop: 8, borderTop: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {/* Binder course — toggle + material picker + depth */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-2)', cursor: 'pointer', minWidth: 110 }}>
+                  <input type="checkbox" checked={!!zone.includes_binder}
+                    onChange={e => updZone(zone.id, { includes_binder: e.target.checked })} />
+                  Binder course
+                </label>
+                {zone.includes_binder && (
+                  <>
+                    <select value={zone.binder_tag || TD_DEFAULT_BINDER_TAG}
+                      onChange={e => updZone(zone.id, { binder_tag: e.target.value })}
+                      style={{ flex: 1, fontSize: 11, maxWidth: 280 }}>
+                      {TD_BINDER_OPTIONS.map(o => <option key={o.tag} value={o.tag}>{o.label}</option>)}
+                    </select>
+                    <input type="number" className="mono" placeholder="depth mm" style={{ width: 70, fontSize: 11 }}
+                      value={zone.binder_depth_mm}
+                      onChange={e => updZone(zone.id, { binder_depth_mm: +e.target.value || 0 })} />
+                  </>
+                )}
+              </div>
+
+              {/* Base course — toggle + material picker + depth */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-2)', cursor: 'pointer', minWidth: 110 }}>
+                  <input type="checkbox" checked={!!zone.includes_base}
+                    onChange={e => updZone(zone.id, { includes_base: e.target.checked })} />
+                  Base course
+                </label>
+                {zone.includes_base && (
+                  <>
+                    <select value={zone.base_tag || TD_DEFAULT_BASE_TAG}
+                      onChange={e => updZone(zone.id, { base_tag: e.target.value })}
+                      style={{ flex: 1, fontSize: 11, maxWidth: 280 }}>
+                      {TD_BASE_OPTIONS.map(o => <option key={o.tag} value={o.tag}>{o.label}</option>)}
+                    </select>
+                    <input type="number" className="mono" placeholder="depth mm" style={{ width: 70, fontSize: 11 }}
+                      value={zone.base_depth_mm}
+                      onChange={e => updZone(zone.id, { base_depth_mm: +e.target.value || 0 })} />
+                  </>
+                )}
+              </div>
+
+              {/* Sub-base — only one catalogue material exists today, so no
+                  picker; just toggle + depth. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-2)', cursor: 'pointer', minWidth: 110 }}>
+                  <input type="checkbox" checked={!!zone.includes_subbase}
+                    onChange={e => updZone(zone.id, { includes_subbase: e.target.checked })} />
+                  Sub-base
+                </label>
+                {zone.includes_subbase && (
+                  <input type="number" className="mono" placeholder="depth mm" style={{ width: 70, fontSize: 11 }}
+                    value={zone.subbase_depth_mm}
+                    onChange={e => updZone(zone.id, { subbase_depth_mm: +e.target.value || 0 })} />
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -250,6 +292,50 @@ const TDZonesPanel = ({ scheme, write }) => {
       <button className="btn sm" onClick={addZone} style={{ marginTop: 4 }}>
         <window.Icon.Plus /> Add zone
       </button>
+    </div>
+  );
+};
+
+// ── Footway panel ────────────────────────────────────────────────────────────
+// Single-area scheme-wide footway treatment. The carriageway zones panel
+// can't represent footway works (no per-zone surface kind), and footway
+// designs in practice are uniform across the area, so a single material
+// picker + sub-base toggle is the right ergonomic.
+const TDFootwayPanel = ({ scheme, write }) => {
+  const design = scheme.design || window.defaultDesign();
+  const fw     = design.footway || { surface_tag: '', include_subbase: false };
+  const fwArea = +scheme.footway_area_m2 || 0;
+
+  // Hide entirely when there's no footway area on the scheme — keeps the
+  // Designer compact for carriageway-only schemes (the majority).
+  if (fwArea <= 0) return null;
+
+  const setFw = (patch) => write({ footway: { ...fw, ...patch } });
+
+  return (
+    <div className="form-section" style={{ marginBottom: 16 }}>
+      <div className="section-head" style={{ marginBottom: 14 }}>
+        <div className="section-title"><span className="section-num">03</span> Footway surfacing</div>
+        <div style={{ marginLeft: 'auto', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)' }}>
+          {fwArea.toLocaleString()} m² scheme footway
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, alignItems: 'end' }}>
+        <div className="field">
+          <label>Surface treatment</label>
+          <select value={fw.surface_tag || ''}
+            onChange={e => setFw({ surface_tag: e.target.value })}>
+            <option value="">— select —</option>
+            {TD_FOOTWAY_OPTIONS.map(o => <option key={o.tag} value={o.tag}>{o.label}</option>)}
+          </select>
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap', paddingBottom: 8 }}>
+          <input type="checkbox" checked={!!fw.include_subbase}
+            onChange={e => setFw({ include_subbase: e.target.checked })} />
+          Include sub-base
+        </label>
+      </div>
     </div>
   );
 };
@@ -282,7 +368,7 @@ const TDIronworksPanel = ({ scheme, write }) => {
   return (
     <div className="form-section" style={{ marginBottom: 16 }}>
       <div className="section-head" style={{ marginBottom: 14 }}>
-        <div className="section-title"><span className="section-num">03</span> Ironworks</div>
+        <div className="section-title"><span className="section-num">04</span> Ironworks</div>
         <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--ink-3)' }}>Number of items to reset / replace per surface</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -312,7 +398,7 @@ const TDKerbsPanel = ({ scheme, write }) => {
   return (
     <div className="form-section" style={{ marginBottom: 16 }}>
       <div className="section-head" style={{ marginBottom: 14 }}>
-        <div className="section-title"><span className="section-num">04</span> Kerbs</div>
+        <div className="section-title"><span className="section-num">05</span> Kerbs</div>
         <div style={{ marginLeft: 'auto', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)' }}>{total.toLocaleString()} m total</div>
       </div>
 
@@ -362,7 +448,7 @@ const TDLiningPanel = ({ scheme, write }) => {
   return (
     <div className="form-section" style={{ marginBottom: 16 }}>
       <div className="section-head" style={{ marginBottom: 14 }}>
-        <div className="section-title"><span className="section-num">05</span> Lining &amp; markings</div>
+        <div className="section-title"><span className="section-num">06</span> Lining &amp; markings</div>
         <div style={{ marginLeft: 'auto', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)' }}>
           {totalM > 0 && <span>{totalM.toLocaleString()} m</span>}
           {totalM > 0 && totalM2 > 0 && <span style={{ margin: '0 6px' }}>·</span>}
@@ -424,7 +510,7 @@ const TDTMPanel = ({ scheme, write }) => {
   return (
     <div className="form-section" style={{ marginBottom: 16 }}>
       <div className="section-head" style={{ marginBottom: 14 }}>
-        <div className="section-title"><span className="section-num">06</span> Traffic management</div>
+        <div className="section-title"><span className="section-num">07</span> Traffic management</div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -567,6 +653,7 @@ const TreatmentDesigner = ({ schemeId }) => {
       <TDPreviewBar scheme={scheme} />
       <TDSiteConditions schemeId={schemeId} scheme={scheme} />
       <TDZonesPanel     scheme={scheme} write={write} />
+      <TDFootwayPanel   scheme={scheme} write={write} />
       <TDIronworksPanel scheme={scheme} write={write} />
       <TDKerbsPanel     scheme={scheme} write={write} />
       <TDLiningPanel    scheme={scheme} write={write} />
