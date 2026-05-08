@@ -57,7 +57,7 @@ const ProjectHeader = ({ scheme, computed, onDownload, downloading, onDownloadTC
           {window.schemeArea(scheme) > 0 && <><span>·</span><span className="mono">{window.schemeArea(scheme).toLocaleString()} m²</span></>}
           {scheme.date_start && <><span>·</span><span className="mono">{scheme.date_start}{scheme.date_finish ? ` → ${scheme.date_finish}` : ''}</span></>}
           {workingDays && <><span>·</span><span className="mono">{workingDays} wd</span></>}
-          {scheme.treatment_type && <><span>·</span><span>{scheme.treatment_type === 'Other' ? (scheme.treatment_description || 'Other') : scheme.treatment_type}</span></>}
+          {window.schemeTreatment(scheme) && <><span>·</span><span>{window.schemeTreatment(scheme)}</span></>}
         </div>
       </div>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>

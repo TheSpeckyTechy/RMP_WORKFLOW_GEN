@@ -405,7 +405,7 @@
       vat,
       totalIncVat,
       areaBandOverride: areaBand,
-      hasCustomTreatment: !matchSurfaceTag(scheme.treatment_type),
+      hasCustomTreatment: !matchSurfaceTag((window.schemeTreatment && window.schemeTreatment(scheme)) || ''),
     };
   }
 
@@ -441,10 +441,6 @@
     'Works on footways only':   'footway_works',
     'None':                     'none',
   };
-  const INTERNAL_TO_SCHEME_TM = Object.fromEntries(
-    Object.entries(SCHEME_TO_INTERNAL_TM).map(([k, v]) => [v, k])
-  );
-
   function mapSchemeTmType(s) {
     if (!s) return 'none';
     if (SCHEME_TO_INTERNAL_TM[s]) return SCHEME_TO_INTERNAL_TM[s];
@@ -614,91 +610,6 @@
     return deriveQuickInputsFromScheme(scheme);
   }
 
-  // Reverse map from internal surface tag to the canonical Master
-  // treatment_type string. Multiple tags can share the same Master value
-  // (e.g. 14mm and 20mm chippings both land on "HRA 30/14F surf 40/60").
-  // Every value here MUST exist in the Master dropdown in
-  // window.WORKBOOK_SCHEMA so the roundtrip preserves spec integrity.
-  const TAG_TO_MASTER_TREATMENT = {
-    surf_hra3014_40_14: 'HRA 30/14F surf 40/60',
-    surf_hra3014_40_20: 'HRA 30/14F surf 40/60',
-    surf_hra3514_45_14: 'HRA 35/14F surf 40/60',
-    surf_hra3514_45_20: 'HRA 35/14F surf 40/60',
-    surf_hra5510_40:    'HRA 55/10F surf 40/60',
-    surf_sma10_40:      'SMA 10 surf 40/60',
-    surf_sma6_30:       'SMA 6 surf 100/150',
-    surf_ac14_40:       'AC14 close surf 40/60',
-    surf_ac10_40:       'AC10 close surf 40/60',
-    surf_ac14hb_40:     'AC14 HBC surf 40/60',
-    surf_ac10hb_40:     'AC10 HBC surf 40/60',
-    surf_ac6_30:        'AC6 dense 100/150',
-    surf_micro:         'Micro-asphalt',
-    sd_10mm_int:        'Surface dressing 10mm intermediate',
-    sd_10mm_prem:       'Surface dressing 10mm premium',
-    sd_6mm_int:         'Surface dressing 6mm intermediate',
-  };
-
-  // Push an overridden BoQ value back to its Master field. Returns the
-  // patch object to apply to the scheme (or null if this field has no clean
-  // Master reverse-mapping). Caller runs updateScheme(schemeId, patch) and
-  // clears the override flag.
-  function schemePatchForOverride(key, overrideValue, scheme) {
-    const num = () => +overrideValue || 0;
-    const bool = () => !!overrideValue;
-    switch (key) {
-      case 'carriageway_area': return { carriageway_area_m2: num() };
-      case 'footway_area':     return { footway_area_m2:     num() };
-      case 'kerb_length':      return { kerb_length: num() };
-      case 'subbase_depth':    return { subbase_depth_mm: num() };
-      case 'milling_depth':    return { surface_depth_mm: num() };
-      case 'iw_bt_cway':       return { iron_bt: num() };
-      case 'iw_gas_cway':      return { iron_gas: num() };
-      case 'iw_gully_cway':    return { iron_gullies: num() };
-      case 'include_binder':   return { binder_depth_mm: bool() ? (+scheme.binder_depth_mm || 60) : 0 };
-      case 'include_subbase':  return { subbase_depth_mm: bool() ? (+scheme.subbase_depth_mm || 150) : 0 };
-      case 'surface_tag': {
-        // Map the internal tag to a canonical Master treatment_type string
-        // the dropdown actually accepts. Writing the SURFACE_OPTIONS label
-        // (e.g. "HRA 30/14F 40mm · 14mm chips") would put an orphan value
-        // into the Master that no downstream reader could parse.
-        const masterStr = TAG_TO_MASTER_TREATMENT[overrideValue];
-        return masterStr ? { treatment_type: masterStr } : null;
-      }
-      case 'tm_type': {
-        // Use the bijective map so every internal code round-trips to
-        // exactly the Master dropdown option the designer originally
-        // chose — no silent collapse onto a single default.
-        const masterStr = INTERNAL_TO_SCHEME_TM[overrideValue];
-        return masterStr ? { tm_type: masterStr } : null;
-      }
-      // iw_sw_cway splits into iron_mh + iron_water — ambiguous, no clean push.
-      // include_diversion is a regex read of tm_type — no clean push.
-      // duration_days is derived from date_start/date_finish — no clean push.
-      default: return null;
-    }
-  }
-
-  // Inventory of Master-linked fields. Drives the rail's LinkedField UI and
-  // the scheme-level overrides banner.
-  const LINKED_FIELDS = [
-    { key:'carriageway_area',  label:'Default area',       unit:'m²' },
-    { key:'footway_area',      label:'Footway area',       unit:'m²' },
-    { key:'surface_tag',       label:'Surface course' },
-    { key:'include_binder',    label:'Binder course' },
-    { key:'include_base',      label:'Base course' },
-    { key:'include_subbase',   label:'Sub-base' },
-    { key:'subbase_depth',     label:'Sub-base depth',     unit:'mm' },
-    { key:'milling_depth',     label:'Milling depth',      unit:'mm' },
-    { key:'kerb_length',       label:'Kerb length',        unit:'m' },
-    { key:'iw_sw_cway',        label:'SW covers — c’way',  unit:'No' },
-    { key:'iw_bt_cway',        label:'BT covers — c’way',  unit:'No' },
-    { key:'iw_gas_cway',       label:'Gas covers — c’way', unit:'No' },
-    { key:'iw_gully_cway',     label:'Gully reset — c’way',unit:'No' },
-    { key:'tm_type',           label:'TM type' },
-    { key:'include_diversion', label:'Include diversion' },
-    { key:'duration_days',     label:'Duration',           unit:'days' },
-  ];
-
   window.BOQ_ENGINE = {
     MATERIALS: {
       SURFACE_OPTIONS, BINDER_OPTIONS, BASE_OPTIONS,
@@ -708,7 +619,5 @@
     regenAutoLines, buildBoQLines,
     deriveQuickInputsFromScheme, effectiveQuickInputs,
     mapSchemeTmType, computeWorkingDays, isSevenDayPattern,
-    schemePatchForOverride,
-    LINKED_FIELDS,
   };
 })();

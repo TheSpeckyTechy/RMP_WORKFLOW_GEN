@@ -70,75 +70,19 @@ const TD_TM_TYPES = [
   'Full Closure + Diversion',
 ];
 
-// Build the legacy field patch from a design{} so the BoQ engine and Master
-// view (which still read treatments[], iron_*, kerb_length, tm_*) reflect
-// every Designer edit. Removed in Phase 3 once the engine reads design.*
-// directly.
-const legacyMirrorFromDesign = (design) => {
-  const zones = (design.zones || []).map((z, i) => ({
-    id:             z.id || (1000 + i + 1),
-    zone:           z.label || '',
-    area_m2:        +z.area_m2 || 0,
-    depth_mm:       +z.depth_mm || 40,
-    treatment_type: z.surface || '',
-  }));
-
-  // Master section 2 zone_a1-5 mirror — capped at 5 because that's the
-  // workbook's named-range count. Zones 6+ flow through treatments[] only.
-  const zoneSlots = {};
-  for (let i = 1; i <= 5; i++) {
-    const z = zones[i - 1];
-    zoneSlots[`zone_a${i}_description`] = z?.zone || '';
-    zoneSlots[`zone_a${i}_area_m2`]     = z?.area_m2 || 0;
-    zoneSlots[`zone_a${i}_depth_mm`]    = z?.depth_mm || 0;
-    zoneSlots[`zone_a${i}_treatment`]   = z?.treatment_type || '';
-  }
-
-  const cway = design.ironworks?.cway || {};
-  const kerbTotal = (design.kerbs || []).reduce((s, k) => s + (+k.length_m || 0), 0);
-  const tm = design.tm || {};
-
-  // Master treatment_type mirrors the dominant (largest area) zone surface so
-  // single-zone schemes still populate the Master cleanly.
-  const dominant = zones.slice().sort((a, b) => (+b.area_m2 || 0) - (+a.area_m2 || 0))[0];
-
-  return {
-    treatments: zones,
-    ...zoneSlots,
-    iron_mh:      +cway.mh      || 0,
-    iron_water:   +cway.water   || 0,
-    iron_bt:      +cway.bt      || 0,
-    iron_gas:     +cway.gas     || 0,
-    iron_gullies: +cway.gullies || 0,
-    kerb_length:  kerbTotal,
-    tm_type:         tm.type         || '',
-    tm_hours:        tm.hours        || '',
-    tm_phases:       +tm.phases      || 1,
-    tm_diversion_by: tm.diversion_by || '',
-    tm_compound:     tm.compound     || '',
-    // treatment_type mirror (read by PCIPreview / Dashboard / Master) picks
-    // the dominant zone's surface so the Master's "Treatment Type" cell
-    // stays in sync. surface_depth_mm intentionally NOT mirrored — the
-    // Designer's per-zone depth_mm is total excavation depth, not surface
-    // course thickness, so writing it would corrupt the Master's distinct
-    // surface_depth_mm field. Phase 6 retires those legacy readers.
-    treatment_type: dominant?.treatment_type || '',
-  };
-};
-
-// Hook returning a writeDesign(patch) that:
-//   1. merges patch into scheme.design with touched=true
-//   2. computes the legacy mirror from the new design
-//   3. applies both via updateScheme so the BoQ engine and Master view
-//      reflect the edit on the next render
+// Hook returning a writeDesign(patch) that merges the patch into
+// scheme.design with touched=true and persists it via updateScheme. Phase 2
+// also wrote a legacy mirror (treatments[], zone_a1-5_*, iron_*, kerb_length,
+// tm_*, treatment_type) so the BoQ engine and previews kept reading legacy.
+// Phase 6 retires every legacy reader, so the mirror is gone — design{} is
+// the single source of truth, full stop.
 const useDesignWriter = (schemeId) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   return React.useCallback((patch) => {
     const scheme = getScheme(schemeId);
     const current = scheme.design || window.defaultDesign();
     const nextDesign = { ...current, ...patch, touched: true };
-    const legacy = legacyMirrorFromDesign(nextDesign);
-    updateScheme(schemeId, { design: nextDesign, ...legacy });
+    updateScheme(schemeId, { design: nextDesign });
   }, [schemeId, getScheme, updateScheme]);
 };
 

@@ -45,47 +45,12 @@ window.WARDS = [
   ]},
 ];
 
-// Default shape for the new BoQ generator (Stage 3). Lives on window so
-// SchemeContext can back-fill legacy schemes loaded from localStorage / Supabase
-// that predate this field.
+// Default shape for the BoQ tab. Quantities are derived from scheme.design{}
+// at render time by the BoQ engine — this record only carries the things
+// the BoQ tab itself owns: custom (user-added) lines, recent catalogue
+// picks, BERR/VAT/percent-addition settings, and the touched flag that
+// gates first-mount auto-line seeding.
 window.defaultBoq = () => ({
-  // Per-field override flags — when true, quick_inputs[key] wins over the
-  // Master-derived value for that field. See boq_engine.effectiveQuickInputs.
-  overrides: {},
-  quick_inputs: {
-    carriageway_area:   0,
-    footway_area:       0,
-    surface_tag:        'surf_hra3014_40_14',
-    surface_area:       null,
-    binder_tag:         'bin_hra5020_60',
-    include_binder:     false,
-    binder_area:        null,
-    base_tag:           'base_ac32d_100',
-    include_base:       false,
-    base_area:          null,
-    subbase_depth:      150,
-    include_subbase:    false,
-    subbase_area:       null,
-    milling_depth:      40,
-    include_milling:    true,
-    milling_entries:    [{ depth: 40, area: null }],
-    include_tack:       true,
-    tack_area:          null,
-    tm_type:            'full_closure',
-    duration_days:      5,
-    include_diversion:  false,
-    kerb_length:        0,
-    kerb_type:          'kerb_k1_laid',
-    fw_surface_tag:     'fw_ac6_30',
-    include_fw_subbase: false,
-    include_markings:   false,
-    markings_area:      0,
-    include_line_marks: false,
-    line_marks_m:       0,
-    iw_sw_cway:  0, iw_sse_cway: 0, iw_bt_cway: 0, iw_gas_cway: 0,
-    iw_sw_fw:    0, iw_sse_fw:   0, iw_bt_fw:   0, iw_gas_fw:   0,
-    iw_gully_cway: 0,
-  },
   custom_lines: [],      // [{uid,id,desc,qty,unit,bandOverride?,series,auto?,notes?}]
   recent_items: [],      // last ≤20 catalogue picks; pinned at the top of the
                          // catalogue drawer when no search/filter is active.
@@ -263,6 +228,25 @@ window.baseScheme = baseScheme;
 // denominator, etc.). For BoQ-engine math that needs the two split out, read
 // the underlying fields directly.
 window.schemeArea = (s) => (+s?.carriageway_area_m2 || 0) + (+s?.footway_area_m2 || 0);
+
+// Dominant zone's surface treatment (largest by area), or empty. Replaces
+// the legacy scheme.treatment_type field for headers, exports, and any
+// other "name the treatment" surface.
+window.schemeTreatment = (s) => {
+  const zones = (s?.design?.zones || []).filter(z => +z.area_m2 > 0);
+  const dom = zones.slice().sort((a, b) => (+b.area_m2 || 0) - (+a.area_m2 || 0))[0];
+  return dom?.surface || '';
+};
+
+// TM fields lifted from scheme.design.tm with safe defaults, mirroring the
+// shape the old scheme.tm_* fields had so consumers can swap inline.
+window.schemeTM = (s) => ({
+  type:         s?.design?.tm?.type         || '',
+  hours:        s?.design?.tm?.hours        || '',
+  phases:       +s?.design?.tm?.phases      || 1,
+  diversion_by: s?.design?.tm?.diversion_by || '',
+  compound:     s?.design?.tm?.compound     || '',
+});
 
 window.SCHEMES = [
   baseScheme({

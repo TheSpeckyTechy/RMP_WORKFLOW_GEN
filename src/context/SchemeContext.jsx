@@ -107,50 +107,20 @@ const withDesign = (s) => {
 };
 
 // Silent migration: ensure every scheme loaded from storage has a .boq that
-// matches the current shape — per-layer areas, milling_entries, and
-// Master-linked override flags. Persists on the first updateScheme call.
+// ensures every loaded scheme has a .boq with the current settings shape
+// (Series 6400 uplift entries) and creates a default boq for any persisted
+// scheme missing one. The pre-Phase-4 quick_inputs / overrides back-fills
+// are gone: those fields are inert post-Phase-4 and quietly persist as-is.
 const withBoq = (s) => {
   if (!s) return s;
   if (!s.boq) return { ...s, boq: window.defaultBoq() };
 
   let boq = s.boq;
-  const qi = boq.quick_inputs || {};
 
-  // ── 1. Per-layer area / milling_entries (shipped in earlier PR) ──
-  if (!qi.milling_entries) {
-    boq = {
-      ...boq,
-      quick_inputs: {
-        ...qi,
-        milling_entries: [{ depth: +qi.milling_depth || 40, area: null }],
-        surface_area: qi.surface_area ?? null,
-        binder_area:  qi.binder_area  ?? null,
-        base_area:    qi.base_area    ?? null,
-        subbase_area: qi.subbase_area ?? null,
-        tack_area:    qi.tack_area    ?? null,
-      },
-    };
-  }
-
-  // ── 1b. New ironwork fields introduced in PR D2 (gas + gully) — default
-  //       to 0 so the rail can render them for legacy rows.
-  const qi2 = boq.quick_inputs || {};
-  if (!('iw_gas_cway' in qi2) || !('iw_gas_fw' in qi2) || !('iw_gully_cway' in qi2)) {
-    boq = {
-      ...boq,
-      quick_inputs: {
-        ...qi2,
-        iw_gas_cway:   +qi2.iw_gas_cway   || 0,
-        iw_gas_fw:     +qi2.iw_gas_fw     || 0,
-        iw_gully_cway: +qi2.iw_gully_cway || 0,
-      },
-    };
-  }
-
-  // ── 1c. Series 6400 uplift entries (night, Sat, Sun, Dundee area) — added
-  //       so existing schemes pick up the new BoQ-tab toggles. Each entry is
-  //       inserted only if absent, so user edits to existing toggles aren't
-  //       overwritten on subsequent loads.
+  // Series 6400 uplift entries (night, Sat, Sun, Dundee area) — back-filled
+  // for older schemes whose settings.percentAdditions predates them. Each
+  // entry only inserts if absent so any user edits to existing toggles
+  // survive subsequent loads.
   const adds = (boq.settings && boq.settings.percentAdditions) || {};
   const newAdds = {
     night_uplift:    { enabled: false, pct: 0.20, label: 'Night-shift uplift (Series 6400/003)' },
@@ -168,11 +138,6 @@ const withBoq = (s) => {
     };
   }
 
-  // The pre-Phase-4 BoQ tab back-filled boq.overrides here by comparing
-  // stored quick_inputs against Master-derived values. The Designer is
-  // the only quantity writer now and the engine ignores boq.overrides
-  // entirely, so this back-fill is gone. Persisted override flags from
-  // older schemes are left on disk and become inert.
   return boq === s.boq ? s : { ...s, boq };
 };
 
@@ -187,66 +152,6 @@ const initSchemes = () => {
   const extras = lsGetIds().filter(id => !defaultIds.has(id)).map(id => lsGet(id)).filter(Boolean).map(migrate);
   return [...extras, ...base];
 };
-
-// Keep scheme.treatments[] and the zone_a1-a5_* Master-mirror fields in sync
-// as a single source of truth. Called from updateScheme before the write.
-//
-// Rules:
-//   - If `updates` includes `treatments`, it wins — rebuild zone_a1-5 from it.
-//   - Else if `updates` includes any zone_aN_* field, rebuild treatments from
-//     the resulting 5 slots.
-//   - Otherwise return updates unchanged.
-//
-// This means a Master Workbook edit to zone_a1_area_m2 flows into
-// scheme.treatments automatically, and a Treatment-tab zone edit refreshes
-// the mirror. The engine's deriveQuickInputsFromScheme reads treatments[],
-// so downstream BoQ auto-lines pick up the change on the next render.
-const ZONE_FIELD_RE = /^zone_a[1-5]_(description|area_m2|depth_mm|treatment)$/;
-
-function syncZoneMirror(current, updates) {
-  const touchesTreatments = Object.prototype.hasOwnProperty.call(updates, 'treatments');
-  const touchesZoneField  = Object.keys(updates).some(k => ZONE_FIELD_RE.test(k));
-  if (!touchesTreatments && !touchesZoneField) return updates;
-
-  const merged = { ...current, ...updates };
-  let zones;
-
-  if (touchesTreatments) {
-    zones = Array.isArray(merged.treatments) ? merged.treatments : [];
-  } else {
-    // Reconstruct from the 5 slots, preserving ids from existing treatments[]
-    // so per-zone identity survives Master-side edits.
-    const existing = Array.isArray(current.treatments) ? current.treatments : [];
-    zones = [];
-    for (let i = 1; i <= 5; i++) {
-      const desc      = merged[`zone_a${i}_description`];
-      const area      = +merged[`zone_a${i}_area_m2`]  || 0;
-      const depth     = +merged[`zone_a${i}_depth_mm`] || 0;
-      const treatment = merged[`zone_a${i}_treatment`];
-      const hasData   = (desc && String(desc).trim()) || area > 0 || depth > 0 || (treatment && String(treatment).trim());
-      if (!hasData) continue;
-      const prev = existing[i - 1] || {};
-      zones.push({
-        id:             prev.id || (1000 + i),
-        zone:           desc || prev.zone || '',
-        area_m2:        area,
-        depth_mm:       depth || prev.depth_mm || 40,
-        treatment_type: treatment || prev.treatment_type || '',
-      });
-    }
-  }
-
-  // Rebuild the Master-side mirror so both shapes always reflect `zones`.
-  const patched = { ...updates, treatments: zones };
-  for (let i = 1; i <= 5; i++) {
-    const z = zones[i - 1];
-    patched[`zone_a${i}_description`] = z ? (z.zone || '')           : '';
-    patched[`zone_a${i}_area_m2`]     = z ? (+z.area_m2 || 0)        : 0;
-    patched[`zone_a${i}_depth_mm`]    = z ? (+z.depth_mm || 0)       : 0;
-    patched[`zone_a${i}_treatment`]   = z ? (z.treatment_type || '') : '';
-  }
-  return patched;
-}
 
 // ── Supabase helpers ─────────────────────────────────────────────────────────
 const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
@@ -286,8 +191,7 @@ const SchemeProvider = ({ children }) => {
   const updateScheme = (id, updates) => {
     const current = latestSchemes.current.find(s => s.id === id);
     if (!current) return;
-    const normalised = syncZoneMirror(current, updates);
-    const merged = { ...current, ...normalised };
+    const merged = { ...current, ...updates };
     lsSet(id, merged);
     setSchemes(prev => prev.map(s => s.id === id ? merged : s));
     sbUpsertFn(id, merged, setSyncStatus, () => setLastSynced(new Date()));

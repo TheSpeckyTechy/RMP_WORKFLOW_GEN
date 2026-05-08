@@ -276,7 +276,7 @@
     // Project meta — 2 column block
     const meta = [
       ['Project ref',      scheme.project_number || '—',                'Area',        window.schemeArea(scheme).toLocaleString() + ' m²'],
-      ['Ward',             scheme.ward_selected ? `${scheme.ward_num} · ${scheme.ward_selected}` : '—', 'Treatment', scheme.treatment_type || '—'],
+      ['Ward',             scheme.ward_selected ? `${scheme.ward_num} · ${scheme.ward_selected}` : '—', 'Treatment', window.schemeTreatment(scheme) || '—'],
       ['Start',            scheme.date_start || '—',                   'Finish',      scheme.date_finish || '—'],
       ['Contractor',       scheme.contractor || '—',                   'Designer',    scheme.prepared_by || '—'],
     ];

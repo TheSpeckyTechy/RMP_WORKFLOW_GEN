@@ -47,8 +47,8 @@ const SchemeMobileCard = ({ scheme, onExpand, onBack, onGenerate }) => {
       </div>
       <div className="smc-meta">
         {[["Start date",scheme.date_start||"—"],["Finish date",scheme.date_finish||"—"],
-          ["Area",window.schemeArea(scheme).toLocaleString()+" m²"],["Treatment",scheme.treatment_type||"—"],
-          ["Ward",scheme.ward||"—"],["TM type",scheme.tm_type||"—"]].map(([label,val])=>(
+          ["Area",window.schemeArea(scheme).toLocaleString()+" m²"],["Treatment",window.schemeTreatment(scheme)||"—"],
+          ["Ward",scheme.ward||"—"],["TM type",window.schemeTM(scheme).type||"—"]].map(([label,val])=>(
           <div key={label} className="smc-meta-item">
             <div className="smc-meta-label">{label}</div>
             <div className="smc-meta-value" style={{fontSize:12}}>{val}</div>
@@ -112,7 +112,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
           <p className="page-sub" style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
             <span>{scheme.scheme_extent}</span>
             <span>·</span><span className="mono">{window.schemeArea(scheme).toLocaleString()} m²</span>
-            <span>·</span><span>{scheme.treatment_type}</span>
+            {window.schemeTreatment(scheme) && <><span>·</span><span>{window.schemeTreatment(scheme)}</span></>}
             <span>·</span>
             <select
               value={scheme.status}
@@ -299,7 +299,7 @@ const FrontSheetDoc = ({ scheme }) => {
     ["Contractor",    scheme.contractor],
   ];
   const summaryRows = [
-    ["Traffic Category", scheme.traffic_category],
+    ["Treatment",        window.schemeTreatment(scheme)],
     ["Scheme Type",      scheme.scheme_type],
     ["Tender Total",     scheme.tender_total ? `£${(+scheme.tender_total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` : null],
     ["Date Prepared",    scheme.date_prepared],
@@ -331,7 +331,7 @@ const FrontSheetDoc = ({ scheme }) => {
 
       {/* Status bar */}
       <div style={{background:statusColor,color:'white',padding:'12px 40px',display:'flex',gap:32,alignItems:'center',fontSize:12,flexWrap:'wrap'}}>
-        {[["Status",statusLabels[scheme.status]||scheme.status||'—'],["Treatment",scheme.treatment_type||'—'],["Area",`${window.schemeArea(scheme).toLocaleString()} m²`],["Works Period",scheme.date_start&&scheme.date_finish?`${scheme.date_start} → ${scheme.date_finish}`:scheme.date_start||'—']].map(([l,v])=>(
+        {[["Status",statusLabels[scheme.status]||scheme.status||'—'],["Treatment",window.schemeTreatment(scheme)||'—'],["Area",`${window.schemeArea(scheme).toLocaleString()} m²`],["Works Period",scheme.date_start&&scheme.date_finish?`${scheme.date_start} → ${scheme.date_finish}`:scheme.date_start||'—']].map(([l,v])=>(
           <div key={l}>
             <div style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.1em',opacity:0.8,marginBottom:2}}>{l}</div>
             <div style={{fontWeight:700}}>{v}</div>
