@@ -46,7 +46,7 @@ const MasterPreviewBar = ({ scheme }) => {
 
   return (
     <div className="mwb-preview" title="Live projection of the current BoQ totals — updates as you edit Master fields. Refine in the BoQ tab.">
-      <Stat label="BoQ total (incl. VAT)" value={E.fmtGBP(total)} />
+      <Stat label="BoQ Total" value={E.fmtGBP(total)} />
       <Stat label="£ per m²" value={cwArea > 0 ? E.fmtGBP(perM2) : '—'} sub={cwArea > 0 ? `${cwArea.toLocaleString()} m²` : 'no carriageway area'} />
       <Stat label="Lines" value={String((computed.lines || []).length)} sub={`${(computed.groups || []).length} series`} />
       <div className="mwb-preview-stat mwb-preview-dominant">

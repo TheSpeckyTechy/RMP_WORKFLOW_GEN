@@ -198,7 +198,7 @@
     }
 
     // Totals ladder
-    rows.push([blank(), blank(), blank(), blank(), blank(), cell('Subtotal (ex-VAT)', S.ladderLbl), cell(computed.subtotal, S.ladderVal)]);
+    rows.push([blank(), blank(), blank(), blank(), blank(), cell('Subtotal', S.ladderLbl), cell(computed.subtotal, S.ladderVal)]);
     for (const a of computed.adjustments) {
       rows.push([blank(), blank(), blank(), blank(), blank(),
         cell(`+ ${a.label} (${E.fmtPct(a.pct)})`, S.ladderLbl),
@@ -211,14 +211,8 @@
         cell(computed.berrAdjustmentAmt, S.ladderVal),
       ]);
     }
-    if (computed.vatRate > 0) {
-      rows.push([blank(), blank(), blank(), blank(), blank(),
-        cell(`+ VAT (${(computed.vatRate*100).toFixed(0)}%)`, S.ladderLbl),
-        cell(computed.vat, S.ladderVal),
-      ]);
-    }
     rows.push([blank(), blank(), blank(), blank(), blank(),
-      cell(computed.vatRate > 0 ? 'TOTAL (incl. VAT)' : 'TOTAL (ex-VAT)', S.grandLbl),
+      cell('TOTAL', S.grandLbl),
       cell(computed.totalIncVat, S.grandVal),
     ]);
 
@@ -318,7 +312,7 @@
     // Subtotal row
     rows.push([
       blank(), blank(), blank(),
-      cell('Subtotal (ex-VAT)', S.subtotalLbl),
+      cell('Subtotal', S.subtotalLbl),
       cell(computed.subtotal,   S.subtotal),
       blank(),
     ]);
@@ -343,14 +337,8 @@
         cell(computed.pwp, S.ladderVal),
       ]);
     }
-    if (computed.vatRate > 0) {
-      rows.push([blank(), blank(), blank(), blank(),
-        cell(`+ VAT (${(computed.vatRate*100).toFixed(0)}%)`, S.ladderLbl),
-        cell(computed.vat, S.ladderVal),
-      ]);
-    }
     rows.push([blank(), blank(), blank(), blank(),
-      cell(computed.vatRate > 0 ? 'TOTAL (incl. VAT)' : 'TOTAL (ex-VAT)', S.grandLbl),
+      cell('TOTAL', S.grandLbl),
       cell(computed.totalIncVat, S.grandVal),
     ]);
     rows.push(Array(6).fill(blank()));

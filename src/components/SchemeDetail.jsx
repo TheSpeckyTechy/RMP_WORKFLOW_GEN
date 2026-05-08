@@ -296,6 +296,22 @@ const FrontSheetDoc = ({ scheme, contents }) => {
   // previews (Pack tab card) render without contents and still see the
   // checklist fallback below.
   const hasContents = Array.isArray(contents) && contents.length > 0;
+  // BoQ total — computed from the live engine on every render so the
+  // figure on the front cover always matches the BoQ tab. Wrapped in a
+  // try/catch because the front sheet renders during pack compile, and
+  // any engine hiccup shouldn't take the cover page down.
+  const boqTotal = (() => {
+    try {
+      const E = window.BOQ_ENGINE;
+      if (!E) return 0;
+      const boq = scheme.boq || (window.defaultBoq ? window.defaultBoq() : { quick_inputs: {}, custom_lines: [], settings: {}, overrides: {} });
+      const effective = E.effectiveQuickInputs(scheme, boq);
+      const autoLines = E.regenAutoLines(effective);
+      const userLines = (boq.custom_lines || []).filter(l => !l.auto);
+      const merged    = { ...boq, quick_inputs: effective, custom_lines: [...autoLines, ...userLines] };
+      return +E.buildBoQLines(merged, scheme).totalIncVat || 0;
+    } catch { return 0; }
+  })();
   const teamRows = [
     ["Designer",      scheme.prepared_by],
     ["Reviewer",      scheme.reviewer_name],
@@ -306,7 +322,7 @@ const FrontSheetDoc = ({ scheme, contents }) => {
   const summaryRows = [
     ["Treatment",        window.schemeTreatment(scheme)],
     ["Scheme Type",      scheme.scheme_type],
-    ["Tender Total",     scheme.tender_total ? `£${(+scheme.tender_total).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` : null],
+    ["BoQ Total",        boqTotal > 0 ? `£${boqTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` : null],
     ["Date Prepared",    scheme.date_prepared],
   ];
   return (
@@ -360,7 +376,7 @@ const FrontSheetDoc = ({ scheme, contents }) => {
           {summaryRows.map(([l,v])=>(
             <div key={l} style={{display:'grid',gridTemplateColumns:'130px 1fr',gap:6,marginBottom:9,fontSize:12}}>
               <div style={{color:'#888'}}>{l}</div>
-              <div style={{fontFamily:l==='Tender Total'?'monospace':'inherit',fontWeight:v?500:400,color:v?'#111':'#bbb'}}>{v||'—'}</div>
+              <div style={{fontFamily:l==='BoQ Total'?'monospace':'inherit',fontWeight:v?500:400,color:v?'#111':'#bbb'}}>{v||'—'}</div>
             </div>
           ))}
         </div>
@@ -545,7 +561,7 @@ const DocPreview = ({ docKey, scheme }) => {
       const eff = E.effectiveQuickInputs ? E.effectiveQuickInputs(scheme, scheme.boq) : scheme.boq.quick_inputs;
       const computed = E.buildBoQLines({...scheme.boq, quick_inputs: eff}, scheme);
       breakdown=computed.groups.map(g=>({l:`Series ${g.num}`,v:E.fmtGBP(g.subtotal)}));
-      if(computed.totalIncVat) breakdown.push({l:'Total inc VAT',v:E.fmtGBP(computed.totalIncVat),bold:true});
+      if(computed.totalIncVat) breakdown.push({l:'BoQ Total',v:E.fmtGBP(computed.totalIncVat),bold:true});
     }
     if(!breakdown.length) breakdown=[{l:'(not generated yet)',v:'—'}];
     return <div><div style={{fontWeight:700,fontSize:6}}>BILL OF QUANTITIES</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0",fontWeight:b.bold?700:400}}><span>{b.l}</span><span>{b.v}</span></div>)}</div>;
