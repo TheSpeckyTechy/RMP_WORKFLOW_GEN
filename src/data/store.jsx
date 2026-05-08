@@ -92,6 +92,13 @@ window.defaultDesign = () => ({
   },
   kerbs:  [],
   lining: [],
+  // Footway works are scheme-wide (single-area); a single material picker
+  // is enough. Empty surface tag means "no footway works" — the engine
+  // emits no fw_surface line. Set fw_subbase to true for full reconstructions.
+  footway: {
+    surface_tag: '',     // tag from FOOTWAY_SURFACE_OPTIONS (e.g. 'fw_ac6_30')
+    include_subbase: false,
+  },
   tm: {
     type: '',
     hours: '',
