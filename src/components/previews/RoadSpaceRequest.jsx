@@ -235,8 +235,9 @@ const RSR_FIELD_META = {
   date_prepared:  { label: "Date prepared", hint: "DD/MM/YYYY" },
 };
 
-const RSRModal = ({ scheme, onClose }) => {
-  const { updateScheme } = React.useContext(window.SchemeContext);
+const RSRModal = ({ scheme: schemeProp, onClose }) => {
+  const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
+  const scheme = getScheme(schemeProp.id) || schemeProp;
   const bindings = Object.keys(RSR_FIELD_META);
   const missing = bindings.filter(k => !scheme[k] && scheme[k] !== 0);
   const [downloading, setDownloading] = React.useState(false);
