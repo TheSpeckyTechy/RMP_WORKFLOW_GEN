@@ -55,7 +55,18 @@ function resolveValue(scheme, path) {
 }
 
 // ── Auto-description builder ──────────────────────────────────────────────────
-const pciWorkingDays = (dmyA, dmyB) => {
+// Working-day counter — routes through the BoQ engine's calendar walk so
+// the PCI auto-description, the RSR Duration cell, the BoQ summary chip
+// and the Designer TM panel all agree. The previous primitive ratio
+// formula gave 3 working days for Mon→Fri (real answer: 5) and 1 for
+// Mon→Wed (real answer: 3), which surfaced in generated packs as
+// "Works programme: 3 working days (15/06 to 19/06)".
+const pciWorkingDays = (dmyA, dmyB, pattern) => {
+  const E = window.BOQ_ENGINE;
+  if (E?.computeWorkingDays) return E.computeWorkingDays(dmyA, dmyB, pattern);
+  return _pciWorkingDaysLegacy(dmyA, dmyB);
+};
+const _pciWorkingDaysLegacy = (dmyA, dmyB) => {
   const p = s => { const [d,m,y]=(s||'').split('/'); return new Date(+y,+m-1,+d); };
   const a=p(dmyA), b=p(dmyB);
   if(isNaN(a)||isNaN(b)) return null;
@@ -76,8 +87,12 @@ const buildAutoDescription = (scheme) => {
   // Opening
   lines.push(`${scheme.scheme_type || 'Carriageway'} resurfacing of ${scheme.road_name}${ext}.`);
 
-  // Programme
-  const days = pciWorkingDays(scheme.date_start, scheme.date_finish);
+  // Programme — Designer's manual override (design.tm.duration_days) wins
+  // over the date-range walk so the PCI agrees with the Designer chip.
+  const designerDays = scheme?.design?.tm?.duration_days;
+  const days = (designerDays != null && designerDays !== '')
+    ? +designerDays
+    : pciWorkingDays(scheme.date_start, scheme.date_finish, scheme.working_pattern);
   const dateRange = [scheme.date_start, scheme.date_finish].filter(Boolean).join(' to ');
   if (days) lines.push(`Works programme: ${days} working day${days!==1?'s':''}${dateRange ? ` (${dateRange})` : ''}.`);
 

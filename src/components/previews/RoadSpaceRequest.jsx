@@ -11,7 +11,15 @@
 // Depends on: React, window.Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
-const daysBetween = (dmyA, dmyB) => {
+// Walk-the-calendar working-day count via the BoQ engine. Falls back to
+// the primitive ratio formula only if the engine isn't loaded yet (e.g.
+// during the brief window of Babel JSX compilation on first paint).
+const daysBetween = (dmyA, dmyB, pattern) => {
+  const E = window.BOQ_ENGINE;
+  if (E?.computeWorkingDays) return E.computeWorkingDays(dmyA, dmyB, pattern) || 0;
+  return _daysBetweenLegacy(dmyA, dmyB);
+};
+const _daysBetweenLegacy = (dmyA, dmyB) => {
   const p = (s) => { const [d,m,y] = (s||"").split("/"); return new Date(+y,+m-1,+d); };
   const a = p(dmyA), b = p(dmyB);
   if (isNaN(a)||isNaN(b)) return "___";
@@ -94,7 +102,7 @@ const RoadSpaceRequestDoc = ({ scheme, onUpload }) => {
           <tr><td className="rsr-th">Reason for Closure</td><td><Bound k="treatment_type" /> — planned maintenance resurfacing</td></tr>
           <tr><td className="rsr-th">Starting Date</td><td><Bound k="date_start" /></td></tr>
           <tr><td className="rsr-th">Finish Date</td><td><Bound k="date_finish" /></td></tr>
-          <tr><td className="rsr-th">Duration of Closure</td><td>{daysBetween(scheme.date_start,scheme.date_finish)} working days</td></tr>
+          <tr><td className="rsr-th">Duration of Closure</td><td>{daysBetween(scheme.date_start,scheme.date_finish,scheme.working_pattern)} working days</td></tr>
           <tr><td className="rsr-th">Working Hours</td><td><Bound k="tm_hours" /></td></tr>
           <tr><td className="rsr-th">Diversion Route(s)</td><td><Bound k="tm_diversion" fallback="—" /></td></tr>
         </tbody></table>
@@ -124,7 +132,7 @@ const RSR_TEMPLATE = 'templates/RSR_TEMPLATE.docx';
 const xmlEscapeRSR = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 function buildRSRFields(scheme) {
-  const days = daysBetween(scheme.date_start, scheme.date_finish);
+  const days = daysBetween(scheme.date_start, scheme.date_finish, scheme.working_pattern);
   const treatment = window.schemeTreatment(scheme) || '';
   const tm = window.schemeTM(scheme);
   return {

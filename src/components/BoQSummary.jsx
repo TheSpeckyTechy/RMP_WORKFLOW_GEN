@@ -36,13 +36,7 @@ const colourFor = (n) => SERIES_COLOUR[n] || '#7a7a7a';
 
 // ── Project header ───────────────────────────────────────────────────────────
 const ProjectHeader = ({ scheme, computed, onDownload, downloading, onDownloadTC, downloadingTC }) => {
-  const workingDays = (() => {
-    if (!scheme.date_start || !scheme.date_finish) return null;
-    const p = s => { const [d,m,y]=(s||'').split('/'); return new Date(+y,+m-1,+d); };
-    const a = p(scheme.date_start), b = p(scheme.date_finish);
-    if (isNaN(a) || isNaN(b)) return null;
-    return Math.max(1, Math.round((b-a)/86400000 * 5/7));
-  })();
+  const workingDays = window.workingDaysFor(scheme);
 
   return (
     <div className="boq-header" style={{position:'relative'}}>

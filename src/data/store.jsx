@@ -231,6 +231,22 @@ window.baseScheme = baseScheme;
 // the underlying fields directly.
 window.schemeArea = (s) => (+s?.carriageway_area_m2 || 0) + (+s?.footway_area_m2 || 0);
 
+// Canonical working-day count for a scheme. Walks the calendar from
+// date_start to date_finish inclusive, counting Mon–Fri (or every day if
+// the scheme is on a 7-day pattern). The previous primitive
+// `Math.round((b-a)/86400000 * 5/7)` formula in three different files
+// systematically under-counted — Mon→Fri gave 3 instead of 5,
+// Mon→Wed gave 1 instead of 3 — and showed up in the generated pack
+// as "3 working days (15/06 to 19/06)" PCI lines.
+window.workingDaysFor = (s) => {
+  const E = window.BOQ_ENGINE;
+  if (!s || !s.date_start || !s.date_finish) return null;
+  const designerDays = s?.design?.tm?.duration_days;
+  if (designerDays != null && designerDays !== '') return +designerDays;
+  if (E?.computeWorkingDays) return E.computeWorkingDays(s.date_start, s.date_finish, s.working_pattern);
+  return null;
+};
+
 // Dominant zone's surface treatment (largest by area), or empty. Replaces
 // the legacy scheme.treatment_type field for headers, exports, and any
 // other "name the treatment" surface.
