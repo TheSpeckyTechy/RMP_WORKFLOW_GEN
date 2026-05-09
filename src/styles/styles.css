@@ -702,3 +702,134 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
 @media (max-width:360px){
   .util-row,.util-row--tracker{grid-template-columns:1fr}
 }
+
+/* ─── Mobile-app overhaul (PR #110) ─────────────────────────────────────── */
+
+/* Bottom tab navigation — replaces sidebar drawer on phones + small tabs.
+   Visible only ≤768px. Sits fixed at the bottom; safe-area-inset clears
+   the iOS home indicator. */
+.bottom-nav{display:none}
+.mobile-title{display:none}
+.fab{display:none}
+.schemes-cards{display:none}
+
+@media (max-width:768px){
+  /* Sidebar drawer is fully retired on phones — bottom-nav handles primary nav. */
+  .menu-toggle{display:none}
+  .sidebar,.sidebar-backdrop{display:none}
+
+  /* Bottom-nav. */
+  .bottom-nav{
+    display:flex;
+    position:fixed;left:0;right:0;bottom:0;
+    background:var(--bg);
+    border-top:1px solid var(--line);
+    z-index:100;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .bottom-nav-tab{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;
+    padding:8px 4px 10px;
+    background:none;border:none;cursor:pointer;
+    color:var(--ink-3);font-size:11px;font-weight:500;
+    min-height:56px;
+  }
+  .bottom-nav-tab svg{width:22px;height:22px}
+  .bottom-nav-tab.active{color:var(--accent)}
+
+  /* Reserve room above the bottom-nav so the last row of content isn't
+     covered, plus extra for the FAB. */
+  .content{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+
+  /* Topbar: hide crumbs, force-reload, command-palette icon — show a
+     centred page title instead. Searchbar wraps to its own row below. */
+  .crumbs{display:none}
+  .topbar > .btn[title="Force reload — bypasses cache and fetches latest code"]{display:none}
+  .topbar > .btn[title^="Open command palette"]{display:none}
+  .mobile-title{
+    display:flex;align-items:center;
+    flex:1;min-width:0;
+    font-size:16px;font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .topbar{flex-wrap:wrap;height:auto;padding:8px 12px;gap:8px;align-items:center}
+  .searchbar{order:10;width:100%;max-width:none;margin:0;height:38px}
+
+  /* iOS focus-zoom prevention: any input <16px triggers Safari to zoom
+     the page on focus. Bumping the on-screen font size to 16px stops it. */
+  body{font-size:15px}
+  input[type=text],input[type=email],input[type=number],input[type=date],
+  select,textarea{font-size:16px}
+
+  /* Sticky scheme-detail tabs with thicker active indicator. */
+  .tabs{
+    position:sticky;top:0;background:var(--bg);z-index:5;
+    margin:0 -16px 16px;padding:0 16px;
+    box-shadow:0 1px 0 var(--line);
+  }
+  .tab{padding:14px 14px;font-size:14px;min-height:48px}
+  .tab.active{border-bottom-width:3px}
+
+  /* Modal as bottom-sheet: drag-handle pill + slide-up animation. */
+  .modal-head{position:relative;padding-top:max(20px,env(safe-area-inset-top))}
+  .modal-head::before{
+    content:"";display:block;
+    width:36px;height:4px;border-radius:2px;
+    background:var(--line);
+    position:absolute;top:6px;left:50%;transform:translateX(-50%);
+  }
+  .modal{animation:sheet-up 0.22s cubic-bezier(0.2,0.8,0.2,1)}
+
+  /* Page-head simplification on mobile: hide the desktop-y action buttons
+     (Reset automation / Export register / New scheme) — FAB takes over. */
+  .page-head{flex-direction:column;align-items:flex-start;gap:10px}
+  .page-head .btn{display:none}
+
+  /* FAB: floating + button bottom-right, above bottom-nav. */
+  .fab{
+    display:flex;align-items:center;justify-content:center;
+    position:fixed;right:16px;
+    bottom:calc(72px + env(safe-area-inset-bottom));
+    width:56px;height:56px;border-radius:50%;
+    background:var(--accent);color:#fff;border:none;
+    box-shadow:0 6px 16px rgba(0,0,0,0.22);
+    font-size:28px;font-weight:300;line-height:1;
+    cursor:pointer;z-index:60;
+  }
+  .fab:active{transform:scale(0.96)}
+
+  /* Schemes card list — replaces the table on phones. */
+  .table-wrap{display:none}
+  .schemes-cards{display:flex;flex-direction:column;gap:10px}
+  .scheme-list-card{
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px 14px 12px;
+    cursor:pointer;
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .scheme-list-card:active{background:var(--bg-sunken)}
+  .scheme-list-card.urgent{background:var(--amber-wash);border-color:var(--amber)}
+  .slc-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .slc-title{font-size:15px;font-weight:600;line-height:1.25}
+  .slc-sub{font-size:12px;color:var(--ink-3);line-height:1.4}
+  .slc-progress{display:flex;align-items:center;gap:10px;margin-top:4px}
+  .slc-progress .pack-bar-track{flex:1}
+  .slc-progress-meta{font-size:10px;color:var(--ink-3);white-space:nowrap}
+}
+
+@keyframes sheet-up{
+  from{transform:translateY(20%);opacity:0.7}
+  to{transform:translateY(0);opacity:1}
+}
+
+/* Stats grid — visually weighty single column on phones. */
+@media (max-width:480px){
+  .stats{grid-template-columns:1fr;gap:8px}
+  .stat{padding:18px 20px;display:flex;justify-content:space-between;align-items:baseline}
+  .stat-label{order:1;font-size:12px;margin-bottom:0}
+  .stat-value{order:2;font-size:30px}
+  .stat-meta{display:none}
+}

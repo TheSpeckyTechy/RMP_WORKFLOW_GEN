@@ -97,7 +97,7 @@ window.useIsMobile = function useIsMobile() {
 // version is running — the modal footer renders this. If the tag
 // below doesn't match the actual deployed code, the browser is on a
 // stale cache and any "still failing" report is about old logic.
-const PACK_BUILD_TAG = 'mobile-pass';
+const PACK_BUILD_TAG = 'mobile-app';
 
 const GenerateModal = ({ scheme, onClose }) => {
   // status per section: 'pending' | 'active' | 'done' | 'skipped' | 'error'
@@ -836,6 +836,9 @@ const AppInner = () => {
               <span className="current">Schemes</span>
             )}
           </div>
+          <div className="mobile-title">
+            {view === "settings" ? "Settings" : openScheme ? <span className="mono">{openScheme}</span> : "Schemes"}
+          </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
           <SyncChip />
           <button className="btn ghost sm" title="Open command palette (⌘K)"
@@ -884,6 +887,18 @@ const AppInner = () => {
           )}
         </div>
       </div>
+      <nav className="bottom-nav" role="navigation" aria-label="Primary">
+        <button className={"bottom-nav-tab" + (view === "dashboard" ? " active" : "")}
+          onClick={() => { setView("dashboard"); setOpenScheme(null); setMenuOpen(false); }}>
+          <Icon.Folder />
+          <span>Schemes</span>
+        </button>
+        <button className={"bottom-nav-tab" + (view === "settings" ? " active" : "")}
+          onClick={() => { setView("settings"); setOpenScheme(null); setMenuOpen(false); }}>
+          <Icon.Cog />
+          <span>Settings</span>
+        </button>
+      </nav>
       {generating && <GenerateModal scheme={generating} onClose={() => setGenerating(null)} />}
       {previewing?.docKey === "rsr" && <RSRModal scheme={previewing.scheme} onClose={() => setPreviewing(null)} />}
       {previewing?.docKey === "pci" && <PCIModal schemeId={previewing.scheme.id} onClose={() => setPreviewing(null)} />}
