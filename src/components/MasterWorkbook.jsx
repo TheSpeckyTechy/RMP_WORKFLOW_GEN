@@ -366,7 +366,7 @@ const MasterWorkbook = ({ schemeId }) => {
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <span style={{fontSize:11,color:"var(--green)",fontFamily:"var(--font-mono)"}}>● synced · all docs will refresh</span>
+          <span className="mwb-sync-note" style={{fontSize:11,color:"var(--green)",fontFamily:"var(--font-mono)"}}>● synced · all docs will refresh</span>
           <button className="btn sm" onClick={exportXlsx}><Icon.Download /> Export .xlsx</button>
         </div>
       </div>
