@@ -51,6 +51,7 @@ const isUrgentScheme = (s) => {
 
 const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
   const { schemes, resetAllSchemes, updateScheme } = React.useContext(window.SchemeContext);
+  const isMobile = window.useIsMobile ? window.useIsMobile() : false;
   const handleReset = async () => {
     const ask = window.confirmDialog || ((o) => Promise.resolve(window.confirm(o.body || o.title)));
     const ok = await ask({
@@ -114,6 +115,11 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
         {filters.map(f => <button key={f.k} className={"chip "+(filter===f.k?"active":"")} onClick={()=>setFilter(f.k)}>{f.l}</button>)}
         <div style={{ marginLeft:"auto", fontSize:12, color:"var(--ink-3)", fontFamily:"var(--font-mono)" }}>{search ? `${list.length} result${list.length!==1?"s":""} for "${search}"` : `${list.length} of ${schemes.length}`}</div>
       </div>
+      {isMobile ? (
+        <div className="schemes-cards">
+          {list.map(s => <SchemeListCard key={s.id} scheme={s} onOpen={onOpen} updateScheme={updateScheme} />)}
+        </div>
+      ) : (
       <div className="table-wrap">
         <table className="schemes">
           <thead><tr><th>Ref</th><th>Scheme</th><th>Start</th><th>Ward</th><th>Treatment</th><th>Area</th><th>Tender</th><th>Pack</th><th>Complete</th><th>Status</th><th style={{width:30}}></th></tr></thead>
@@ -163,7 +169,39 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
           </tbody>
         </table>
       </div>
+      )}
+      {isMobile && <button className="fab" onClick={onNew} aria-label="New scheme">+</button>}
     </>
+  );
+};
+
+const SchemeListCard = ({ scheme: s, onOpen, updateScheme }) => {
+  const ward = window.WARDS.find(w => w.num === s.ward_num);
+  const pct = s.packTotal > 0 ? (s.packProgress / s.packTotal) * 100 : 0;
+  const urgent = isUrgentScheme(s);
+  return (
+    <div className={"scheme-list-card" + (urgent ? " urgent" : "")} onClick={() => onOpen(s.id)}>
+      <div className="slc-top">
+        <span className="row-ref mono">{s.project_number}</span>
+        <select value={s.status} onClick={e=>e.stopPropagation()} onChange={e=>updateScheme(s.id,{status:e.target.value})}
+          className={"pill "+s.status}
+          style={{border:"none",background:"inherit",color:"inherit",fontWeight:500,fontSize:11,cursor:"pointer",padding:"3px 8px",borderRadius:12,appearance:"none",WebkitAppearance:"none"}}>
+          {Object.entries(STATUS_LABELS).map(([k,l])=><option key={k} value={k}>{l}</option>)}
+        </select>
+      </div>
+      <div className="slc-title">{s.road_name}{urgent && <span className="urgent-chip">⚡ Urgent</span>}</div>
+      {(s.scheme_extent || ward) && (
+        <div className="slc-sub">
+          {s.scheme_extent}{s.scheme_extent && ward ? " · " : ""}{ward ? `Ward ${ward.num}` : ""}
+        </div>
+      )}
+      <div className="slc-progress">
+        <div className="pack-bar-track" style={{height:6,borderRadius:3}}>
+          <div className={"pack-bar-fill"+(s.packProgress===s.packTotal&&s.packTotal>0?" full":"")} style={{width:pct+"%"}} />
+        </div>
+        <span className="slc-progress-meta mono">{s.packProgress}/{s.packTotal} ready</span>
+      </div>
+    </div>
   );
 };
 
