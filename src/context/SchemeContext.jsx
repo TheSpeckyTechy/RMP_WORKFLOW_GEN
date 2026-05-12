@@ -247,6 +247,11 @@ const SchemeProvider = ({ children }) => {
       if (error) { setSyncStatus('error'); return; }
       if (rows && rows.length > 0) {
         const remoteMap = Object.fromEntries(rows.map(r => [r.id, { data: r.data, updated_at: r.updated_at }]));
+        // Track schemes where remote genuinely overwrote a locally-edited
+        // copy (localTs > 0) — i.e. the user had real unsaved edits on
+        // this device that just got replaced by a newer version from
+        // somewhere else. Pure hydration (localTs = 0) is NOT a conflict.
+        const conflictLosses = [];
         setSchemes(prev => {
           const localIds = new Set(prev.map(s => s.id));
           const updated  = prev.map(s => {
@@ -257,11 +262,23 @@ const SchemeProvider = ({ children }) => {
             // Local wins on tie so a freshly-typed edit (still being
             // upserted) doesn't get rolled back by the older server value.
             if (localTs >= remoteTs && localTs > 0) return s;
+            if (localTs > 0 && remoteTs > localTs) {
+              conflictLosses.push({ id: s.id, road_name: s.road_name || s.id });
+            }
             return migrate({ ...s, ...remote.data });
           });
           const extras = rows.filter(r => !localIds.has(r.id) && r.data).map(r => migrate(r.data));
           return extras.length ? [...extras, ...updated] : updated;
         });
+        if (conflictLosses.length > 0 && window.Toast) {
+          const sample = conflictLosses.slice(0, 3).map(c => c.road_name).join(', ');
+          const more   = conflictLosses.length > 3 ? ` and ${conflictLosses.length - 3} more` : '';
+          window.Toast.show({
+            kind: 'info',
+            msg: `A newer version of ${sample}${more} from another device replaced your changes.`,
+            duration: 8000,
+          });
+        }
       }
       setSyncStatus('synced');
       setLastSynced(new Date());
