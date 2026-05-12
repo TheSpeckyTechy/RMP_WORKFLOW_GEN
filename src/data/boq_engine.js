@@ -372,13 +372,21 @@
       const measure = band || (+l.qty || 0);
       const rate = window.boqPickRateForSeries(item, measure, l.series || seriesOf(l.id));
       const bandApplied = window.boqPickBand(item, measure, l.series || seriesOf(l.id));
+      const qty  = +l.qty || 0;
+      // Rate-cell zero fallback: if the catalogue has the item id but no
+      // rate cell for the chosen band (rateA/B/C undefined), the helper
+      // returns 0. A line with qty>0 and rate=0 contributes nothing to
+      // the total — silently invisible. Flagging it `missing:true` puts
+      // the row in the same red-outline / red-wash state as a wholly-
+      // unknown line so the user can see something needs attention.
+      const missing = qty > 0 && !(+rate > 0);
       return Object.assign({}, l, {
         desc: l.desc || item.desc,
         unit: l.unit || item.unit,
         rate: rate,
-        total: rate * (+l.qty || 0),
+        total: rate * qty,
         bandApplied: bandApplied,
-        missing: false,
+        missing,
       });
     });
 
