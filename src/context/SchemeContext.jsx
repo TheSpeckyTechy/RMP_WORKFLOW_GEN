@@ -233,14 +233,20 @@ const SchemeProvider = ({ children }) => {
   };
 
   const addScheme = (scheme) => {
-    lsSet(scheme.id, scheme);
+    // Stamp updated_at at creation so the last-write-wins merge in the
+    // mount-effect Supabase fetch (line ~207) can see the local copy as
+    // newer than any pre-existing remote row. Without this, a network
+    // race on first sync could let a stale Supabase value overwrite a
+    // freshly-created scheme.
+    const stamped = { ...scheme, updated_at: scheme.updated_at || new Date().toISOString() };
+    lsSet(stamped.id, stamped);
     const defaultIds = new Set(window.SCHEMES.map(s => s.id));
-    if (!defaultIds.has(scheme.id)) {
+    if (!defaultIds.has(stamped.id)) {
       const current = lsGetIds();
-      if (!current.includes(scheme.id)) lsSetIds([scheme.id, ...current]);
+      if (!current.includes(stamped.id)) lsSetIds([stamped.id, ...current]);
     }
-    setSchemes(prev => [scheme, ...prev]);
-    sbUpsertFn(scheme.id, scheme, setSyncStatus, () => setLastSynced(new Date()));
+    setSchemes(prev => [stamped, ...prev]);
+    sbUpsertFn(stamped.id, stamped, setSyncStatus, () => setLastSynced(new Date()));
   };
 
   const deleteScheme = (id) => {
