@@ -172,6 +172,24 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
             }
           }
         }
+        // Date sanity: finish before start. The BoQ engine silently
+        // clamps the working-day count to Math.max(1, days) so a
+        // backwards date range looks like a 1-day scheme without any
+        // visible warning. Parse the DD/MM/YYYY strings the app uses
+        // and surface a flag if the order is wrong.
+        const parseDdMmYyyy = (txt) => {
+          const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(txt || '').trim());
+          if (!m) return null;
+          return new Date(+m[3], +m[2] - 1, +m[1]);
+        };
+        const ds = parseDdMmYyyy(scheme.date_start);
+        const df = parseDdMmYyyy(scheme.date_finish);
+        if (ds && df && df.getTime() < ds.getTime()) {
+          zoneFlags.push(
+            `Finish date (${scheme.date_finish}) is before start date (${scheme.date_start}) — ` +
+            `BoQ working-day count will fall back to 1 day until the order is corrected.`
+          );
+        }
         const flags = [...persisted, ...zoneFlags];
         if (!flags.length) return null;
         return (
