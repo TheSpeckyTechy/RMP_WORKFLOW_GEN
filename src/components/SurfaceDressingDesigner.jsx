@@ -295,6 +295,18 @@ function SurfaceDressingDesigner({ schemeId }) {
     }
   }, [rateOverrides]);
 
+  const [portalOpen, setPortalOpen] = React.useState(false);
+  const [visiblePanelIdx, setVisiblePanelIdx] = React.useState(0);
+  const pRef1 = React.useRef(null);
+  const pRef2 = React.useRef(null);
+  const pRef34 = React.useRef(null);
+  const pRef5 = React.useRef(null);
+  const pRef6 = React.useRef(null);
+  const pRef7 = React.useRef(null);
+  const pRef8 = React.useRef(null);
+  const pRef9 = React.useRef(null);
+  const portalMainRef = React.useRef(null);
+
   const effectiveSeries700 = React.useMemo(() =>
     SD_SERIES_700.map(item => rateOverrides[item.item] ? { ...item, rates: rateOverrides[item.item] } : item),
     [rateOverrides]
@@ -488,6 +500,40 @@ function SurfaceDressingDesigner({ schemeId }) {
   const today   = new Date();
   const dateStr = today.toLocaleDateString('en-GB', { year:'numeric', month:'long', day:'numeric' });
   const isMultiLayer = activeType === 'double' || activeType === 'inverted' || activeType === 'sandwich';
+
+  const stepComplete = React.useMemo(() => [
+    !!(active.roadNumber || active.schemeRef || active.siteName),
+    !!trafficCat,
+    !!(active.hardness && active.surfaceCondition),
+    !!(active.hardness && active.surfaceCondition),
+    !!(trafficCat && activeType && activeType !== 'hfs'),
+    true,
+    !!active.installMonth,
+    !!active.selectedItem,
+    !!active.designerName,
+  ], [active, trafficCat, activeType]);
+  const completedCount = stepComplete.filter(Boolean).length;
+  const dotToPanelIdx  = [0, 1, 2, 2, 3, 4, 5, 6, 7];
+  const panelRefs      = [pRef1, pRef2, pRef34, pRef34, pRef5, pRef6, pRef7, pRef8, pRef9];
+
+  React.useEffect(() => {
+    if (!portalOpen || !portalMainRef.current) return;
+    const panels = [pRef1, pRef2, pRef34, pRef5, pRef6, pRef7, pRef8, pRef9];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('sd-reveal--visible');
+            const idx = panels.findIndex(r => r.current === entry.target);
+            if (idx >= 0) setVisiblePanelIdx(idx);
+          }
+        });
+      },
+      { root: portalMainRef.current, threshold: 0.15 }
+    );
+    panels.forEach(r => { if (r.current) observer.observe(r.current); });
+    return () => observer.disconnect();
+  }, [portalOpen]);
 
   function fmtAdj(v) {
     if (v === undefined) return '';
@@ -902,38 +948,222 @@ function SurfaceDressingDesigner({ schemeId }) {
       .sd-no-print { display: none !important; }
       .sd-pf-page { page-break-after: always; box-shadow: none !important; }
     }
+
+    /* ── Entry card ── */
+    .sd-entry-card {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 420px; gap: 18px; padding: 48px 24px; text-align: center;
+    }
+    .sd-entry-badge {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--orange);
+      background: rgba(249,115,22,0.12); padding: 4px 12px; border-radius: 20px;
+      border: 1px solid rgba(249,115,22,0.3);
+    }
+    .sd-entry-heading {
+      font-size: 28px; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em;
+    }
+    .sd-entry-sub {
+      font-size: 14px; color: #64748b; max-width: 380px; line-height: 1.6;
+    }
+    .sd-entry-prog-wrap {
+      position: relative; width: 240px; height: 4px; background: #1e293b;
+      border-radius: 2px; overflow: hidden;
+    }
+    .sd-entry-prog-bar {
+      position: absolute; left: 0; top: 0; height: 100%; background: var(--orange);
+      border-radius: 2px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+    }
+    .sd-entry-prog-label {
+      font-size: 11px; color: #64748b; font-family: var(--font-mono, monospace);
+      margin-top: -8px;
+    }
+    .sd-enter-btn {
+      margin-top: 8px; padding: 14px 36px; font-size: 16px; font-weight: 700;
+      letter-spacing: 0.04em; color: #fff; background: linear-gradient(135deg,#f97316,#ea580c);
+      border: none; border-radius: 10px; cursor: pointer;
+      animation: sd-glow-pulse 2.6s ease-in-out infinite;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .sd-enter-btn:hover { transform: translateY(-2px) scale(1.02); animation-play-state: paused; }
+    .sd-enter-btn:active { transform: translateY(0) scale(0.98); }
+    @keyframes sd-glow-pulse {
+      0%,100% { box-shadow: 0 0 18px rgba(249,115,22,0.35); }
+      50%      { box-shadow: 0 0 42px rgba(249,115,22,0.75); }
+    }
+
+    /* ── Portal shell ── */
+    .sd-portal {
+      position: fixed; inset: 0; z-index: 9000; background: #0a0e1a;
+      display: flex; flex-direction: column;
+      animation: sd-portal-in 280ms cubic-bezier(0.2,0,0,1) both;
+    }
+    @keyframes sd-portal-in {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .sd-portal-hdr {
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 20px; height: 56px; flex-shrink: 0;
+      background: #0d1117; border-bottom: 1px solid #1e293b;
+    }
+    .sd-portal-logo-mark {
+      font-size: 13px; font-weight: 900; letter-spacing: 0.08em; color: var(--orange);
+      background: rgba(249,115,22,0.12); padding: 4px 10px; border-radius: 6px;
+      border: 1px solid rgba(249,115,22,0.3); flex-shrink: 0;
+    }
+    .sd-portal-hdr-title {
+      font-size: 14px; font-weight: 700; color: #f1f5f9; white-space: nowrap;
+    }
+    .sd-portal-hdr-scheme {
+      font-size: 12px; color: #64748b; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; max-width: 200px;
+    }
+    .sd-portal-hdr-stats { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .sd-ph-chip {
+      font-size: 11px; padding: 2px 8px; border-radius: 10px;
+      background: #1e293b; color: #94a3b8; white-space: nowrap;
+    }
+    .sd-ph-chip--hl { background: rgba(249,115,22,0.15); color: var(--orange); font-weight: 700; }
+    .sd-portal-close {
+      flex-shrink: 0; padding: 6px 14px; font-size: 12px; font-weight: 600;
+      background: #1e293b; color: #94a3b8; border: 1px solid #334155;
+      border-radius: 6px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .sd-portal-close:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .sd-portal-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+    .sd-portal-rail {
+      width: 58px; flex-shrink: 0; padding: 24px 0;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      background: #0d1117; border-right: 1px solid #1e293b; overflow-y: auto;
+    }
+    .sd-rail-dot {
+      width: 34px; height: 34px; border-radius: 50%; border: 2px solid #334155;
+      background: #111827; color: #64748b; font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .sd-rail-dot--active {
+      border-color: var(--orange); color: var(--orange); background: rgba(249,115,22,0.1);
+      transform: scale(1.1);
+    }
+    .sd-rail-dot--done { border-color: #22c55e; color: #22c55e; background: rgba(34,197,94,0.08); }
+    .sd-rail-dot--active.sd-rail-dot--done {
+      border-color: #22c55e; background: rgba(34,197,94,0.15); transform: scale(1.1);
+    }
+    .sd-portal-main {
+      flex: 1; overflow-y: auto; padding: 20px 28px;
+      scrollbar-width: thin; scrollbar-color: #334155 transparent;
+    }
+    .sd-portal-main .sd-view-toggle { margin-bottom: 16px; }
+
+    /* ── Panel scroll-reveal ── */
+    .sd-reveal { opacity: 0; transform: translateY(12px); transition: none; }
+    .sd-reveal--visible {
+      animation: sd-panel-reveal 0.35s cubic-bezier(0.4,0,0.2,1) both;
+    }
+    @keyframes sd-panel-reveal {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .sd-enter-btn { animation: none; }
+      .sd-portal { animation: none; }
+      .sd-reveal { opacity: 1; transform: none; }
+      .sd-reveal--visible { animation: none; opacity: 1; transform: none; }
+    }
   `;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="sd-wrap">
+    <>
       <style>{sdStyles}</style>
 
-      {/* View toggle */}
-      <div className="sd-view-toggle sd-no-print">
-        <button className={`sd-view-btn ${view==='design'?'sd-active':''}`} onClick={()=>setView('design')}>Design</button>
-        <button className={`sd-view-btn ${view==='proforma'?'sd-active':''}`} onClick={()=>setView('proforma')}>RN39 Proforma</button>
-      </div>
-
-      {/* ── PROFORMA VIEW ── */}
-      {view === 'proforma' && (
-        <>
-          <div style={{maxWidth:'210mm',margin:'0 auto',background:'white',color:'black',boxShadow:'0 4px 24px rgba(0,0,0,0.5)'}}>
-            {renderProforma()}
-          </div>
-          <div className="sd-actions sd-no-print" style={{justifyContent:'center',marginTop:16}}>
-            <button className="sd-btn" onClick={()=>window.print()}>⎙ Print Proforma</button>
-            <button className="sd-btn sd-btn-sec" onClick={()=>setView('design')}>← Back to Design</button>
-          </div>
-        </>
+      {/* ── ENTRY CARD ── */}
+      {!portalOpen && (
+        <div className="sd-entry-card">
+          <div className="sd-entry-badge">RN39 · RSTA 7th Ed.</div>
+          <div className="sd-entry-heading">Surface Dressing Designer</div>
+          <div className="sd-entry-sub">Series 700 pricing · Road Note 39 workflow · zero-distraction mode</div>
+          {completedCount > 0 && (
+            <div className="sd-entry-prog-wrap">
+              <div className="sd-entry-prog-bar" style={{width:`${Math.round((completedCount/9)*100)}%`}} />
+            </div>
+          )}
+          {completedCount > 0 && <p className="sd-entry-prog-label">{completedCount}/9 steps complete</p>}
+          <button className="sd-enter-btn" onClick={()=>setPortalOpen(true)}>
+            Enter Surface Dressing Software →
+          </button>
+        </div>
       )}
 
-      {/* ── DESIGN VIEW ── */}
-      {view === 'design' && (<>
+      {/* ── PORTAL ── */}
+      {portalOpen && (
+        <div className="sd-portal">
 
-        {/* STEP 1: SITE */}
-        <div className="sd-panel">
+          {/* Header */}
+          <div className="sd-portal-hdr sd-no-print">
+            <div className="sd-portal-logo-mark">RMP</div>
+            <div className="sd-portal-hdr-title">Surface Dressing Designer</div>
+            {scheme.road_name && <div className="sd-portal-hdr-scheme">{scheme.road_name}</div>}
+            <div className="sd-portal-hdr-stats">
+              {trafficCat && <span className="sd-ph-chip">Cat {trafficCat.cat}</span>}
+              {dressingRecommendation && dressingRecommendation.type !== 'hfs' && (
+                <span className="sd-ph-chip">{dressingRecommendation.label}</span>
+              )}
+              {selectedRate && <span className="sd-ph-chip sd-ph-chip--hl">£{selectedRate.rate.toFixed(2)}/m²</span>}
+            </div>
+            <div style={{flex:1}} />
+            <button className="sd-portal-close" onClick={()=>setPortalOpen(false)}>✕ Exit portal</button>
+          </div>
+
+          {/* Body */}
+          <div className="sd-portal-body">
+
+            {/* Progress rail */}
+            <div className="sd-portal-rail sd-no-print">
+              {[1,2,3,4,5,6,7,8,9].map((n,i) => {
+                const panelIdx = dotToPanelIdx[i];
+                const isActive = visiblePanelIdx === panelIdx;
+                const isDone   = stepComplete[i];
+                return (
+                  <button key={n}
+                    className={['sd-rail-dot',isActive?'sd-rail-dot--active':'',isDone?'sd-rail-dot--done':''].filter(Boolean).join(' ')}
+                    onClick={()=>{ const r=panelRefs[i]; if(r?.current) r.current.scrollIntoView({behavior:'smooth',block:'start'}); }}
+                    title={`Step ${n}`}
+                  >{isDone?'✓':n}</button>
+                );
+              })}
+            </div>
+
+            {/* Main scroll area */}
+            <div className="sd-portal-main" ref={portalMainRef}>
+
+              {/* View toggle */}
+              <div className="sd-view-toggle sd-no-print">
+                <button className={`sd-view-btn ${view==='design'?'sd-active':''}`} onClick={()=>setView('design')}>Design</button>
+                <button className={`sd-view-btn ${view==='proforma'?'sd-active':''}`} onClick={()=>setView('proforma')}>RN39 Proforma</button>
+              </div>
+
+              {/* ── PROFORMA VIEW ── */}
+              {view === 'proforma' && (
+                <>
+                  <div style={{maxWidth:'210mm',margin:'0 auto',background:'white',color:'black',boxShadow:'0 4px 24px rgba(0,0,0,0.5)'}}>
+                    {renderProforma()}
+                  </div>
+                  <div className="sd-actions sd-no-print" style={{justifyContent:'center',marginTop:16}}>
+                    <button className="sd-btn" onClick={()=>window.print()}>⎙ Print Proforma</button>
+                    <button className="sd-btn sd-btn-sec" onClick={()=>setView('design')}>← Back to Design</button>
+                  </div>
+                </>
+              )}
+
+              {/* ── DESIGN VIEW ── */}
+              {view === 'design' && (<>
+
+                {/* STEP 1: SITE */}
+                <div className="sd-panel sd-reveal" ref={pRef1}>
           <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">1</span>SITE IDENTIFICATION</div></div>
           <div className="sd-row-3">
             <div className="sd-field">
@@ -985,9 +1215,9 @@ function SurfaceDressingDesigner({ schemeId }) {
           </div>
         </div>
 
-        {/* STEP 2: TRAFFIC */}
-        <div className="sd-panel">
-          <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">2</span>TRAFFIC</div></div>
+                {/* STEP 2: TRAFFIC */}
+                <div className="sd-panel sd-reveal" ref={pRef2}>
+                  <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">2</span>TRAFFIC</div></div>
           <div className="sd-row-2">
             <div className="sd-field">
               <label className="sd-label">Medium/Heavy Traffic (cv/lane/day)</label>
@@ -1009,8 +1239,8 @@ function SurfaceDressingDesigner({ schemeId }) {
           </div>
         </div>
 
-        {/* STEP 3 & 4: HARDNESS + SURFACE */}
-        <div className="sd-grid-2">
+                {/* STEP 3 & 4: HARDNESS + SURFACE */}
+                <div className="sd-grid-2 sd-reveal" ref={pRef34}>
           <div className="sd-panel" style={{marginBottom:0}}>
             <div className="sd-panel-title">
               <div className="sd-panel-title-l"><span className="sd-step-num">3</span>ROAD HARDNESS</div>
@@ -1120,8 +1350,8 @@ function SurfaceDressingDesigner({ schemeId }) {
           </div>
         </div>
 
-        {/* STEP 5: TREATMENT */}
-        <div className="sd-panel">
+                {/* STEP 5: TREATMENT */}
+                <div className="sd-panel sd-reveal" ref={pRef5}>
           <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">5</span>TREATMENT SELECTION</div></div>
           {dressingRecommendation && (
             <div className="sd-rec-box">
@@ -1196,9 +1426,9 @@ function SurfaceDressingDesigner({ schemeId }) {
           )}
         </div>
 
-        {/* STEP 6: ADJUSTMENTS */}
-        {dressingRecommendation?.type !== 'hfs' && (
-          <div className="sd-panel">
+                {/* STEP 6: ADJUSTMENTS */}
+                {dressingRecommendation?.type !== 'hfs' && (
+                  <div className="sd-panel sd-reveal" ref={pRef6}>
             <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">6</span>LOCAL ADJUSTMENTS — TABLE 9.2.6</div></div>
             <div className="sd-grid-2">
               <div>
@@ -1263,9 +1493,9 @@ function SurfaceDressingDesigner({ schemeId }) {
           </div>
         )}
 
-        {/* STEP 7: SEASONAL RISK */}
-        {finalRates && (
-          <div className="sd-panel">
+                {/* STEP 7: SEASONAL RISK */}
+                {finalRates && (
+                  <div className="sd-panel sd-reveal" ref={pRef7}>
             <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">7</span>SEASONAL RISK — TEMP. CAT. {tempCat}</div></div>
             <div style={{fontSize:12,color:'#94a3b8',marginBottom:8}}>Click a month to assess installation risk for {finalRates.size}.</div>
             <div className="sd-season-grid">
@@ -1291,9 +1521,9 @@ function SurfaceDressingDesigner({ schemeId }) {
           </div>
         )}
 
-        {/* STEP 8: PRICING */}
-        {finalRates && matchingItems.length > 0 && (
-          <div className="sd-panel">
+                {/* STEP 8: PRICING */}
+                {finalRates && matchingItems.length > 0 && (
+                  <div className="sd-panel sd-reveal" ref={pRef8}>
             <div className="sd-panel-title">
               <div className="sd-panel-title-l"><span className="sd-step-num">8</span>SERIES 700 PRICING</div>
               <button className="sd-tab-action" onClick={()=>setShowRateEditor(true)}>⚙ Edit Rates</button>
@@ -1338,8 +1568,8 @@ function SurfaceDressingDesigner({ schemeId }) {
           </div>
         )}
 
-        {/* STEP 9: DESIGNER & NOTES */}
-        <div className="sd-panel">
+                {/* STEP 9: DESIGNER & NOTES */}
+                <div className="sd-panel sd-reveal" ref={pRef9}>
           <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">9</span>DESIGNER & NOTES</div></div>
           <div className="sd-row-3">
             <div className="sd-field">
@@ -1372,67 +1602,73 @@ function SurfaceDressingDesigner({ schemeId }) {
           PRICING PER SERIES 700 BERR 85/1 · DESIGN GUIDANCE ONLY — VERIFY ON SITE
         </div>
 
-      </>)}
+              </>)}
 
-      {/* RATE EDITOR MODAL */}
-      {showRateEditor && (
-        <div className="sd-modal-bg" onClick={()=>setShowRateEditor(false)}>
-          <div className="sd-modal" onClick={e=>e.stopPropagation()} style={{maxWidth:780}}>
-            <button className="sd-modal-close" onClick={()=>setShowRateEditor(false)}>✕</button>
-            <div className="sd-modal-title">Edit Series 700 Rates</div>
-            <div style={{fontSize:12,color:'#cbd5e1',marginBottom:14,lineHeight:1.6}}>
-              Default rates are <strong style={{color:'var(--amber)'}}>indicative placeholders</strong>. Replace with your actual BERR 85/1 figures. Saved globally and applied across all schemes.
-            </div>
-            <div className="sd-rate-grid" style={{fontWeight:700,color:'var(--orange)',borderBottom:'1px solid var(--orange)'}}>
-              <div>Item</div><div>Description</div><div>&lt; 500</div><div>500–5,000</div><div>&gt; 5,000</div>
-            </div>
-            {SD_SERIES_700.map(item => {
-              const cur = rateOverrides[item.item] || item.rates;
-              const isOverridden = !!rateOverrides[item.item];
-              return (
-                <div key={item.item} className="sd-rate-grid">
-                  <div><strong style={{color:isOverridden?'var(--green)':'var(--orange)'}}>{item.item}</strong></div>
-                  <div style={{fontSize:10,color:'#94a3b8'}}>{item.desc}</div>
-                  {['small','medium','large'].map(band => (
-                    <input key={band} type="number" step="0.01" value={cur[band]}
-                      onChange={e => {
-                        const v = parseFloat(e.target.value);
-                        if (isNaN(v)) return;
-                        setRateOverrides(prev => ({ ...prev, [item.item]: { ...cur, [band]: v } }));
-                      }} />
-                  ))}
+            </div>{/* /sd-portal-main */}
+          </div>{/* /sd-portal-body */}
+
+          {/* RATE EDITOR MODAL */}
+          {showRateEditor && (
+            <div className="sd-modal-bg" onClick={()=>setShowRateEditor(false)}>
+              <div className="sd-modal" onClick={e=>e.stopPropagation()} style={{maxWidth:780}}>
+                <button className="sd-modal-close" onClick={()=>setShowRateEditor(false)}>✕</button>
+                <div className="sd-modal-title">Edit Series 700 Rates</div>
+                <div style={{fontSize:12,color:'#cbd5e1',marginBottom:14,lineHeight:1.6}}>
+                  Default rates are <strong style={{color:'var(--amber)'}}>indicative placeholders</strong>. Replace with your actual BERR 85/1 figures. Saved globally and applied across all schemes.
                 </div>
-              );
-            })}
-            <div style={{marginTop:14,display:'flex',gap:10,justifyContent:'space-between',alignItems:'center'}}>
-              <div style={{fontSize:11,color:'#94a3b8'}}>{Object.keys(rateOverrides).length} of {SD_SERIES_700.length} items overridden</div>
-              <button className="sd-btn sd-btn-sec" onClick={()=>{if(confirm('Reset all rates to defaults?'))setRateOverrides({});}}>Reset to Defaults</button>
+                <div className="sd-rate-grid" style={{fontWeight:700,color:'var(--orange)',borderBottom:'1px solid var(--orange)'}}>
+                  <div>Item</div><div>Description</div><div>&lt; 500</div><div>500–5,000</div><div>&gt; 5,000</div>
+                </div>
+                {SD_SERIES_700.map(item => {
+                  const cur = rateOverrides[item.item] || item.rates;
+                  const isOverridden = !!rateOverrides[item.item];
+                  return (
+                    <div key={item.item} className="sd-rate-grid">
+                      <div><strong style={{color:isOverridden?'var(--green)':'var(--orange)'}}>{item.item}</strong></div>
+                      <div style={{fontSize:10,color:'#94a3b8'}}>{item.desc}</div>
+                      {['small','medium','large'].map(band => (
+                        <input key={band} type="number" step="0.01" value={cur[band]}
+                          onChange={e => {
+                            const v = parseFloat(e.target.value);
+                            if (isNaN(v)) return;
+                            setRateOverrides(prev => ({ ...prev, [item.item]: { ...cur, [band]: v } }));
+                          }} />
+                      ))}
+                    </div>
+                  );
+                })}
+                <div style={{marginTop:14,display:'flex',gap:10,justifyContent:'space-between',alignItems:'center'}}>
+                  <div style={{fontSize:11,color:'#94a3b8'}}>{Object.keys(rateOverrides).length} of {SD_SERIES_700.length} items overridden</div>
+                  <button className="sd-btn sd-btn-sec" onClick={()=>{if(confirm('Reset all rates to defaults?'))setRateOverrides({});}}>Reset to Defaults</button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+
+          {/* ASSESSMENT HELP MODAL */}
+          {showAssessmentHelp && (
+            <div className="sd-modal-bg" onClick={()=>setShowHelp(false)}>
+              <div className="sd-modal" onClick={e=>e.stopPropagation()}>
+                <button className="sd-modal-close" onClick={()=>setShowHelp(false)}>✕</button>
+                <div className="sd-modal-title">Site Assessment Guidance</div>
+                <div style={{fontSize:13,color:'#cbd5e1',lineHeight:1.7}}>
+                  <p><strong style={{color:'var(--orange)'}}>Surface Hardness</strong> determines how readily chippings will embed. Probe depth measurement gives quantitative result; categories shown are indicative ranges.</p>
+                  <ul style={{marginTop:8,paddingLeft:18}}>
+                    {Object.entries(SD_HARDNESS_GUIDANCE).map(([k,v]) => (
+                      <li key={k} style={{marginBottom:6}}><strong>{k}:</strong> {v}</li>
+                    ))}
+                  </ul>
+                  <p style={{marginTop:14}}><strong style={{color:'var(--orange)'}}>High-stress braking zone</strong> overrides standard suitability check. Surface dressing has insufficient skid resistance in these zones — High Friction Surfacing required instead.</p>
+                  <p style={{marginTop:14}}><strong style={{color:'var(--orange)'}}>Practical tip:</strong> Photograph and note conditions across the carriageway. Wheel tracks often differ from centreline. Where conditions vary, characterise the worst case.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>{/* /sd-portal */}
       )}
 
-      {/* ASSESSMENT HELP MODAL */}
-      {showAssessmentHelp && (
-        <div className="sd-modal-bg" onClick={()=>setShowHelp(false)}>
-          <div className="sd-modal" onClick={e=>e.stopPropagation()}>
-            <button className="sd-modal-close" onClick={()=>setShowHelp(false)}>✕</button>
-            <div className="sd-modal-title">Site Assessment Guidance</div>
-            <div style={{fontSize:13,color:'#cbd5e1',lineHeight:1.7}}>
-              <p><strong style={{color:'var(--orange)'}}>Surface Hardness</strong> determines how readily chippings will embed. Probe depth measurement gives quantitative result; categories shown are indicative ranges.</p>
-              <ul style={{marginTop:8,paddingLeft:18}}>
-                {Object.entries(SD_HARDNESS_GUIDANCE).map(([k,v]) => (
-                  <li key={k} style={{marginBottom:6}}><strong>{k}:</strong> {v}</li>
-                ))}
-              </ul>
-              <p style={{marginTop:14}}><strong style={{color:'var(--orange)'}}>High-stress braking zone</strong> overrides standard suitability check. Surface dressing has insufficient skid resistance in these zones — High Friction Surfacing required instead.</p>
-              <p style={{marginTop:14}}><strong style={{color:'var(--orange)'}}>Practical tip:</strong> Photograph and note conditions across the carriageway. Wheel tracks often differ from centreline. Where conditions vary, characterise the worst case.</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-    </div>
+    </>
   );
 }
 
