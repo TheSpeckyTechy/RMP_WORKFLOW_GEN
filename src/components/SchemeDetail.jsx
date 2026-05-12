@@ -230,14 +230,16 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
       <div className="tabs">
         {tabs.map(t=><div key={t.k} className={"tab "+(tab===t.k?"active":"")} onClick={()=>setTab(t.k)}>{t.l}{t.badge&&<span className="badge">{t.badge}</span>}</div>)}
       </div>
-      {tab==="workbook"&&<MasterWorkbook schemeId={schemeId} />}
-      {tab==="treatment"&&<window.TreatmentDesigner schemeId={schemeId} />}
-      {tab==="sd_design"&&<window.SurfaceDressingDesigner schemeId={schemeId} />}
-      {tab==="ward"&&<WardTab schemeId={schemeId} />}
-      {tab==="utilities"&&<UtilitiesTab scheme={scheme} />}
-      {tab==="boq"&&<BoQTab schemeId={schemeId} onOpenDesigner={()=>setTab("treatment")} />}
-      {tab==="letters"&&<LettersTab scheme={scheme} onPreview={onPreview} />}
-      {tab==="pack"&&<PackTab scheme={scheme} onGenerate={onGenerate} onPreview={onPreview} onTabSwitch={setTab} />}
+      <div key={tab} className="tab-panel">
+        {tab==="workbook"&&<MasterWorkbook schemeId={schemeId} />}
+        {tab==="treatment"&&<window.TreatmentDesigner schemeId={schemeId} />}
+        {tab==="sd_design"&&<window.SurfaceDressingDesigner schemeId={schemeId} />}
+        {tab==="ward"&&<WardTab schemeId={schemeId} />}
+        {tab==="utilities"&&<UtilitiesTab scheme={scheme} />}
+        {tab==="boq"&&<BoQTab schemeId={schemeId} onOpenDesigner={()=>setTab("treatment")} />}
+        {tab==="letters"&&<LettersTab scheme={scheme} onPreview={onPreview} />}
+        {tab==="pack"&&<PackTab scheme={scheme} onGenerate={onGenerate} onPreview={onPreview} onTabSwitch={setTab} />}
+      </div>
       {showSketch && <SketchModal pdf={scheme.sketch_pdf} road={scheme.road_name} onClose={()=>setShowSketch(false)} />}
     </>
   );

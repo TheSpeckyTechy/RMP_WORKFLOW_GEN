@@ -888,14 +888,16 @@ const AppInner = () => {
           </div>
         </header>
         <div className="content">
-          {openScheme ? (
-            <SchemeDetail schemeId={openScheme} onBack={() => setOpenScheme(null)} onGenerate={setGenerating} onPreview={(scheme, docKey) => setPreviewing({ scheme, docKey })}
-              onDuplicate={(scheme) => { setDuplicateSource({ road_name: scheme.road_name, scheme_type: scheme.scheme_type, financial_year: scheme.financial_year, ward_num: scheme.ward_num, status: 'design' }); setNewSchemeOpen(true); }} />
-          ) : view === "settings" ? (
-            <SettingsView tweaks={tweaks} setTweaks={setTweaks} darkMode={darkMode} setDarkMode={setDarkMode} />
-          ) : (
-            <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} onNew={()=>setNewSchemeOpen(true)} filter={filter} setFilter={setFilter} search={search} />
-          )}
+          <div key={openScheme || view} className="view-enter">
+            {openScheme ? (
+              <SchemeDetail schemeId={openScheme} onBack={() => setOpenScheme(null)} onGenerate={setGenerating} onPreview={(scheme, docKey) => setPreviewing({ scheme, docKey })}
+                onDuplicate={(scheme) => { setDuplicateSource({ road_name: scheme.road_name, scheme_type: scheme.scheme_type, financial_year: scheme.financial_year, ward_num: scheme.ward_num, status: 'design' }); setNewSchemeOpen(true); }} />
+            ) : view === "settings" ? (
+              <SettingsView tweaks={tweaks} setTweaks={setTweaks} darkMode={darkMode} setDarkMode={setDarkMode} />
+            ) : (
+              <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} onNew={()=>setNewSchemeOpen(true)} filter={filter} setFilter={setFilter} search={search} />
+            )}
+          </div>
         </div>
       </div>
       <nav className="bottom-nav" role="navigation" aria-label="Primary">

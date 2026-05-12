@@ -123,15 +123,15 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
       <div className="table-wrap">
         <table className="schemes">
           <thead><tr><th>Ref</th><th>Scheme</th><th>Start</th><th>Ward</th><th>Treatment</th><th>Area</th><th>Tender</th><th>Pack</th><th>Complete</th><th>Status</th><th style={{width:30}}></th></tr></thead>
-          <tbody>
-            {list.map(s => {
+          <tbody key={filter + '|' + (search || '')}>
+            {list.map((s, rowIdx) => {
               const ward = window.WARDS.find(w => w.num === s.ward_num);
               const pct = (s.packProgress / s.packTotal) * 100;
               const score = schemeScore(s);
               const scoreColor = score === 100 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red,#c0392b)';
               const urgent = isUrgentScheme(s);
               return (
-                <tr key={s.id} onClick={() => onOpen(s.id)} style={urgent ? {background:'var(--amber-wash)'} : {}}>
+                <tr key={s.id} className={urgent ? 'urgent-row' : ''} onClick={() => onOpen(s.id)} style={{animationDelay: `${Math.min(rowIdx * 20, 140)}ms`}}>
                   <td><span className="row-ref mono">{s.project_number}</span>{s.flags&&s.flags.length>0&&<span style={{marginLeft:6,color:"var(--amber)",display:"inline-flex",verticalAlign:"middle"}}><Icon.Alert /></span>}</td>
                   <td>
                     <div className="row-name">{s.road_name}{urgent && <span className="urgent-chip">⚡ Urgent</span>}</div>

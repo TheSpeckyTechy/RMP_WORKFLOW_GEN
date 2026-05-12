@@ -997,3 +997,111 @@ input[type=radio]:focus-visible{
     transform:scale(min(1, calc((100vw - 32px) / var(--doc-w))));
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WEB ANIMATIONS
+   All new keyframes and animation rules live here so they override any
+   earlier declarations without needing !important.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* 1 · Page / view transitions ─────────────────────────────────────────────
+   Applied to a keyed wrapper div inside .content. React remounts the div
+   whenever the active view changes (dashboard → scheme → settings → back),
+   causing the animation to replay on every navigation. */
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.view-enter { animation: view-in 180ms var(--ease) both; }
+
+/* 2 · Stat cards — staggered cascade on Dashboard mount ───────────────────
+   Each card fans in with a 60 ms offset so they feel individually alive. */
+@keyframes stat-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stats .stat                { animation: stat-in 220ms var(--ease) both; }
+.stats .stat:nth-child(1)   { animation-delay:   0ms; }
+.stats .stat:nth-child(2)   { animation-delay:  60ms; }
+.stats .stat:nth-child(3)   { animation-delay: 120ms; }
+.stats .stat:nth-child(4)   { animation-delay: 180ms; }
+
+/* 3 · Table rows — fade + slide in when filter / search changes ────────────
+   The tbody gets a new React key on filter/search changes, which forces all
+   rows to remount and replay this entrance. Delay is set via inline style
+   on each <tr> so the stagger is proportional to row index. */
+@keyframes row-in {
+  from { opacity: 0; transform: translateX(-3px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.schemes tbody tr { animation: row-in 160ms var(--ease) both; }
+
+/* 4 · Scheme Detail tab panel ─────────────────────────────────────────────
+   A keyed wrapper div remounts on every tab switch, triggering view-in. */
+.tab-panel { animation: view-in 150ms var(--ease) both; }
+
+/* 5 · BoQ series cards — staggered entrance ────────────────────────────────
+   Reuses stat-in; delays cascade so larger grids feel intentionally built. */
+.boq-series-card             { animation: stat-in 220ms var(--ease) both; }
+.boq-series-card:nth-child(1){ animation-delay:   0ms; }
+.boq-series-card:nth-child(2){ animation-delay:  60ms; }
+.boq-series-card:nth-child(3){ animation-delay: 120ms; }
+.boq-series-card:nth-child(4){ animation-delay: 180ms; }
+.boq-series-card:nth-child(5){ animation-delay: 240ms; }
+.boq-series-card:nth-child(6){ animation-delay: 300ms; }
+
+/* 6 · Sidebar sliding nav indicator ───────────────────────────────────────
+   An absolutely-positioned div follows the active nav item. Its top/height
+   are set via JS (useLayoutEffect) so it lands exactly on the button;
+   subsequent view changes animate smoothly via the CSS transition. */
+.sidebar-nav { position: relative; }
+.sidebar-nav-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.09);
+  transition: top 0.25s var(--ease), height 0.25s var(--ease);
+  pointer-events: none;
+  z-index: 0;
+}
+.nav-item          { z-index: 1; }
+.nav-item.active   { background: transparent; }
+
+/* 7 · Filter chip press feedback ──────────────────────────────────────────
+   Adds transform to the transition list and shrinks on active. */
+.chip { transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast), transform var(--t-fast); }
+.chip:active { transform: scale(0.93); }
+
+/* 8 · Progress bar — scaleX reveal from left on mount ─────────────────────
+   transform-origin: left means the fill grows from the track's left edge.
+   The existing transition:width still handles live updates after mount. */
+@keyframes bar-in {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.pack-bar-fill {
+  transform-origin: left center;
+  animation: bar-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* 9 · Urgent row ambient pulse ─────────────────────────────────────────────
+   A very slow brightness cycle draws the eye without overwhelming. Hover
+   cancels both animations so the standard hover styles take over cleanly. */
+@keyframes urgent-pulse {
+  0%, 100% { filter: brightness(1); }
+  50%       { filter: brightness(0.92); }
+}
+.schemes tbody tr.urgent-row {
+  background: var(--amber-wash);
+  animation: urgent-pulse 2.5s ease-in-out infinite, row-in 160ms var(--ease) both;
+}
+.schemes tbody tr.urgent-row:hover {
+  animation: none;
+  background: var(--accent-wash);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* 10 · Button press scale ──────────────────────────────────────────────────
+    Overrides the earlier translateY(0.5px)-only rule from the polish layer. */
+.btn:active { transform: translateY(0.5px) scale(0.97); }
