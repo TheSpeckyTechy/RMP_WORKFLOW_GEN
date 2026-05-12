@@ -21,9 +21,44 @@ const LS_PREFIX = 'rmp_scheme_';
 const LS_IDS    = 'rmp_scheme_ids';
 
 const lsGet    = (id)  => { try { const v = localStorage.getItem(LS_PREFIX + id); return v ? JSON.parse(v) : null; } catch { return null; } };
-const lsSet    = (id, s) => { try { localStorage.setItem(LS_PREFIX + id, JSON.stringify(s)); } catch {} };
 const lsGetIds = ()    => { try { const v = localStorage.getItem(LS_IDS); return v ? JSON.parse(v) : []; } catch { return []; } };
 const lsSetIds = (ids) => { try { localStorage.setItem(LS_IDS, JSON.stringify(ids)); } catch {} };
+
+// localStorage writes can fail two ways: quota exhaustion (a couple of
+// big base64 PDFs in pack_files_* push past the 5MB per-origin limit)
+// or private-browsing sandboxes that throw on every setItem. Both used
+// to be silently swallowed by a bare catch{} — the user saw an edit
+// "save" and then disappear on refresh.
+// lsSet now returns a flag indicating success so callers can surface
+// the failure via a toast and a sync-error state.
+const APPROX_QUOTA_BYTES = 4 * 1024 * 1024;   // ~4MB; soft warning before the 5MB hard limit
+const lsSet = (id, s) => {
+  try {
+    const json = JSON.stringify(s);
+    localStorage.setItem(LS_PREFIX + id, json);
+    // Soft warning when a single scheme JSON approaches the per-origin
+    // quota. Common cause: too many base64 PDFs in pack_files_*.
+    if (json.length > APPROX_QUOTA_BYTES && window.Toast) {
+      window.Toast.show({
+        kind: 'info',
+        msg: `Scheme ${id} is ${Math.round(json.length / 1024 / 1024 * 10) / 10} MB — close to the browser storage limit. Consider trimming uploaded PDFs.`,
+        duration: 8000,
+      });
+    }
+    return true;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[SchemeContext] lsSet failed:', id, e);
+    if (window.Toast) {
+      window.Toast.show({
+        kind: 'error',
+        msg: `Couldn't save ${id} locally — browser storage may be full. Older drafts and uploaded PDFs are the most likely culprit.`,
+        duration: 10000,
+      });
+    }
+    return false;
+  }
+};
 
 // ── Pending-write queue ─────────────────────────────────────────────────────
 // Failed Supabase upserts go here so they survive refreshes and get
@@ -305,8 +340,9 @@ const SchemeProvider = ({ children }) => {
     // Stamp updated_at on every edit so the next Supabase fetch can tell
     // whether the local copy is newer than what came back from the server.
     const merged = { ...current, ...updates, updated_at: new Date().toISOString() };
-    lsSet(id, merged);
+    const ok = lsSet(id, merged);
     setSchemes(prev => prev.map(s => s.id === id ? merged : s));
+    if (!ok) setSyncStatus('error');
     sbUpsertFn(id, merged, setSyncStatus, () => setLastSynced(new Date()));
   };
 
@@ -317,7 +353,8 @@ const SchemeProvider = ({ children }) => {
     // race on first sync could let a stale Supabase value overwrite a
     // freshly-created scheme.
     const stamped = { ...scheme, updated_at: scheme.updated_at || new Date().toISOString() };
-    lsSet(stamped.id, stamped);
+    const ok = lsSet(stamped.id, stamped);
+    if (!ok) setSyncStatus('error');
     const defaultIds = new Set(window.SCHEMES.map(s => s.id));
     if (!defaultIds.has(stamped.id)) {
       const current = lsGetIds();
