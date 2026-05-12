@@ -86,6 +86,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
     { k:"ward", l:"Ward & Copies" },
     { k:"utilities", l:"Utilities", badge: String(window.UTILITIES.length) },
     { k:"boq", l:"Bill of Quantities" },
+    { k:"letters", l:"Letters", badge: String((scheme.recipients||[]).length) },
     { k:"pack", l:"Pack", badge:`${window.PACK_DOCS.filter(d=>(scheme.docs_generated||{})[d.key]).length}/${window.PACK_DOCS.length}` },
   ];
 
@@ -170,6 +171,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
       {tab==="ward"&&<WardTab schemeId={schemeId} />}
       {tab==="utilities"&&<UtilitiesTab scheme={scheme} />}
       {tab==="boq"&&<BoQTab schemeId={schemeId} onOpenDesigner={()=>setTab("treatment")} />}
+      {tab==="letters"&&<LettersTab scheme={scheme} onPreview={onPreview} />}
       {tab==="pack"&&<PackTab scheme={scheme} onGenerate={onGenerate} onPreview={onPreview} onTabSwitch={setTab} />}
       {showSketch && <SketchModal pdf={scheme.sketch_pdf} road={scheme.road_name} onClose={()=>setShowSketch(false)} />}
     </>
@@ -567,6 +569,51 @@ const DocPreview = ({ docKey, scheme }) => {
     return <div><div style={{fontWeight:700,fontSize:6}}>BILL OF QUANTITIES</div><div style={{fontSize:4,marginBottom:3}}>{scheme.road_name} · {scheme.project_number}</div>{breakdown.map((b,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:4,borderBottom:"1px solid #eee",padding:"1px 0",fontWeight:b.bold?700:400}}><span>{b.l}</span><span>{b.v}</span></div>)}</div>;
   }
   return <div style={{color:"#aaa",fontSize:5,textAlign:"center",paddingTop:20}}>[{docKey.toUpperCase()}]<br/>Upload PDF below</div>;
+};
+
+// ─── Letters Tab ──────────────────────────────────────────────────────────────
+// Resident/business letters live here, separate from the pack. They're a
+// mail-merge workflow (recipients × template) and never get bundled into
+// the compiled PDF pack — keeping them in a dedicated tab clarifies the
+// distinction and removes the "Site Letter ○" entry that used to appear
+// on the pack's front-sheet contents listing.
+
+const LettersTab = ({ scheme, onPreview }) => {
+  const recipients = scheme.recipients || [];
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:12}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:600}}>Resident & business letters · {scheme.project_number} · {scheme.road_name}</div>
+          <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>
+            {recipients.length} recipient{recipients.length === 1 ? "" : "s"}
+            {recipients.length === 0 ? " — import from CAG to begin" : ""}
+          </div>
+        </div>
+        <button className="btn accent" onClick={()=>onPreview(scheme, "letter")}>
+          <Icon.Doc /> {recipients.length > 0 ? "Open letter editor" : "Add recipients"}
+        </button>
+      </div>
+      <div className="form-section">
+        <div className="section-head">
+          <div className="section-title"><span className="section-num">L</span> Mail-merge workflow</div>
+        </div>
+        <div style={{fontSize:13,color:"var(--ink-2)",lineHeight:1.6,marginBottom:14}}>
+          Letters are produced per-recipient by merging the address fields
+          and scheme metadata into the DCC template. The editor lets you:
+        </div>
+        <ul style={{fontSize:13,color:"var(--ink-2)",lineHeight:1.8,paddingLeft:18,marginBottom:14}}>
+          <li>Import recipient addresses from a CAG export</li>
+          <li>Preview the rendered letter for any recipient</li>
+          <li>Download a single DOCX or a multi-recipient PDF</li>
+        </ul>
+        <div style={{fontSize:12,color:"var(--ink-3)",padding:"10px 12px",background:"var(--accent-wash)",borderRadius:"var(--radius-sm)",border:"1px solid var(--accent)"}}>
+          <strong>Note:</strong> letters are <strong>not bundled into the handover pack PDF</strong> —
+          they're sent separately to residents/businesses before works begin.
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // ─── Pack Tab ─────────────────────────────────────────────────────────────────
