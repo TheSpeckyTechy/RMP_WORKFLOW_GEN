@@ -268,6 +268,10 @@ function SurfaceDressingDesigner({ schemeId }) {
   const [view, setView]                     = React.useState('design');
   const [showAssessmentHelp, setShowHelp]   = React.useState(false);
   const [showRateEditor, setShowRateEditor] = React.useState(false);
+  const [portalOpen, setPortalOpen]         = React.useState(false);
+  const [activeStep, setActiveStep]         = React.useState(0);
+  const portalBodyRef                        = React.useRef(null);
+  const stepRefs                             = React.useRef(Array(9).fill(null));
   const [rateOverrides, setRateOverrides]   = React.useState(() => {
     try { const v = localStorage.getItem(SD_RATES_KEY); return v ? JSON.parse(v) : {}; }
     catch { return {}; }
@@ -327,6 +331,30 @@ function SurfaceDressingDesigner({ schemeId }) {
     // re-run on every parent rerender.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Portal: scroll-reveal + active-step tracking via IntersectionObserver
+  React.useEffect(() => {
+    if (!portalOpen) return;
+    const body = portalBodyRef.current;
+    const refs = stepRefs.current.filter(Boolean);
+    if (!refs.length) return;
+
+    const revealObs = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('sd-revealed'); });
+    }, { threshold: 0.1 });
+
+    const trackObs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const idx = stepRefs.current.indexOf(e.target);
+          if (idx !== -1) setActiveStep(idx);
+        }
+      });
+    }, { root: body, threshold: 0.25 });
+
+    refs.forEach(r => { revealObs.observe(r); trackObs.observe(r); });
+    return () => { revealObs.disconnect(); trackObs.disconnect(); };
+  }, [portalOpen]);
 
   // Auto-derive area from length × width if blank
   React.useEffect(() => {
@@ -483,6 +511,30 @@ function SurfaceDressingDesigner({ schemeId }) {
     const band = SD_QTY_BAND(area);
     return { item, band, rate: item.rates[band], total: item.rates[band] * area };
   }, [active.selectedItem, active.areaM2, effectiveSeries700]);
+
+  const SD_STEP_LABELS = ['Site','Traffic','Hardness','Surface','Treatment','Adjustments','Seasonal','Pricing','Designer'];
+
+  const stepComplete = React.useMemo(() => [
+    Boolean(active.areaM2 && active.roadNumber),
+    Boolean(active.cvDay),
+    Boolean(active.rhProbeDepth),
+    Boolean(trafficCat && suitability),
+    Boolean(baseDesign && typeof baseDesign === 'object'),
+    !totalAdjustment.expert,
+    Boolean(seasonalRisk && seasonalRisk !== 'high'),
+    Boolean(selectedRate),
+    Boolean(active.designerName),
+  ], [active, trafficCat, suitability, baseDesign, totalAdjustment, seasonalRisk, selectedRate]);
+
+  const completedCount = stepComplete.filter(Boolean).length;
+
+  const scrollToStep = (i) => {
+    const el = stepRefs.current[i];
+    if (el && portalBodyRef.current) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActiveStep(i);
+    }
+  };
 
   const months  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const today   = new Date();
@@ -907,6 +959,60 @@ function SurfaceDressingDesigner({ schemeId }) {
       .sd-rate-grid { grid-template-columns: 60px 1fr 60px 60px 60px; font-size: 10px; }
       .sd-rate-grid input { padding: 4px 5px; }
     }
+
+    /* ── Entry card ──────────────────────────────────────────────────────────── */
+    .sd-entry-card { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; gap: 22px; text-align: center; padding: 48px 24px; }
+    .sd-entry-scheme { font-family: var(--font-sans, inherit); font-size: 20px; font-weight: 700; color: var(--ink); }
+    .sd-entry-progress { width: 100%; max-width: 380px; }
+    .sd-entry-progress-track { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+    .sd-entry-progress-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.5s ease; }
+    .sd-entry-progress-label { font-size: 11px; color: var(--ink-3); margin-top: 7px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sd-entry-btn { background: var(--accent); color: white; border: none; padding: 15px 32px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; border-radius: 4px; letter-spacing: 0.5px; animation: sd-glow-pulse 2.5s ease-in-out infinite; }
+    .sd-entry-btn:hover { filter: brightness(1.1); }
+    @keyframes sd-glow-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(244,114,22,0.4); }
+      50% { box-shadow: 0 0 18px 5px rgba(244,114,22,0.18), 0 0 0 8px rgba(244,114,22,0.05); }
+    }
+    @media (prefers-reduced-motion: reduce) { .sd-entry-btn { animation: none; } }
+
+    /* ── Portal overlay ──────────────────────────────────────────────────────── */
+    .sd-portal-overlay { position: fixed; inset: 0; z-index: 9000; background: var(--bg); display: flex; flex-direction: column; animation: sd-portal-in 280ms ease; }
+    @keyframes sd-portal-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .sd-portal-overlay { animation: none; } }
+
+    /* ── Portal header ───────────────────────────────────────────────────────── */
+    .sd-portal-hdr { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--bg-elev); border-bottom: 1px solid var(--line); flex-shrink: 0; flex-wrap: wrap; }
+    .sd-portal-hdr-name { font-family: var(--font-sans, inherit); font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+    .sd-portal-hdr-stats { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+    .sd-portal-stat { font-size: 11px; color: var(--ink-3); background: var(--bg-sunken); padding: 3px 8px; border-radius: 3px; border: 1px solid var(--line); }
+    .sd-portal-stat strong { color: var(--accent); }
+    .sd-portal-exit { background: transparent; color: var(--ink-3); border: 1px solid var(--line); padding: 5px 12px; font-family: inherit; font-size: 11px; cursor: pointer; border-radius: 3px; white-space: nowrap; flex-shrink: 0; }
+    .sd-portal-exit:hover { border-color: var(--red); color: var(--red); background: var(--red-wash, rgba(192,57,43,0.08)); }
+
+    /* ── Portal body + rail ──────────────────────────────────────────────────── */
+    .sd-portal-body { display: flex; flex: 1; overflow: hidden; }
+    .sd-portal-rail { width: 54px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; padding: 18px 0; gap: 0; background: var(--bg-elev); border-right: 1px solid var(--line); overflow-y: auto; }
+    .sd-rail-dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--ink-3); cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s; flex-shrink: 0; }
+    .sd-rail-dot:hover { border-color: var(--accent); color: var(--accent); }
+    .sd-rail-dot.sd-rail-active { border-color: var(--accent); background: var(--accent); color: white; }
+    .sd-rail-dot.sd-rail-done { border-color: var(--green, #16a34a); color: var(--green, #16a34a); background: rgba(22,163,74,0.08); }
+    .sd-rail-dot.sd-rail-done.sd-rail-active { background: var(--accent); border-color: var(--accent); color: white; }
+    .sd-rail-connector { width: 2px; height: 10px; background: var(--line); flex-shrink: 0; margin: 1px 0; }
+
+    /* ── Portal content + scroll-reveal ─────────────────────────────────────── */
+    .sd-portal-content { flex: 1; overflow-y: auto; padding: 16px 20px; }
+    .sd-portal-content .sd-panel { opacity: 0; transform: translateY(14px); transition: opacity 350ms ease, transform 350ms ease; }
+    .sd-portal-content .sd-panel.sd-revealed { opacity: 1; transform: none; }
+    .sd-portal-content .sd-grid-2 .sd-panel { margin-bottom: 14px; }
+    @media (prefers-reduced-motion: reduce) { .sd-portal-content .sd-panel { opacity: 1 !important; transform: none !important; } }
+    @media (max-width: 600px) {
+      .sd-portal-rail { width: 40px; }
+      .sd-rail-dot { width: 24px; height: 24px; font-size: 10px; }
+      .sd-portal-content { padding: 12px; }
+      .sd-portal-hdr-name { max-width: 120px; font-size: 12px; }
+    }
+    .sd-modal-bg { z-index: 9500; }
+
     @media print {
       @page { margin: 0; size: A4; }
       .sd-no-print { display: none !important; }
@@ -916,529 +1022,586 @@ function SurfaceDressingDesigner({ schemeId }) {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  const renderDesignSteps = () => (<>
+
+    {/* STEP 1: SITE */}
+    <div ref={el=>stepRefs.current[0]=el} className="sd-panel">
+      <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">1</span>SITE IDENTIFICATION</div></div>
+      <div className="sd-row-3">
+        <div className="sd-field">
+          <label className="sd-label">Road Number</label>
+          <input className="sd-input" value={active.roadNumber} onChange={e=>update({roadNumber:e.target.value})} placeholder="e.g. U1234" />
+        </div>
+        <div className="sd-field">
+          <label className="sd-label">Region / Area</label>
+          <input className="sd-input" value={active.regionArea} onChange={e=>update({regionArea:e.target.value})} />
+        </div>
+        <div className="sd-field">
+          <label className="sd-label">Scheme Reference</label>
+          <input className="sd-input" value={active.schemeRef} onChange={e=>update({schemeRef:e.target.value})} />
+        </div>
+      </div>
+      <div className="sd-row-4">
+        <div className="sd-field">
+          <label className="sd-label">Length (m)</label>
+          <input className="sd-input" type="number" value={active.length} onChange={e=>update({length:e.target.value})} />
+        </div>
+        <div className="sd-field">
+          <label className="sd-label">Width (m)</label>
+          <input className="sd-input" type="number" value={active.width} onChange={e=>update({width:e.target.value})} />
+        </div>
+        <div className="sd-field">
+          <label className="sd-label">No. of Lanes</label>
+          <input className="sd-input" type="number" value={active.numLanes} onChange={e=>update({numLanes:e.target.value})} />
+        </div>
+        <div className="sd-field">
+          <label className="sd-label">Area (m²)</label>
+          <input className="sd-input" type="number" value={active.areaM2} onChange={e=>update({areaM2:e.target.value})} />
+          {active.areaM2 && !isNaN(parseFloat(active.areaM2)) && (
+            <div className="sd-result-sub" style={{marginTop:4}}>{SD_QTY_BAND_LABEL[SD_QTY_BAND(parseFloat(active.areaM2))]}</div>
+          )}
+        </div>
+      </div>
+      <div className="sd-row-3">
+        <div className="sd-field">
+          <label className="sd-label">Lane(s)</label>
+          <input className="sd-input" value={active.laneId} onChange={e=>update({laneId:e.target.value})} placeholder="NB/SB/EB/WB" />
+        </div>
+        <div className="sd-field">
+          <label className="sd-label">Location (drives Temp. Cat.)</label>
+          <select className="sd-select" value={active.location} onChange={e=>update({location:e.target.value})}>
+            <option>South</option><option>Central</option><option>North</option>
+          </select>
+          <div className="sd-result-sub" style={{marginTop:4}}>Temperature Category: <strong style={{color:'var(--accent)'}}>{tempCat}</strong></div>
+        </div>
+      </div>
+    </div>
+
+    {/* STEP 2: TRAFFIC */}
+    <div ref={el=>stepRefs.current[1]=el} className="sd-panel">
+      <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">2</span>TRAFFIC</div></div>
+      <div className="sd-row-2">
+        <div className="sd-field">
+          <label className="sd-label">Medium/Heavy Traffic (cv/lane/day)</label>
+          <input className="sd-input" type="number" value={active.cvDay} onChange={e=>update({cvDay:e.target.value})} placeholder="HGV/CV count" />
+          {trafficCat && (
+            <div className="sd-result">
+              <div className="sd-result-label">Traffic Category</div>
+              <div className="sd-result-value">{trafficCat.cat} <span style={{fontSize:13,color:'var(--ink-3)',fontWeight:400}}>({trafficCat.range} CV/day)</span></div>
+              <div className="sd-result-sub">NRSWA Road Type {trafficCat.nrswa}</div>
+            </div>
+          )}
+        </div>
+        <div className="sd-field">
+          <label className="sd-label">Traffic Speed (mph)</label>
+          <select className="sd-select" value={active.trafficSpeed} onChange={e=>update({trafficSpeed:e.target.value, speed:parseInt(e.target.value)>=50?'high':'low'})}>
+            <option>20</option><option>30</option><option>40</option><option>50</option><option>60</option><option>70</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {/* STEP 3 & 4: HARDNESS + SURFACE */}
+    <div className="sd-grid-2">
+      <div ref={el=>stepRefs.current[2]=el} className="sd-panel" style={{marginBottom:0}}>
+        <div className="sd-panel-title">
+          <div className="sd-panel-title-l"><span className="sd-step-num">3</span>ROAD HARDNESS</div>
+          <button className="sd-help-btn" onClick={()=>setShowHelp(true)} title="Assessment guidance">?</button>
+        </div>
+        <div className="sd-row-2">
+          <div className="sd-field">
+            <label className="sd-label">RH Probe Depth (mm)</label>
+            <input className="sd-input" type="number" step="0.1" value={active.rhProbeDepth} onChange={e=>update({rhProbeDepth:e.target.value})} placeholder="e.g. 4.2" />
+          </div>
+          <div className="sd-field">
+            <label className="sd-label">Probe Temp (°C)</label>
+            <input className="sd-input" type="number" value={active.rhProbeTemp} onChange={e=>update({rhProbeTemp:e.target.value})} />
+          </div>
+        </div>
+        {probeHardness && probeHardness !== active.hardness && (
+          <div className="sd-info">
+            Probe depth suggests <strong>{probeHardness}</strong>.
+            <button className="sd-tab-action" style={{marginLeft:8,padding:'2px 8px'}} onClick={()=>update({hardness:probeHardness})}>Apply</button>
+          </div>
+        )}
+        <div className="sd-field">
+          <label className="sd-label">RH Category</label>
+          <select className="sd-select" value={active.hardness} onChange={e=>update({hardness:e.target.value})}>
+            <option>Very Hard</option><option>Hard</option><option>Normal</option><option>Soft</option><option>Very Soft</option><option>Variable</option>
+          </select>
+          <div className="sd-help-text">{SD_HARDNESS_GUIDANCE[active.hardness]}</div>
+        </div>
+        <div className="sd-row-2">
+          <div className="sd-field">
+            <label className="sd-label">Min PSV</label>
+            <input className="sd-input" type="number" value={active.minPSV} onChange={e=>update({minPSV:e.target.value, selectedItem:''})} />
+          </div>
+          <div className="sd-field">
+            <label className="sd-label">Max AAV</label>
+            <input className="sd-input" type="number" value={active.maxAAV} onChange={e=>update({maxAAV:e.target.value})} />
+          </div>
+        </div>
+      </div>
+
+      <div ref={el=>stepRefs.current[3]=el} className="sd-panel" style={{marginBottom:0}}>
+        <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">4</span>SURFACE & GEOMETRY</div></div>
+        <div className="sd-field">
+          <label className="sd-label">Surface Characteristic (RN39 Fig. 8.1)</label>
+          <select className="sd-select" value={active.surfaceCondition} onChange={e=>update({surfaceCondition:e.target.value})}>
+            {Object.keys(SD_SUITABILITY_MATRIX).map(k=><option key={k}>{k}</option>)}
+          </select>
+          <div className="sd-help-text">{SD_CONDITION_GUIDANCE[active.surfaceCondition]}</div>
+        </div>
+        <div className="sd-field">
+          <label className="sd-label">Surface Condition (Proforma)</label>
+          <select className="sd-select" value={active.condition} onChange={e=>update({condition:e.target.value})}>
+            <option value="veryRich">Very binder rich (-0.2)</option>
+            <option value="rich">Binder Rich (-0.1)</option>
+            <option value="normal">Normal (0)</option>
+            <option value="wheelTracks">Texture in wheel tracks (+0.1)</option>
+            <option value="lean">Binder lean / Porous (+0.2)</option>
+          </select>
+        </div>
+        <div className="sd-row-2">
+          <div className="sd-field">
+            <label className="sd-label">Radius of Curvature</label>
+            <select className="sd-select" value={active.radiusCurvature} onChange={e=>update({radiusCurvature:e.target.value})}>
+              <option value="under100">Under 100 m</option>
+              <option value="100to250">100 – 250 m</option>
+              <option value="over250">Over 250 m</option>
+            </select>
+          </div>
+          <div className="sd-field">
+            <label className="sd-label">Junction or Crossing</label>
+            <select className="sd-select" value={active.junctionCrossing} onChange={e=>update({junctionCrossing:e.target.value})}>
+              <option value="approach">Approach</option>
+              <option value="nonApproach">Non-approach</option>
+            </select>
+          </div>
+        </div>
+        <div className="sd-row-2">
+          <div className="sd-field">
+            <label className="sd-label">Gradient Magnitude</label>
+            <select className="sd-select" value={active.gradientMag} onChange={e=>update({gradientMag:e.target.value})}>
+              <option value="lt5">Up to 5% (0)</option>
+              <option value="mid">5 – 10% (+0.1)</option>
+              <option value="gt10">Over 10% (+0.2)</option>
+            </select>
+          </div>
+          <div className="sd-field">
+            <label className="sd-label">Gradient Direction</label>
+            <select className="sd-select" value={active.gradientDir} onChange={e=>update({gradientDir:e.target.value})}>
+              <option value="flat">Flat / N/A</option>
+              <option value="uphill">Uphill (reduces)</option>
+              <option value="downhill">Downhill (increases)</option>
+            </select>
+          </div>
+        </div>
+        <div className="sd-field">
+          <label className="sd-chk-label">
+            <input type="checkbox" checked={active.highStressBraking} onChange={e=>update({highStressBraking:e.target.checked})} />
+            <span style={{color:active.highStressBraking?'var(--red)':'var(--ink-2)'}}>High-stress braking zone (e.g. fast dual carriageway → roundabout)</span>
+          </label>
+        </div>
+        {suitability && !active.highStressBraking && (
+          <div className="sd-suit-box" style={{background:`${suitability.color}15`,borderLeftColor:suitability.color}}>
+            <div className="sd-suit-title" style={{color:suitability.color}}>{suitability.label.toUpperCase()}</div>
+            <div className="sd-suit-desc">{suitability.desc}</div>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* STEP 5: TREATMENT */}
+    <div ref={el=>stepRefs.current[4]=el} className="sd-panel">
+      <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">5</span>TREATMENT SELECTION</div></div>
+      {dressingRecommendation && (
+        <div className="sd-rec-box">
+          <div className="sd-rec-title">RN39 Recommends</div>
+          <div className="sd-rec-text"><strong>{dressingRecommendation.label}</strong><br/>{dressingRecommendation.reason}</div>
+        </div>
+      )}
+      {dressingRecommendation?.type === 'hfs' ? (
+        <div className="sd-warning" style={{marginTop:12}}>
+          <strong>SURFACE DRESSING NOT APPROPRIATE.</strong> Specify High Friction Surfacing (HFS) instead.
+        </div>
+      ) : (
+        <div className="sd-row-3" style={{marginTop:12}}>
+          <div className="sd-field">
+            <label className="sd-label">Override Dressing Type</label>
+            <select className="sd-select" value={active.dressingType} onChange={e=>update({dressingType:e.target.value, selectedItem:''})}>
+              <option value="auto">Auto (RN39)</option>
+              <option value="single">Single</option>
+              <option value="racked">Racked-in</option>
+              <option value="double">Double</option>
+              <option value="inverted">Inverted Double</option>
+              <option value="sandwich">Sandwich</option>
+            </select>
+          </div>
+          <div className="sd-field">
+            <label className="sd-label">Binder Grade</label>
+            <select className="sd-select" value={active.binderGrade} onChange={e=>update({binderGrade:e.target.value, selectedItem:''})}>
+              <option value="unmodified">Unmodified (K1-70)</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="premium">Premium Grade</option>
+              <option value="superpremium">Super-Premium</option>
+            </select>
+          </div>
+          <div className="sd-field">
+            <label className="sd-label">Aggregate Type</label>
+            <select className="sd-select" value={active.aggregate} onChange={e=>update({aggregate:e.target.value})}>
+              <option value="rock">Crushed rock (0)</option>
+              <option value="blast">Blast-furnace slag (0)</option>
+              <option value="steel">Steel slag (0)</option>
+              <option value="gravel">Gravel (+0.1)</option>
+            </select>
+          </div>
+        </div>
+      )}
+      {baseDesign === null && trafficCat && activeType !== 'hfs' && (
+        <div className="sd-warning"><strong>Not suitable:</strong> This combination is not recommended by RN39.</div>
+      )}
+      {baseDesign === 'multi' && (
+        <div className="sd-warning"><strong>Multiple-layer dressing preferred</strong> — switch to racked-in or double.</div>
+      )}
+      {baseDesign === 'unnecessary' && (
+        <div className="sd-info">Racking-in is unnecessary for this traffic category — single dressing sufficient.</div>
+      )}
+      {baseDesign === 'expert' && (
+        <div className="sd-warning"><strong>Expert design required</strong> for this combination.</div>
+      )}
+      {baseDesign && typeof baseDesign === 'object' && (
+        <div className="sd-row-2" style={{marginTop:12}}>
+          <div className="sd-result">
+            <div className="sd-result-label">Base Chipping Code</div>
+            <div className="sd-result-value">{baseDesign.size}</div>
+            <div className="sd-result-sub">{SD_CHIPPING_DESIGNATIONS[baseDesign.size.split('/')[0]]}</div>
+          </div>
+          <div className="sd-result">
+            <div className="sd-result-label">Base Binder Rate</div>
+            <div className="sd-result-value">
+              {isMultiLayer ? `${baseDesign.l1} / ${baseDesign.l2} L/m²` : `${baseDesign.binder} L/m²`}
+            </div>
+            <div className="sd-result-sub">Before local adjustment</div>
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* STEP 6: ADJUSTMENTS */}
+    {dressingRecommendation?.type !== 'hfs' && (
+      <div ref={el=>stepRefs.current[5]=el} className="sd-panel">
+        <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">6</span>LOCAL ADJUSTMENTS — TABLE 9.2.6</div></div>
+        <div className="sd-grid-2">
+          <div>
+            <div className="sd-row-2">
+              <div className="sd-field">
+                <label className="sd-label">Season</label>
+                <select className="sd-select" value={active.season} onChange={e=>update({season:e.target.value})}>
+                  <option value="early">Early/mid-season (0)</option>
+                  <option value="late">Late season (+0.2)</option>
+                </select>
+              </div>
+              <div className="sd-field">
+                <label className="sd-label">Flakiness Cat. (BS EN)</label>
+                <select className="sd-select" value={active.shape} onChange={e=>update({shape:e.target.value})}>
+                  <option value="f10">F10 (-0.1)</option>
+                  <option value="f15">F15 (0)</option>
+                  <option value="f20">F20 (+0.1)</option>
+                  <option value="f25">F25 (expert)</option>
+                </select>
+              </div>
+            </div>
+            <div className="sd-row-2">
+              <div className="sd-field">
+                <label className="sd-label">Shade</label>
+                <select className="sd-select" value={active.shade} onChange={e=>update({shade:e.target.value})}>
+                  <option value="open">Open to sun (0)</option>
+                  <option value="partial">Partially shaded (+0.1)</option>
+                  <option value="full">Fully shaded (+0.2)</option>
+                </select>
+              </div>
+              <div className="sd-field">
+                <label className="sd-label">Local Traffic</label>
+                <select className="sd-select" value={active.localTraffic} onChange={e=>update({localTraffic:e.target.value})}>
+                  <option value="normal">Design range (0)</option>
+                  <option value="untrafficked">Effectively untrafficked (+0.2)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="sd-result">
+              <div className="sd-result-label">Cumulative Adjustment</div>
+              <div className="sd-result-value">
+                {totalAdjustment.capped >= 0 ? '+' : ''}{totalAdjustment.capped.toFixed(2)} L/m²
+                {totalAdjustment.wasCapped && (
+                  <span style={{fontSize:11,color:'var(--amber)',marginLeft:12}}>
+                    (raw {totalAdjustment.raw >= 0 ? '+' : ''}{totalAdjustment.raw.toFixed(2)} capped)
+                  </span>
+                )}
+              </div>
+              <div className="sd-result-sub">Max +0.4 / −0.2 L/m² per RN39 Table 9.2.6</div>
+              <div style={{marginTop:8,fontSize:10,color:'var(--ink-3)',lineHeight:1.6}}>
+                Season {fmtAdj(totalAdjustment.components.season)} · Agg {fmtAdj(totalAdjustment.components.aggregate)} · Shape {fmtAdj(totalAdjustment.components.shape)} · Shade {fmtAdj(totalAdjustment.components.shade)}<br/>
+                Condition {fmtAdj(totalAdjustment.components.condition)} · Gradient {fmtAdj(totalAdjustment.components.gradient)} · Speed {fmtAdj(totalAdjustment.components.speed)} · Local {fmtAdj(totalAdjustment.components.localTraffic)}
+              </div>
+            </div>
+            {totalAdjustment.expert && (
+              <div className="sd-warning"><strong>Expert design required</strong> — refer to specialist designer.</div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* STEP 7: SEASONAL RISK */}
+    {finalRates && (
+      <div ref={el=>stepRefs.current[6]=el} className="sd-panel">
+        <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">7</span>SEASONAL RISK — TEMP. CAT. {tempCat}</div></div>
+        <div style={{fontSize:12,color:'var(--ink-3)',marginBottom:8}}>Click a month to assess installation risk for {finalRates.size}.</div>
+        <div className="sd-season-grid">
+          {months.map((m,i) => {
+            const primary = finalRates.size.split('/')[0];
+            const risk = SD_SEASON_DATA[tempCat]?.[primary]?.[i] ?? 'high';
+            return (
+              <div key={m}
+                className={`sd-season-cell ${active.installMonth === i+1 ? 'sd-active' : ''}`}
+                style={{background:SD_RISK_COLORS[risk],color:'#111'}}
+                onClick={()=>update({installMonth:i+1})}>{m}</div>
+            );
+          })}
+        </div>
+        {seasonalRisk && (
+          <div className="sd-info" style={{background:`${SD_RISK_COLORS[seasonalRisk]}15`,borderLeftColor:SD_RISK_COLORS[seasonalRisk],color:'var(--ink)'}}>
+            <strong style={{color:SD_RISK_COLORS[seasonalRisk]}}>{months[active.installMonth-1]}: {SD_RISK_LABELS[seasonalRisk]}</strong>
+            {seasonalRisk === 'high' && ' — surface dressing should not be undertaken.'}
+            {seasonalRisk === 'sig'  && ' — extra care in design and execution required.'}
+            {seasonalRisk === 'low'  && ' — normally successful given appropriate weather.'}
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* STEP 8: PRICING */}
+    {finalRates && matchingItems.length > 0 && (
+      <div ref={el=>stepRefs.current[7]=el} className="sd-panel">
+        <div className="sd-panel-title">
+          <div className="sd-panel-title-l"><span className="sd-step-num">8</span>SERIES 700 PRICING</div>
+          <button className="sd-tab-action" onClick={()=>setShowRateEditor(true)}>⚙ Edit Rates</button>
+        </div>
+        <table className="sd-table sd-pricing-table">
+          <thead>
+            <tr><th>Item</th><th>Description</th><th>&lt; 500</th><th>500–5,000</th><th>&gt; 5,000</th></tr>
+          </thead>
+          <tbody>
+            {matchingItems.map(item => (
+              <tr key={item.item} className={item.item === active.selectedItem ? 'sd-selected' : ''}
+                onClick={()=>update({selectedItem:item.item})}>
+                <td><strong style={{color:'var(--accent)'}}>{item.item}</strong></td>
+                <td>{item.desc}</td>
+                <td>£{item.rates.small.toFixed(2)}</td>
+                <td>£{item.rates.medium.toFixed(2)}</td>
+                <td>£{item.rates.large.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {selectedRate && (
+          <div className="sd-pricing-hl">
+            <div>
+              <div className="sd-result-label">Selected Item</div>
+              <div style={{fontSize:18,fontWeight:600,color:'var(--ink)'}}>{selectedRate.item.item}</div>
+            </div>
+            <div>
+              <div className="sd-result-label">Quantity Band</div>
+              <div style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>{SD_QTY_BAND_LABEL[selectedRate.band]}</div>
+            </div>
+            <div>
+              <div className="sd-result-label">Rate</div>
+              <div style={{fontSize:18,fontWeight:600,color:'var(--ink)'}}>£{selectedRate.rate.toFixed(2)}/m²</div>
+            </div>
+            <div>
+              <div className="sd-result-label">Indicative Total</div>
+              <div className="sd-pricing-big">{(window.BOQ_ENGINE?.fmtGBP || (n=>'£'+n))(selectedRate.total)}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* STEP 9: DESIGNER & NOTES */}
+    <div ref={el=>stepRefs.current[8]=el} className="sd-panel">
+      <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">9</span>DESIGNER & NOTES</div></div>
+      <div className="sd-row-3">
+        <div className="sd-field">
+          <label className="sd-label">Designer</label>
+          <input className="sd-input" value={active.designerName} onChange={e=>update({designerName:e.target.value})} placeholder="Full name" />
+        </div>
+        <div className="sd-field">
+          <label className="sd-label">Initials</label>
+          <input className="sd-input" value={active.designerInitials} onChange={e=>update({designerInitials:e.target.value})} maxLength={5} />
+        </div>
+        <div className="sd-field">
+          <label className="sd-label">Design Date</label>
+          <input className="sd-input" type="date" value={active.designDate} onChange={e=>update({designDate:e.target.value})} />
+        </div>
+      </div>
+      <div className="sd-field">
+        <label className="sd-label">Design Notes</label>
+        <textarea className="sd-textarea" value={active.notes} onChange={e=>update({notes:e.target.value})}
+          placeholder="Site visit observations, drawing references, photo refs, special considerations..." rows={3} />
+      </div>
+    </div>
+
+    <div className="sd-actions">
+      <button className="sd-btn" onClick={()=>setView('proforma')}>📋 View RN39 Proforma</button>
+    </div>
+
+    <div className="sd-footer">
+      DUNDEE CITY COUNCIL · HIGHWAY MAINTENANCE ·
+      BASED ON ROAD NOTE 39 (RSTA POCKET GUIDE 7TH ED., MARCH 2016) ·
+      PRICING PER SERIES 700 BERR 85/1 · DESIGN GUIDANCE ONLY — VERIFY ON SITE
+    </div>
+
+  </>);
+
   return (
     <div className="sd-wrap">
       <style>{sdStyles}</style>
 
-      {/* View toggle */}
-      <div className="sd-view-toggle sd-no-print">
-        <button className={`sd-view-btn ${view==='design'?'sd-active':''}`} onClick={()=>setView('design')}>Design</button>
-        <button className={`sd-view-btn ${view==='proforma'?'sd-active':''}`} onClick={()=>setView('proforma')}>RN39 Proforma</button>
-      </div>
-
-      {/* ── PROFORMA VIEW ── */}
-      {view === 'proforma' && (
-        <>
-          <div style={{maxWidth:'210mm',margin:'0 auto',background:'white',color:'black',boxShadow:'0 4px 24px rgba(0,0,0,0.5)'}}>
-            {renderProforma()}
+      {/* ENTRY CARD — shown when portal is closed */}
+      {!portalOpen && (
+        <div className="sd-entry-card">
+          <div className="sd-entry-scheme">{scheme.road_name || 'Surface Dressing Design'}</div>
+          <div className="sd-entry-progress">
+            <div className="sd-entry-progress-track">
+              <div className="sd-entry-progress-fill" style={{width:`${Math.round(completedCount/9*100)}%`}} />
+            </div>
+            <div className="sd-entry-progress-label">{completedCount} of 9 steps complete</div>
           </div>
-          <div className="sd-actions sd-no-print" style={{justifyContent:'center',marginTop:16}}>
-            <button className="sd-btn" onClick={()=>window.print()}>⎙ Print Proforma</button>
-            <button className="sd-btn sd-btn-sec" onClick={()=>setView('design')}>← Back to Design</button>
-          </div>
-        </>
-      )}
-
-      {/* ── DESIGN VIEW ── */}
-      {view === 'design' && (<>
-
-        {/* STEP 1: SITE */}
-        <div className="sd-panel">
-          <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">1</span>SITE IDENTIFICATION</div></div>
-          <div className="sd-row-3">
-            <div className="sd-field">
-              <label className="sd-label">Road Number</label>
-              <input className="sd-input" value={active.roadNumber} onChange={e=>update({roadNumber:e.target.value})} placeholder="e.g. U1234" />
-            </div>
-            <div className="sd-field">
-              <label className="sd-label">Region / Area</label>
-              <input className="sd-input" value={active.regionArea} onChange={e=>update({regionArea:e.target.value})} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-label">Scheme Reference</label>
-              <input className="sd-input" value={active.schemeRef} onChange={e=>update({schemeRef:e.target.value})} />
-            </div>
-          </div>
-          <div className="sd-row-4">
-            <div className="sd-field">
-              <label className="sd-label">Length (m)</label>
-              <input className="sd-input" type="number" value={active.length} onChange={e=>update({length:e.target.value})} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-label">Width (m)</label>
-              <input className="sd-input" type="number" value={active.width} onChange={e=>update({width:e.target.value})} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-label">No. of Lanes</label>
-              <input className="sd-input" type="number" value={active.numLanes} onChange={e=>update({numLanes:e.target.value})} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-label">Area (m²)</label>
-              <input className="sd-input" type="number" value={active.areaM2} onChange={e=>update({areaM2:e.target.value})} />
-              {active.areaM2 && !isNaN(parseFloat(active.areaM2)) && (
-                <div className="sd-result-sub" style={{marginTop:4}}>{SD_QTY_BAND_LABEL[SD_QTY_BAND(parseFloat(active.areaM2))]}</div>
-              )}
-            </div>
-          </div>
-          <div className="sd-row-3">
-            <div className="sd-field">
-              <label className="sd-label">Lane(s)</label>
-              <input className="sd-input" value={active.laneId} onChange={e=>update({laneId:e.target.value})} placeholder="NB/SB/EB/WB" />
-            </div>
-            <div className="sd-field">
-              <label className="sd-label">Location (drives Temp. Cat.)</label>
-              <select className="sd-select" value={active.location} onChange={e=>update({location:e.target.value})}>
-                <option>South</option><option>Central</option><option>North</option>
-              </select>
-              <div className="sd-result-sub" style={{marginTop:4}}>Temperature Category: <strong style={{color:'var(--accent)'}}>{tempCat}</strong></div>
-            </div>
-          </div>
-        </div>
-
-        {/* STEP 2: TRAFFIC */}
-        <div className="sd-panel">
-          <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">2</span>TRAFFIC</div></div>
-          <div className="sd-row-2">
-            <div className="sd-field">
-              <label className="sd-label">Medium/Heavy Traffic (cv/lane/day)</label>
-              <input className="sd-input" type="number" value={active.cvDay} onChange={e=>update({cvDay:e.target.value})} placeholder="HGV/CV count" />
-              {trafficCat && (
-                <div className="sd-result">
-                  <div className="sd-result-label">Traffic Category</div>
-                  <div className="sd-result-value">{trafficCat.cat} <span style={{fontSize:13,color:'var(--ink-3)',fontWeight:400}}>({trafficCat.range} CV/day)</span></div>
-                  <div className="sd-result-sub">NRSWA Road Type {trafficCat.nrswa}</div>
-                </div>
-              )}
-            </div>
-            <div className="sd-field">
-              <label className="sd-label">Traffic Speed (mph)</label>
-              <select className="sd-select" value={active.trafficSpeed} onChange={e=>update({trafficSpeed:e.target.value, speed:parseInt(e.target.value)>=50?'high':'low'})}>
-                <option>20</option><option>30</option><option>40</option><option>50</option><option>60</option><option>70</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* STEP 3 & 4: HARDNESS + SURFACE */}
-        <div className="sd-grid-2">
-          <div className="sd-panel" style={{marginBottom:0}}>
-            <div className="sd-panel-title">
-              <div className="sd-panel-title-l"><span className="sd-step-num">3</span>ROAD HARDNESS</div>
-              <button className="sd-help-btn" onClick={()=>setShowHelp(true)} title="Assessment guidance">?</button>
-            </div>
-            <div className="sd-row-2">
-              <div className="sd-field">
-                <label className="sd-label">RH Probe Depth (mm)</label>
-                <input className="sd-input" type="number" step="0.1" value={active.rhProbeDepth} onChange={e=>update({rhProbeDepth:e.target.value})} placeholder="e.g. 4.2" />
-              </div>
-              <div className="sd-field">
-                <label className="sd-label">Probe Temp (°C)</label>
-                <input className="sd-input" type="number" value={active.rhProbeTemp} onChange={e=>update({rhProbeTemp:e.target.value})} />
-              </div>
-            </div>
-            {probeHardness && probeHardness !== active.hardness && (
-              <div className="sd-info">
-                Probe depth suggests <strong>{probeHardness}</strong>.
-                <button className="sd-tab-action" style={{marginLeft:8,padding:'2px 8px'}} onClick={()=>update({hardness:probeHardness})}>Apply</button>
-              </div>
-            )}
-            <div className="sd-field">
-              <label className="sd-label">RH Category</label>
-              <select className="sd-select" value={active.hardness} onChange={e=>update({hardness:e.target.value})}>
-                <option>Very Hard</option><option>Hard</option><option>Normal</option><option>Soft</option><option>Very Soft</option><option>Variable</option>
-              </select>
-              <div className="sd-help-text">{SD_HARDNESS_GUIDANCE[active.hardness]}</div>
-            </div>
-            <div className="sd-row-2">
-              <div className="sd-field">
-                <label className="sd-label">Min PSV</label>
-                <input className="sd-input" type="number" value={active.minPSV} onChange={e=>update({minPSV:e.target.value, selectedItem:''})} />
-              </div>
-              <div className="sd-field">
-                <label className="sd-label">Max AAV</label>
-                <input className="sd-input" type="number" value={active.maxAAV} onChange={e=>update({maxAAV:e.target.value})} />
-              </div>
-            </div>
-          </div>
-
-          <div className="sd-panel" style={{marginBottom:0}}>
-            <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">4</span>SURFACE & GEOMETRY</div></div>
-            <div className="sd-field">
-              <label className="sd-label">Surface Characteristic (RN39 Fig. 8.1)</label>
-              <select className="sd-select" value={active.surfaceCondition} onChange={e=>update({surfaceCondition:e.target.value})}>
-                {Object.keys(SD_SUITABILITY_MATRIX).map(k=><option key={k}>{k}</option>)}
-              </select>
-              <div className="sd-help-text">{SD_CONDITION_GUIDANCE[active.surfaceCondition]}</div>
-            </div>
-            <div className="sd-field">
-              <label className="sd-label">Surface Condition (Proforma)</label>
-              <select className="sd-select" value={active.condition} onChange={e=>update({condition:e.target.value})}>
-                <option value="veryRich">Very binder rich (-0.2)</option>
-                <option value="rich">Binder Rich (-0.1)</option>
-                <option value="normal">Normal (0)</option>
-                <option value="wheelTracks">Texture in wheel tracks (+0.1)</option>
-                <option value="lean">Binder lean / Porous (+0.2)</option>
-              </select>
-            </div>
-            <div className="sd-row-2">
-              <div className="sd-field">
-                <label className="sd-label">Radius of Curvature</label>
-                <select className="sd-select" value={active.radiusCurvature} onChange={e=>update({radiusCurvature:e.target.value})}>
-                  <option value="under100">Under 100 m</option>
-                  <option value="100to250">100 – 250 m</option>
-                  <option value="over250">Over 250 m</option>
-                </select>
-              </div>
-              <div className="sd-field">
-                <label className="sd-label">Junction or Crossing</label>
-                <select className="sd-select" value={active.junctionCrossing} onChange={e=>update({junctionCrossing:e.target.value})}>
-                  <option value="approach">Approach</option>
-                  <option value="nonApproach">Non-approach</option>
-                </select>
-              </div>
-            </div>
-            <div className="sd-row-2">
-              <div className="sd-field">
-                <label className="sd-label">Gradient Magnitude</label>
-                <select className="sd-select" value={active.gradientMag} onChange={e=>update({gradientMag:e.target.value})}>
-                  <option value="lt5">Up to 5% (0)</option>
-                  <option value="mid">5 – 10% (+0.1)</option>
-                  <option value="gt10">Over 10% (+0.2)</option>
-                </select>
-              </div>
-              <div className="sd-field">
-                <label className="sd-label">Gradient Direction</label>
-                <select className="sd-select" value={active.gradientDir} onChange={e=>update({gradientDir:e.target.value})}>
-                  <option value="flat">Flat / N/A</option>
-                  <option value="uphill">Uphill (reduces)</option>
-                  <option value="downhill">Downhill (increases)</option>
-                </select>
-              </div>
-            </div>
-            <div className="sd-field">
-              <label className="sd-chk-label">
-                <input type="checkbox" checked={active.highStressBraking} onChange={e=>update({highStressBraking:e.target.checked})} />
-                <span style={{color:active.highStressBraking?'var(--red)':'var(--ink-2)'}}>High-stress braking zone (e.g. fast dual carriageway → roundabout)</span>
-              </label>
-            </div>
-            {suitability && !active.highStressBraking && (
-              <div className="sd-suit-box" style={{background:`${suitability.color}15`,borderLeftColor:suitability.color}}>
-                <div className="sd-suit-title" style={{color:suitability.color}}>{suitability.label.toUpperCase()}</div>
-                <div className="sd-suit-desc">{suitability.desc}</div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* STEP 5: TREATMENT */}
-        <div className="sd-panel">
-          <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">5</span>TREATMENT SELECTION</div></div>
-          {dressingRecommendation && (
-            <div className="sd-rec-box">
-              <div className="sd-rec-title">RN39 Recommends</div>
-              <div className="sd-rec-text"><strong>{dressingRecommendation.label}</strong><br/>{dressingRecommendation.reason}</div>
-            </div>
-          )}
-          {dressingRecommendation?.type === 'hfs' ? (
-            <div className="sd-warning" style={{marginTop:12}}>
-              <strong>SURFACE DRESSING NOT APPROPRIATE.</strong> Specify High Friction Surfacing (HFS) instead.
-            </div>
-          ) : (
-            <div className="sd-row-3" style={{marginTop:12}}>
-              <div className="sd-field">
-                <label className="sd-label">Override Dressing Type</label>
-                <select className="sd-select" value={active.dressingType} onChange={e=>update({dressingType:e.target.value, selectedItem:''})}>
-                  <option value="auto">Auto (RN39)</option>
-                  <option value="single">Single</option>
-                  <option value="racked">Racked-in</option>
-                  <option value="double">Double</option>
-                  <option value="inverted">Inverted Double</option>
-                  <option value="sandwich">Sandwich</option>
-                </select>
-              </div>
-              <div className="sd-field">
-                <label className="sd-label">Binder Grade</label>
-                <select className="sd-select" value={active.binderGrade} onChange={e=>update({binderGrade:e.target.value, selectedItem:''})}>
-                  <option value="unmodified">Unmodified (K1-70)</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="premium">Premium Grade</option>
-                  <option value="superpremium">Super-Premium</option>
-                </select>
-              </div>
-              <div className="sd-field">
-                <label className="sd-label">Aggregate Type</label>
-                <select className="sd-select" value={active.aggregate} onChange={e=>update({aggregate:e.target.value})}>
-                  <option value="rock">Crushed rock (0)</option>
-                  <option value="blast">Blast-furnace slag (0)</option>
-                  <option value="steel">Steel slag (0)</option>
-                  <option value="gravel">Gravel (+0.1)</option>
-                </select>
-              </div>
-            </div>
-          )}
-          {baseDesign === null && trafficCat && activeType !== 'hfs' && (
-            <div className="sd-warning"><strong>Not suitable:</strong> This combination is not recommended by RN39.</div>
-          )}
-          {baseDesign === 'multi' && (
-            <div className="sd-warning"><strong>Multiple-layer dressing preferred</strong> — switch to racked-in or double.</div>
-          )}
-          {baseDesign === 'unnecessary' && (
-            <div className="sd-info">Racking-in is unnecessary for this traffic category — single dressing sufficient.</div>
-          )}
-          {baseDesign === 'expert' && (
-            <div className="sd-warning"><strong>Expert design required</strong> for this combination.</div>
-          )}
-          {baseDesign && typeof baseDesign === 'object' && (
-            <div className="sd-row-2" style={{marginTop:12}}>
-              <div className="sd-result">
-                <div className="sd-result-label">Base Chipping Code</div>
-                <div className="sd-result-value">{baseDesign.size}</div>
-                <div className="sd-result-sub">{SD_CHIPPING_DESIGNATIONS[baseDesign.size.split('/')[0]]}</div>
-              </div>
-              <div className="sd-result">
-                <div className="sd-result-label">Base Binder Rate</div>
-                <div className="sd-result-value">
-                  {isMultiLayer ? `${baseDesign.l1} / ${baseDesign.l2} L/m²` : `${baseDesign.binder} L/m²`}
-                </div>
-                <div className="sd-result-sub">Before local adjustment</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* STEP 6: ADJUSTMENTS */}
-        {dressingRecommendation?.type !== 'hfs' && (
-          <div className="sd-panel">
-            <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">6</span>LOCAL ADJUSTMENTS — TABLE 9.2.6</div></div>
-            <div className="sd-grid-2">
-              <div>
-                <div className="sd-row-2">
-                  <div className="sd-field">
-                    <label className="sd-label">Season</label>
-                    <select className="sd-select" value={active.season} onChange={e=>update({season:e.target.value})}>
-                      <option value="early">Early/mid-season (0)</option>
-                      <option value="late">Late season (+0.2)</option>
-                    </select>
-                  </div>
-                  <div className="sd-field">
-                    <label className="sd-label">Flakiness Cat. (BS EN)</label>
-                    <select className="sd-select" value={active.shape} onChange={e=>update({shape:e.target.value})}>
-                      <option value="f10">F10 (-0.1)</option>
-                      <option value="f15">F15 (0)</option>
-                      <option value="f20">F20 (+0.1)</option>
-                      <option value="f25">F25 (expert)</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="sd-row-2">
-                  <div className="sd-field">
-                    <label className="sd-label">Shade</label>
-                    <select className="sd-select" value={active.shade} onChange={e=>update({shade:e.target.value})}>
-                      <option value="open">Open to sun (0)</option>
-                      <option value="partial">Partially shaded (+0.1)</option>
-                      <option value="full">Fully shaded (+0.2)</option>
-                    </select>
-                  </div>
-                  <div className="sd-field">
-                    <label className="sd-label">Local Traffic</label>
-                    <select className="sd-select" value={active.localTraffic} onChange={e=>update({localTraffic:e.target.value})}>
-                      <option value="normal">Design range (0)</option>
-                      <option value="untrafficked">Effectively untrafficked (+0.2)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <div className="sd-result">
-                  <div className="sd-result-label">Cumulative Adjustment</div>
-                  <div className="sd-result-value">
-                    {totalAdjustment.capped >= 0 ? '+' : ''}{totalAdjustment.capped.toFixed(2)} L/m²
-                    {totalAdjustment.wasCapped && (
-                      <span style={{fontSize:11,color:'var(--amber)',marginLeft:12}}>
-                        (raw {totalAdjustment.raw >= 0 ? '+' : ''}{totalAdjustment.raw.toFixed(2)} capped)
-                      </span>
-                    )}
-                  </div>
-                  <div className="sd-result-sub">Max +0.4 / −0.2 L/m² per RN39 Table 9.2.6</div>
-                  <div style={{marginTop:8,fontSize:10,color:'var(--ink-3)',lineHeight:1.6}}>
-                    Season {fmtAdj(totalAdjustment.components.season)} · Agg {fmtAdj(totalAdjustment.components.aggregate)} · Shape {fmtAdj(totalAdjustment.components.shape)} · Shade {fmtAdj(totalAdjustment.components.shade)}<br/>
-                    Condition {fmtAdj(totalAdjustment.components.condition)} · Gradient {fmtAdj(totalAdjustment.components.gradient)} · Speed {fmtAdj(totalAdjustment.components.speed)} · Local {fmtAdj(totalAdjustment.components.localTraffic)}
-                  </div>
-                </div>
-                {totalAdjustment.expert && (
-                  <div className="sd-warning"><strong>Expert design required</strong> — refer to specialist designer.</div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 7: SEASONAL RISK */}
-        {finalRates && (
-          <div className="sd-panel">
-            <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">7</span>SEASONAL RISK — TEMP. CAT. {tempCat}</div></div>
-            <div style={{fontSize:12,color:'var(--ink-3)',marginBottom:8}}>Click a month to assess installation risk for {finalRates.size}.</div>
-            <div className="sd-season-grid">
-              {months.map((m,i) => {
-                const primary = finalRates.size.split('/')[0];
-                const risk = SD_SEASON_DATA[tempCat]?.[primary]?.[i] ?? 'high';
-                return (
-                  <div key={m}
-                    className={`sd-season-cell ${active.installMonth === i+1 ? 'sd-active' : ''}`}
-                    style={{background:SD_RISK_COLORS[risk],color:'#111'}}
-                    onClick={()=>update({installMonth:i+1})}>{m}</div>
-                );
-              })}
-            </div>
-            {seasonalRisk && (
-              <div className="sd-info" style={{background:`${SD_RISK_COLORS[seasonalRisk]}15`,borderLeftColor:SD_RISK_COLORS[seasonalRisk],color:'var(--ink)'}}>
-                <strong style={{color:SD_RISK_COLORS[seasonalRisk]}}>{months[active.installMonth-1]}: {SD_RISK_LABELS[seasonalRisk]}</strong>
-                {seasonalRisk === 'high' && ' — surface dressing should not be undertaken.'}
-                {seasonalRisk === 'sig'  && ' — extra care in design and execution required.'}
-                {seasonalRisk === 'low'  && ' — normally successful given appropriate weather.'}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* STEP 8: PRICING */}
-        {finalRates && matchingItems.length > 0 && (
-          <div className="sd-panel">
-            <div className="sd-panel-title">
-              <div className="sd-panel-title-l"><span className="sd-step-num">8</span>SERIES 700 PRICING</div>
-              <button className="sd-tab-action" onClick={()=>setShowRateEditor(true)}>⚙ Edit Rates</button>
-            </div>
-            <table className="sd-table sd-pricing-table">
-              <thead>
-                <tr><th>Item</th><th>Description</th><th>&lt; 500</th><th>500–5,000</th><th>&gt; 5,000</th></tr>
-              </thead>
-              <tbody>
-                {matchingItems.map(item => (
-                  <tr key={item.item} className={item.item === active.selectedItem ? 'sd-selected' : ''}
-                    onClick={()=>update({selectedItem:item.item})}>
-                    <td><strong style={{color:'var(--accent)'}}>{item.item}</strong></td>
-                    <td>{item.desc}</td>
-                    <td>£{item.rates.small.toFixed(2)}</td>
-                    <td>£{item.rates.medium.toFixed(2)}</td>
-                    <td>£{item.rates.large.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {selectedRate && (
-              <div className="sd-pricing-hl">
-                <div>
-                  <div className="sd-result-label">Selected Item</div>
-                  <div style={{fontSize:18,fontWeight:600,color:'var(--ink)'}}>{selectedRate.item.item}</div>
-                </div>
-                <div>
-                  <div className="sd-result-label">Quantity Band</div>
-                  <div style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>{SD_QTY_BAND_LABEL[selectedRate.band]}</div>
-                </div>
-                <div>
-                  <div className="sd-result-label">Rate</div>
-                  <div style={{fontSize:18,fontWeight:600,color:'var(--ink)'}}>£{selectedRate.rate.toFixed(2)}/m²</div>
-                </div>
-                <div>
-                  <div className="sd-result-label">Indicative Total</div>
-                  <div className="sd-pricing-big">{(window.BOQ_ENGINE?.fmtGBP || (n=>'£'+n))(selectedRate.total)}</div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* STEP 9: DESIGNER & NOTES */}
-        <div className="sd-panel">
-          <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">9</span>DESIGNER & NOTES</div></div>
-          <div className="sd-row-3">
-            <div className="sd-field">
-              <label className="sd-label">Designer</label>
-              <input className="sd-input" value={active.designerName} onChange={e=>update({designerName:e.target.value})} placeholder="Full name" />
-            </div>
-            <div className="sd-field">
-              <label className="sd-label">Initials</label>
-              <input className="sd-input" value={active.designerInitials} onChange={e=>update({designerInitials:e.target.value})} maxLength={5} />
-            </div>
-            <div className="sd-field">
-              <label className="sd-label">Design Date</label>
-              <input className="sd-input" type="date" value={active.designDate} onChange={e=>update({designDate:e.target.value})} />
-            </div>
-          </div>
-          <div className="sd-field">
-            <label className="sd-label">Design Notes</label>
-            <textarea className="sd-textarea" value={active.notes} onChange={e=>update({notes:e.target.value})}
-              placeholder="Site visit observations, drawing references, photo refs, special considerations..." rows={3} />
-          </div>
-        </div>
-
-        <div className="sd-actions">
-          <button className="sd-btn" onClick={()=>setView('proforma')}>📋 View RN39 Proforma</button>
-        </div>
-
-        <div className="sd-footer">
-          DUNDEE CITY COUNCIL · HIGHWAY MAINTENANCE ·
-          BASED ON ROAD NOTE 39 (RSTA POCKET GUIDE 7TH ED., MARCH 2016) ·
-          PRICING PER SERIES 700 BERR 85/1 · DESIGN GUIDANCE ONLY — VERIFY ON SITE
-        </div>
-
-      </>)}
-
-      {/* RATE EDITOR MODAL */}
-      {showRateEditor && (
-        <div className="sd-modal-bg" onClick={()=>setShowRateEditor(false)}>
-          <div className="sd-modal" onClick={e=>e.stopPropagation()} style={{maxWidth:780}}>
-            <button className="sd-modal-close" onClick={()=>setShowRateEditor(false)}>✕</button>
-            <div className="sd-modal-title">Edit Series 700 Rates</div>
-            <div style={{fontSize:12,color:'var(--ink-2)',marginBottom:14,lineHeight:1.6}}>
-              Default rates are <strong style={{color:'var(--amber)'}}>indicative placeholders</strong>. Replace with your actual BERR 85/1 figures. Saved globally and applied across all schemes.
-            </div>
-            <div className="sd-rate-grid" style={{fontWeight:700,color:'var(--accent)',borderBottom:'1px solid var(--orange)'}}>
-              <div>Item</div><div>Description</div><div>&lt; 500</div><div>500–5,000</div><div>&gt; 5,000</div>
-            </div>
-            {SD_SERIES_700.map(item => {
-              const cur = rateOverrides[item.item] || item.rates;
-              const isOverridden = !!rateOverrides[item.item];
-              return (
-                <div key={item.item} className="sd-rate-grid">
-                  <div><strong style={{color:isOverridden?'var(--green)':'var(--accent)'}}>{item.item}</strong></div>
-                  <div style={{fontSize:10,color:'var(--ink-3)'}}>{item.desc}</div>
-                  {['small','medium','large'].map(band => (
-                    <input key={band} type="number" step="0.01" value={cur[band]}
-                      onChange={e => {
-                        const v = parseFloat(e.target.value);
-                        if (isNaN(v)) return;
-                        setRateOverrides(prev => ({ ...prev, [item.item]: { ...cur, [band]: v } }));
-                      }} />
-                  ))}
-                </div>
-              );
-            })}
-            <div style={{marginTop:14,display:'flex',gap:10,justifyContent:'space-between',alignItems:'center'}}>
-              <div style={{fontSize:11,color:'var(--ink-3)'}}>{Object.keys(rateOverrides).length} of {SD_SERIES_700.length} items overridden</div>
-              <button className="sd-btn sd-btn-sec" onClick={()=>{if(confirm('Reset all rates to defaults?'))setRateOverrides({});}}>Reset to Defaults</button>
-            </div>
-          </div>
+          <button className="sd-entry-btn" onClick={()=>{setPortalOpen(true);setView('design');}}>
+            Enter Surface Dressing Software →
+          </button>
         </div>
       )}
 
-      {/* ASSESSMENT HELP MODAL */}
-      {showAssessmentHelp && (
-        <div className="sd-modal-bg" onClick={()=>setShowHelp(false)}>
-          <div className="sd-modal" onClick={e=>e.stopPropagation()}>
-            <button className="sd-modal-close" onClick={()=>setShowHelp(false)}>✕</button>
-            <div className="sd-modal-title">Site Assessment Guidance</div>
-            <div style={{fontSize:13,color:'var(--ink)',lineHeight:1.7}}>
-              <p><strong style={{color:'var(--accent)'}}>Surface Hardness</strong> determines how readily chippings will embed. Probe depth measurement gives quantitative result; categories shown are indicative ranges.</p>
-              <ul style={{marginTop:8,paddingLeft:18}}>
-                {Object.entries(SD_HARDNESS_GUIDANCE).map(([k,v]) => (
-                  <li key={k} style={{marginBottom:6}}><strong>{k}:</strong> {v}</li>
-                ))}
-              </ul>
-              <p style={{marginTop:14}}><strong style={{color:'var(--accent)'}}>High-stress braking zone</strong> overrides standard suitability check. Surface dressing has insufficient skid resistance in these zones — High Friction Surfacing required instead.</p>
-              <p style={{marginTop:14}}><strong style={{color:'var(--accent)'}}>Practical tip:</strong> Photograph and note conditions across the carriageway. Wheel tracks often differ from centreline. Where conditions vary, characterise the worst case.</p>
+      {/* PORTAL OVERLAY — fullscreen zero-distraction mode */}
+      {portalOpen && (
+        <div className="sd-portal-overlay">
+
+          {/* Live header */}
+          <div className="sd-portal-hdr">
+            <div className="sd-portal-hdr-name">{scheme.road_name || 'SD Design'}</div>
+            <div className="sd-portal-hdr-stats">
+              {trafficCat && <span className="sd-portal-stat">Cat <strong>{trafficCat.cat}</strong></span>}
+              {dressingRecommendation && dressingRecommendation.type !== 'hfs' && (
+                <span className="sd-portal-stat">RN39: <strong>{dressingRecommendation.label}</strong></span>
+              )}
+              {selectedRate && <span className="sd-portal-stat">Rate: <strong>£{selectedRate.rate.toFixed(2)}/m²</strong></span>}
+              {selectedRate && <span className="sd-portal-stat">Total: <strong>{(window.BOQ_ENGINE?.fmtGBP||(n=>'£'+n))(selectedRate.total)}</strong></span>}
+            </div>
+            <button className="sd-portal-exit" onClick={()=>setPortalOpen(false)}>✕ Exit portal</button>
+          </div>
+
+          {/* Body = rail + scrollable content */}
+          <div className="sd-portal-body">
+
+            {/* Progress rail */}
+            <div className="sd-portal-rail">
+              {SD_STEP_LABELS.map((label,i) => (
+                <React.Fragment key={i}>
+                  <div
+                    className={`sd-rail-dot${activeStep===i?' sd-rail-active':''}${stepComplete[i]?' sd-rail-done':''}`}
+                    onClick={()=>scrollToStep(i)}
+                    title={`Step ${i+1}: ${label}`}
+                  >{stepComplete[i]?'✓':i+1}</div>
+                  {i<8&&<div className="sd-rail-connector"/>}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Scrollable content */}
+            <div className="sd-portal-content" ref={portalBodyRef}>
+              <div className="sd-view-toggle sd-no-print">
+                <button className={`sd-view-btn ${view==='design'?'sd-active':''}`} onClick={()=>setView('design')}>Design</button>
+                <button className={`sd-view-btn ${view==='proforma'?'sd-active':''}`} onClick={()=>setView('proforma')}>RN39 Proforma</button>
+              </div>
+
+              {view==='proforma' && (
+                <>
+                  <div style={{maxWidth:'210mm',margin:'0 auto',background:'white',color:'black',boxShadow:'0 4px 24px rgba(0,0,0,0.5)'}}>
+                    {renderProforma()}
+                  </div>
+                  <div className="sd-actions sd-no-print" style={{justifyContent:'center',marginTop:16}}>
+                    <button className="sd-btn" onClick={()=>window.print()}>⎙ Print Proforma</button>
+                    <button className="sd-btn sd-btn-sec" onClick={()=>setView('design')}>← Back to Design</button>
+                  </div>
+                </>
+              )}
+
+              {view==='design'&&renderDesignSteps()}
             </div>
           </div>
+
+          {/* RATE EDITOR MODAL */}
+          {showRateEditor && (
+            <div className="sd-modal-bg" onClick={()=>setShowRateEditor(false)}>
+              <div className="sd-modal" onClick={e=>e.stopPropagation()} style={{maxWidth:780}}>
+                <button className="sd-modal-close" onClick={()=>setShowRateEditor(false)}>✕</button>
+                <div className="sd-modal-title">Edit Series 700 Rates</div>
+                <div style={{fontSize:12,color:'var(--ink-2)',marginBottom:14,lineHeight:1.6}}>
+                  Default rates are <strong style={{color:'var(--amber)'}}>indicative placeholders</strong>. Replace with your actual BERR 85/1 figures. Saved globally and applied across all schemes.
+                </div>
+                <div className="sd-rate-grid" style={{fontWeight:700,color:'var(--accent)',borderBottom:'1px solid var(--orange)'}}>
+                  <div>Item</div><div>Description</div><div>&lt; 500</div><div>500–5,000</div><div>&gt; 5,000</div>
+                </div>
+                {SD_SERIES_700.map(item => {
+                  const cur = rateOverrides[item.item] || item.rates;
+                  const isOverridden = !!rateOverrides[item.item];
+                  return (
+                    <div key={item.item} className="sd-rate-grid">
+                      <div><strong style={{color:isOverridden?'var(--green)':'var(--accent)'}}>{item.item}</strong></div>
+                      <div style={{fontSize:10,color:'var(--ink-3)'}}>{item.desc}</div>
+                      {['small','medium','large'].map(band => (
+                        <input key={band} type="number" step="0.01" value={cur[band]}
+                          onChange={e => {
+                            const v = parseFloat(e.target.value);
+                            if (isNaN(v)) return;
+                            setRateOverrides(prev => ({ ...prev, [item.item]: { ...cur, [band]: v } }));
+                          }} />
+                      ))}
+                    </div>
+                  );
+                })}
+                <div style={{marginTop:14,display:'flex',gap:10,justifyContent:'space-between',alignItems:'center'}}>
+                  <div style={{fontSize:11,color:'var(--ink-3)'}}>{Object.keys(rateOverrides).length} of {SD_SERIES_700.length} items overridden</div>
+                  <button className="sd-btn sd-btn-sec" onClick={()=>{if(confirm('Reset all rates to defaults?'))setRateOverrides({});}}>Reset to Defaults</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ASSESSMENT HELP MODAL */}
+          {showAssessmentHelp && (
+            <div className="sd-modal-bg" onClick={()=>setShowHelp(false)}>
+              <div className="sd-modal" onClick={e=>e.stopPropagation()}>
+                <button className="sd-modal-close" onClick={()=>setShowHelp(false)}>✕</button>
+                <div className="sd-modal-title">Site Assessment Guidance</div>
+                <div style={{fontSize:13,color:'var(--ink)',lineHeight:1.7}}>
+                  <p><strong style={{color:'var(--accent)'}}>Surface Hardness</strong> determines how readily chippings will embed. Probe depth measurement gives quantitative result; categories shown are indicative ranges.</p>
+                  <ul style={{marginTop:8,paddingLeft:18}}>
+                    {Object.entries(SD_HARDNESS_GUIDANCE).map(([k,v]) => (
+                      <li key={k} style={{marginBottom:6}}><strong>{k}:</strong> {v}</li>
+                    ))}
+                  </ul>
+                  <p style={{marginTop:14}}><strong style={{color:'var(--accent)'}}>High-stress braking zone</strong> overrides standard suitability check. Surface dressing has insufficient skid resistance in these zones — High Friction Surfacing required instead.</p>
+                  <p style={{marginTop:14}}><strong style={{color:'var(--accent)'}}>Practical tip:</strong> Photograph and note conditions across the carriageway. Wheel tracks often differ from centreline. Where conditions vary, characterise the worst case.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
