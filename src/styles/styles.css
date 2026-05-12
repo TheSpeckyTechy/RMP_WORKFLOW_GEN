@@ -938,6 +938,14 @@ input[type=radio]:focus-visible{
    so the user can swipe sideways without the rest of the page shifting. */
 .sd-pf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 
+/* ─── Treatment Designer sub-panel grids (audit C2) ────────────────────── */
+/* Lifted out of inline `style={{display:'grid', gridTemplateColumns:…}}` so
+   the mobile breakpoint can collapse them without needing !important. */
+.td-kerb-row       {display:grid;grid-template-columns:1fr 130px 32px}
+.td-lining-row     {display:grid;grid-template-columns:1fr 110px 80px 32px}
+.td-tm-grid        {display:grid;grid-template-columns:1fr 1fr}
+.td-site-conditions{display:grid;grid-template-columns:1fr 280px}
+
 @media (max-width:768px){
   /* Visible scroll affordance: a thin coloured edge on the right of the
      wrapper hints "more content this way" until the user scrolls past it. */
@@ -949,5 +957,15 @@ input[type=radio]:focus-visible{
   /* Input panels above the proforma — wrap rather than overflow. */
   .sd-panel-row,.sd-pricing-row,.sd-rate-grid,.sd-pricing-grid{
     flex-wrap:wrap;
+  }
+  /* Treatment Designer sub-panel grids collapse on phones. The
+     kerb / lining rows lose their fixed-pixel right-hand columns
+     (length / qty inputs); the TM picker stacks; site conditions
+     drops its 280px right rail. */
+  .td-kerb-row,
+  .td-lining-row,
+  .td-tm-grid,
+  .td-site-conditions{
+    grid-template-columns:1fr;
   }
 }

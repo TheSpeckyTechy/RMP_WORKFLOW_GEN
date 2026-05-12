@@ -409,7 +409,7 @@ const TDKerbsPanel = ({ scheme, write }) => {
       )}
 
       {kerbs.map(k => (
-        <div key={k.id} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 32px', gap: 8, alignItems: 'end', marginBottom: 8 }}>
+        <div key={k.id} className="td-kerb-row" style={{ gap: 8, alignItems: 'end', marginBottom: 8 }}>
           <div className="field">
             <label>Kerb type</label>
             <select value={k.type} onChange={e => updKerb(k.id, { type: e.target.value })}>
@@ -466,7 +466,7 @@ const TDLiningPanel = ({ scheme, write }) => {
       {lining.map(r => {
         const preset = TD_LINING_TYPES.find(t => t.label === r.type);
         return (
-          <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 80px 32px', gap: 8, alignItems: 'end', marginBottom: 8 }}>
+          <div key={r.id} className="td-lining-row" style={{ gap: 8, alignItems: 'end', marginBottom: 8 }}>
             <div className="field">
               <label>Marking type</label>
               <select value={r.type} onChange={e => {
@@ -513,7 +513,7 @@ const TDTMPanel = ({ scheme, write }) => {
         <div className="section-title"><span className="section-num">07</span> Traffic management</div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div className="td-tm-grid" style={{ gap: 14 }}>
         <div className="field">
           <label>TM type</label>
           <select value={tm.type || ''} onChange={e => setTm({ type: e.target.value })}>
@@ -611,7 +611,7 @@ const TDSiteConditions = ({ schemeId, scheme }) => {
   return (
     <div className="form-section" style={{ marginBottom: 16 }}>
       <div className="section-head"><div className="section-title"><span className="section-num">01</span> Site conditions</div></div>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 280px', gap:24, alignItems:'start' }}>
+      <div className="td-site-conditions" style={{ gap:24, alignItems:'start' }}>
         <div>
           <div style={{ fontSize:10, fontWeight:700, color:'var(--ink-3)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Traffic &amp; Use</div>
           <FactorGroup factors={TRAFFIC_FACTORS} />
