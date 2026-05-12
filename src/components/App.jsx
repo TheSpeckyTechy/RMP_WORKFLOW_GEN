@@ -325,7 +325,7 @@ const GenerateModal = ({ scheme, onClose }) => {
               {scheme.project_number} · {scheme.road_name}
             </div>
           </div>
-          {finished && <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>}
+          {finished && <button className="btn ghost sm" aria-label="Close dialog" onClick={onClose}><Icon.X /></button>}
         </div>
 
         <div className="modal-body">
@@ -682,7 +682,7 @@ const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
       <div className="modal new-scheme-modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-head">
           <div style={{fontWeight:600,fontSize:15}}>{initialValues ? 'Duplicate Scheme' : 'New Scheme'}</div>
-          <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
+          <button className="btn ghost sm" aria-label="Close dialog" onClick={onClose}><Icon.X /></button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -838,7 +838,7 @@ const AppInner = () => {
       <Sidebar view={view} onView={(v) => { setView(v); setOpenScheme(null); setMenuOpen(false); }} open={menuOpen} />
       <div className="main">
         <header className="topbar">
-          <button className="btn ghost sm menu-toggle" onClick={() => setMenuOpen(o => !o)} style={{padding:"4px 8px",fontSize:18,lineHeight:1}}>☰</button>
+          <button className="btn ghost sm menu-toggle" aria-label="Open menu" onClick={() => setMenuOpen(o => !o)} style={{padding:"4px 8px",fontSize:18,lineHeight:1}}>☰</button>
           <div className="crumbs">
             <span>Workspace</span><span className="sep">/</span>
             {openScheme ? (
@@ -852,16 +852,16 @@ const AppInner = () => {
           </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
           <SyncChip />
-          <button className="btn ghost sm" title="Open command palette (⌘K)"
+          <button className="btn ghost sm" title="Open command palette (⌘K)" aria-label="Open command palette"
             onClick={() => window.CommandPalette && window.CommandPalette.open()}
             style={{fontSize:14,lineHeight:1,padding:"6px 8px"}}>
             <Icon.Search />
           </button>
-          <button className="btn ghost sm" title="Force reload — bypasses cache and fetches latest code"
+          <button className="btn ghost sm" title="Force reload — bypasses cache and fetches latest code" aria-label="Force reload"
             onClick={() => window.location.replace(window.location.pathname + '?nocache=' + Date.now())}
             style={{fontSize:16,lineHeight:1,padding:"4px 7px"}}>↻</button>
           <div style={{position:"relative"}} ref={notifRef}>
-            <button className="btn ghost sm" style={{position:"relative"}} onClick={()=>setNotifOpen(o=>!o)}>
+            <button className="btn ghost sm" aria-label="Notifications" aria-expanded={notifOpen} style={{position:"relative"}} onClick={()=>setNotifOpen(o=>!o)}>
               <Icon.Bell />
               {notifications.length > 0 && <span style={{position:"absolute",top:3,right:3,width:7,height:7,borderRadius:"50%",background:"var(--accent)",display:"block"}} />}
             </button>
