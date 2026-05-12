@@ -25,6 +25,23 @@ const lsSet    = (id, s) => { try { localStorage.setItem(LS_PREFIX + id, JSON.st
 const lsGetIds = ()    => { try { const v = localStorage.getItem(LS_IDS); return v ? JSON.parse(v) : []; } catch { return []; } };
 const lsSetIds = (ids) => { try { localStorage.setItem(LS_IDS, JSON.stringify(ids)); } catch {} };
 
+// ── Pending-write queue ─────────────────────────────────────────────────────
+// Failed Supabase upserts go here so they survive refreshes and get
+// retried on next mount, on next successful sync, or when the browser
+// reports `online` after an offline stretch. Each entry is the full
+// scheme `data` keyed by id; the latest write for an id supersedes any
+// older queued entry (we never want to replay a stale edit on top of a
+// fresh one).
+const SBQ_KEY = 'rmp_sb_queue_v1';
+const sbqGet     = () => { try { return JSON.parse(localStorage.getItem(SBQ_KEY) || '[]'); } catch { return []; } };
+const sbqSet     = (q) => { try { localStorage.setItem(SBQ_KEY, JSON.stringify(q)); } catch {} };
+const sbqEnqueue = (id, data) => {
+  const dedup = sbqGet().filter(item => item.id !== id);
+  dedup.push({ id, data, queuedAt: Date.now() });
+  sbqSet(dedup);
+};
+const sbqRemove  = (id) => sbqSet(sbqGet().filter(item => item.id !== id));
+
 // Build the Treatment Designer model (scheme.design) from the legacy fields
 // it replaces — treatments[] for zones, iron_* for ironworks, kerb_length
 // for kerbs, tm_* for traffic management. Used by withDesign during the
@@ -165,14 +182,49 @@ const initSchemes = () => {
 };
 
 // ── Supabase helpers ─────────────────────────────────────────────────────────
-const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
-  onStatus('syncing');
+const sbUpsertOnce = async (id, data) => {
   // Use the embedded data.updated_at so the row column and the data field
   // stay in sync — on the next fetch we compare the row column against
   // localStorage's data.updated_at to resolve which side is newer.
   const updatedAt = data.updated_at || new Date().toISOString();
-  const { error } = await sb.from('schemes').upsert({ id, data, updated_at: updatedAt });
-  if (error) { onStatus('error'); } else { onStatus('synced'); onSuccess?.(); }
+  return sb.from('schemes').upsert({ id, data, updated_at: updatedAt });
+};
+
+const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
+  onStatus('syncing');
+  const { error } = await sbUpsertOnce(id, data);
+  if (error) {
+    // Network/permission failure — queue for retry so the edit isn't lost
+    // if the user refreshes before connectivity returns.
+    sbqEnqueue(id, data);
+    onStatus('error');
+  } else {
+    // Success — drop any older queued entry for this id (this write
+    // supersedes whatever was waiting) and report synced.
+    sbqRemove(id);
+    onStatus('synced');
+    onSuccess?.();
+  }
+};
+
+// Drain pending writes in FIFO order. Stops on first failure so the
+// failed item stays at the head of the queue and any later writes
+// queued behind it don't get reordered. Called from the provider's
+// mount-effect (after the initial Supabase fetch) and on the browser's
+// `online` event so post-reconnect recovery is automatic.
+const sbDrainQueue = async (onStatus, onSynced) => {
+  let queue = sbqGet();
+  if (queue.length === 0) return;
+  onStatus('syncing');
+  // Sort FIFO so the oldest queued edit retries first.
+  queue.sort((a, b) => a.queuedAt - b.queuedAt);
+  for (const item of queue) {
+    const { error } = await sbUpsertOnce(item.id, item.data);
+    if (error) { onStatus('error'); return; }
+    sbqRemove(item.id);
+  }
+  onStatus('synced');
+  onSynced?.();
 };
 
 const SchemeProvider = ({ children }) => {
@@ -213,10 +265,19 @@ const SchemeProvider = ({ children }) => {
       }
       setSyncStatus('synced');
       setLastSynced(new Date());
+      // Drain any writes that were queued while offline / Supabase was
+      // down. Runs after the initial fetch so we don't race the two.
+      sbDrainQueue(setSyncStatus, () => setLastSynced(new Date()));
     });
+    // Re-drain whenever the browser regains connectivity. Covers the
+    // common "user edited while on the train, app refreshed once they
+    // were back on wifi" case without requiring a manual action.
+    const onOnline = () => sbDrainQueue(setSyncStatus, () => setLastSynced(new Date()));
+    window.addEventListener('online', onOnline);
     // Fetch from Supabase exactly once on provider mount; per-scheme
     // updates after that flow through updateScheme(). Setters are
     // stable identities so they don't need to appear in the dep array.
+    return () => window.removeEventListener('online', onOnline);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getScheme = (id) => schemes.find(s => s.id === id);
