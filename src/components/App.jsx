@@ -308,7 +308,12 @@ const GenerateModal = ({ scheme, onClose }) => {
 
       setFinished(true);
     })();
-  }, []); // eslint-disable-line
+    // Pack compile runs exactly once when the modal mounts. The closure
+    // captures `scheme`, but the GenerateModal is mounted for a single
+    // scheme and unmounts when the user closes — we never want this
+    // effect to re-run mid-compile if a parent rerender hands us a new
+    // scheme reference. Hence the explicit empty deps.
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="modal-backdrop" onClick={finished ? onClose : undefined}>

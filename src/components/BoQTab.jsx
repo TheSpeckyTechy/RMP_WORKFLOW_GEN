@@ -489,6 +489,11 @@ const BoQTab = ({ schemeId, onOpenDesigner }) => {
   React.useEffect(() => {
     window.__downloadBoQ = handleDownload;
     return () => { window.__downloadBoQ = null; };
+    // `handleDownload` is intentionally NOT in the dep array. It's
+    // recreated on every render by closure, so listing it would
+    // re-register window.__downloadBoQ on every keystroke. The deps
+    // listed cover everything the captured handleDownload actually
+    // reads (scheme, boq, computed) so the registered fn stays fresh.
   }, [scheme, boq, computed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
