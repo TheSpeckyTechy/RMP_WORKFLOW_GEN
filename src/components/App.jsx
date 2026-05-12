@@ -624,7 +624,7 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
 };
 
 const FINANCIAL_YEARS = ["2025/26","2026/27","2027/28","2028/29"];
-const SCHEME_TYPES = ["Carriageway","Footway","Junction","Cycleway"];
+const SCHEME_TYPES = ["Carriageway","Footway","Junction","Cycleway","Surface Dressing"];
 const SCHEME_STATUSES = [
   { k:"design", l:"In design" },{ k:"review", l:"In review" },
   { k:"ready",  l:"Ready" },    { k:"works",  l:"On site" },
