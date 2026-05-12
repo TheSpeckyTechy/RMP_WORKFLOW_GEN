@@ -49,7 +49,7 @@ const SD_SUITABILITY_KEY = {
   Y: { label: 'Suitable',        color: 'var(--green)',  desc: 'Surface dressing can be designed to meet most onerous requirements (BS EN 12272-2).' },
   T: { label: 'Texture concern', color: 'var(--amber)',  desc: 'Difficult to maintain high macrotexture, especially in wheel tracks. Achievable on low-speed roads.' },
   D: { label: 'Defects concern', color: 'var(--amber)',  desc: 'Difficult to meet most onerous defect requirements; less onerous levels should not be specified.' },
-  E: { label: 'Expert design',   color: 'var(--orange)', desc: 'Design may be achievable by an expert to meet less onerous performance levels. Extra care in execution required.' },
+  E: { label: 'Expert design',   color: 'var(--accent)', desc: 'Design may be achievable by an expert to meet less onerous performance levels. Extra care in execution required.' },
   N: { label: 'Not appropriate', color: 'var(--red)',    desc: 'Surface dressing is not an appropriate treatment.' },
 };
 
@@ -802,68 +802,68 @@ function SurfaceDressingDesigner({ schemeId }) {
   // ── Styles ──────────────────────────────────────────────────────────────────
 
   const sdStyles = `
-    .sd-wrap { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace; color: #e8eaed; line-height: 1.5; }
-    .sd-view-toggle { display: flex; gap: 0; border: 1px solid #334155; border-radius: 3px; overflow: hidden; margin-bottom: 16px; width: fit-content; }
-    .sd-view-btn { background: transparent; color: #94a3b8; border: none; padding: 7px 18px; font-family: inherit; font-size: 11px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
-    .sd-view-btn.sd-active { background: #f97316; color: #0a0e1a; font-weight: 700; }
+    .sd-wrap { font-family: var(--font-mono, 'JetBrains Mono', ui-monospace, monospace); color: var(--ink); line-height: 1.5; }
+    .sd-view-toggle { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 16px; width: fit-content; }
+    .sd-view-btn { background: transparent; color: var(--ink-3); border: none; padding: 7px 18px; font-family: inherit; font-size: 11px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sd-view-btn.sd-active { background: var(--accent); color: white; font-weight: 700; }
     .sd-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
     @media (max-width: 900px) { .sd-grid-2 { grid-template-columns: 1fr; } }
-    .sd-panel { background: #111827; border: 1px solid #1f2937; border-radius: 4px; padding: 18px; margin-bottom: 14px; }
-    .sd-panel-title { font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #f97316; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #1f2937; display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+    .sd-panel { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 4px; padding: 18px; margin-bottom: 14px; }
+    .sd-panel-title { font-family: var(--font-sans, inherit); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; justify-content: space-between; }
     .sd-panel-title-l { display: flex; align-items: center; gap: 8px; }
-    .sd-step-num { background: #f97316; color: #0a0e1a; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
-    .sd-help-btn { background: transparent; border: 1px solid #475569; color: #94a3b8; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 11px; font-family: inherit; flex-shrink: 0; }
-    .sd-help-btn:hover { border-color: #f97316; color: #f97316; }
+    .sd-step-num { background: var(--accent); color: white; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .sd-help-btn { background: transparent; border: 1px solid var(--line); color: var(--ink-3); width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 11px; font-family: inherit; flex-shrink: 0; }
+    .sd-help-btn:hover { border-color: var(--accent); color: var(--accent); }
     .sd-field { margin-bottom: 12px; }
-    .sd-label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 6px; }
-    .sd-input, .sd-select, .sd-textarea { width: 100%; background: #0a0e1a; border: 1px solid #334155; color: #e8eaed; padding: 9px 11px; font-family: inherit; font-size: 13px; border-radius: 3px; }
+    .sd-label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-3); margin-bottom: 6px; }
+    .sd-input, .sd-select, .sd-textarea { width: 100%; background: var(--bg); border: 1px solid var(--line); color: var(--ink); padding: 9px 11px; font-family: inherit; font-size: 13px; border-radius: 3px; }
     .sd-textarea { resize: vertical; min-height: 60px; }
-    .sd-input:focus, .sd-select:focus, .sd-textarea:focus { outline: none; border-color: #f97316; }
+    .sd-input:focus, .sd-select:focus, .sd-textarea:focus { outline: none; border-color: var(--accent); }
     .sd-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .sd-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
     .sd-row-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
-    .sd-chk-label { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #cbd5e1; cursor: pointer; line-height: 1.4; }
-    .sd-chk-label input { margin-top: 2px; accent-color: #f97316; }
-    .sd-result { background: #0a0e1a; border: 1px solid #1f2937; padding: 11px; border-radius: 3px; margin-top: 8px; }
-    .sd-result-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px; }
-    .sd-result-value { font-family: 'IBM Plex Sans', sans-serif; font-size: 20px; font-weight: 600; color: #f8fafc; }
-    .sd-result-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+    .sd-chk-label { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--ink-2); cursor: pointer; line-height: 1.4; }
+    .sd-chk-label input { margin-top: 2px; accent-color: var(--accent); }
+    .sd-result { background: var(--bg-sunken); border: 1px solid var(--line); padding: 11px; border-radius: 3px; margin-top: 8px; }
+    .sd-result-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-3); margin-bottom: 4px; }
+    .sd-result-value { font-family: var(--font-sans, inherit); font-size: 20px; font-weight: 600; color: var(--ink); }
+    .sd-result-sub { font-size: 11px; color: var(--ink-2); margin-top: 2px; }
     .sd-suit-box { padding: 14px; border-radius: 3px; margin-top: 10px; border-left: 4px solid; }
-    .sd-suit-title { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-    .sd-suit-desc { font-size: 12px; color: #cbd5e1; }
-    .sd-rec-box { background: rgba(249,115,22,0.08); border: 1px solid #f97316; padding: 14px; border-radius: 3px; margin-top: 10px; }
-    .sd-rec-title { font-family: 'IBM Plex Sans', sans-serif; color: #f97316; font-weight: 700; font-size: 14px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .sd-rec-text { font-size: 12px; color: #fdba74; line-height: 1.5; }
+    .sd-suit-title { font-family: var(--font-sans, inherit); font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .sd-suit-desc { font-size: 12px; color: var(--ink-2); }
+    .sd-rec-box { background: var(--accent-wash); border: 1px solid var(--accent); padding: 14px; border-radius: 3px; margin-top: 10px; }
+    .sd-rec-title { font-family: var(--font-sans, inherit); color: var(--accent); font-weight: 700; font-size: 14px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sd-rec-text { font-size: 12px; color: var(--accent-ink, var(--ink-2)); line-height: 1.5; }
     .sd-season-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; margin-top: 8px; }
     .sd-season-cell { padding: 6px 2px; text-align: center; font-size: 10px; font-weight: 600; cursor: pointer; border: 1px solid transparent; border-radius: 2px; }
-    .sd-season-cell.sd-active { border-color: #f97316; outline: 1px solid #f97316; }
+    .sd-season-cell.sd-active { border-color: var(--accent); outline: 1px solid var(--accent); }
     .sd-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
-    .sd-table th, .sd-table td { padding: 6px 8px; border: 1px solid #1f2937; text-align: left; }
-    .sd-table th { background: #1f2937; color: #f97316; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+    .sd-table th, .sd-table td { padding: 6px 8px; border: 1px solid var(--line); text-align: left; }
+    .sd-table th { background: var(--bg-sunken); color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
     .sd-pricing-table tbody tr { cursor: pointer; }
-    .sd-pricing-table tbody tr:hover { background: rgba(249,115,22,0.04); }
-    .sd-pricing-table tr.sd-selected { background: rgba(249,115,22,0.08); }
-    .sd-pricing-hl { background: #0a0e1a; border: 2px solid #f97316; padding: 16px; border-radius: 3px; margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
-    .sd-pricing-big { font-family: 'IBM Plex Sans', sans-serif; font-size: 24px; font-weight: 700; color: #f97316; }
-    .sd-warning { background: rgba(239,68,68,0.1); border-left: 3px solid #ef4444; padding: 11px; margin-top: 10px; font-size: 12px; color: #fca5a5; border-radius: 2px; }
-    .sd-info { background: rgba(249,115,22,0.08); border-left: 3px solid #f97316; padding: 11px; margin-top: 10px; font-size: 12px; color: #fdba74; border-radius: 2px; }
-    .sd-help-text { font-size: 11px; color: #94a3b8; margin-top: 4px; padding: 8px 10px; background: rgba(148,163,184,0.05); border-left: 2px solid #475569; line-height: 1.5; }
+    .sd-pricing-table tbody tr:hover { background: var(--accent-wash); }
+    .sd-pricing-table tr.sd-selected { background: var(--accent-wash); }
+    .sd-pricing-hl { background: var(--bg-sunken); border: 2px solid var(--accent); padding: 16px; border-radius: 3px; margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .sd-pricing-big { font-family: var(--font-sans, inherit); font-size: 24px; font-weight: 700; color: var(--accent); }
+    .sd-warning { background: var(--red-wash, rgba(192,57,43,0.08)); border-left: 3px solid var(--red); padding: 11px; margin-top: 10px; font-size: 12px; color: var(--ink); border-radius: 2px; }
+    .sd-info { background: var(--accent-wash); border-left: 3px solid var(--accent); padding: 11px; margin-top: 10px; font-size: 12px; color: var(--ink); border-radius: 2px; }
+    .sd-help-text { font-size: 11px; color: var(--ink-3); margin-top: 4px; padding: 8px 10px; background: var(--bg-sunken); border-left: 2px solid var(--line); line-height: 1.5; }
     .sd-actions { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
-    .sd-btn { background: #f97316; color: #0a0e1a; border: none; padding: 11px 22px; font-family: inherit; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; border-radius: 3px; }
-    .sd-btn:hover { background: #fb923c; }
-    .sd-btn-sec { background: transparent; color: #f97316; border: 1px solid #f97316; }
-    .sd-btn-sec:hover { background: rgba(249,115,22,0.1); }
-    .sd-tab-action { background: transparent; color: #f97316; border: 1px dashed #f97316; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; border-radius: 2px; }
-    .sd-tab-action:hover { background: rgba(249,115,22,0.1); }
-    .sd-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
-    .sd-modal { background: #111827; border: 1px solid #f97316; max-width: 700px; width: 100%; max-height: 85vh; overflow: auto; padding: 24px; border-radius: 4px; }
-    .sd-modal-title { color: #f97316; font-family: 'IBM Plex Sans', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
-    .sd-modal-close { float: right; background: transparent; color: #94a3b8; border: none; font-size: 18px; cursor: pointer; }
-    .sd-rate-grid { display: grid; grid-template-columns: 100px 1fr 80px 80px 80px; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #1f2937; font-size: 11px; }
-    .sd-rate-grid input { background: #0a0e1a; border: 1px solid #334155; color: #e8eaed; padding: 6px 8px; font-family: inherit; font-size: 12px; border-radius: 2px; width: 100%; }
-    .sd-footer { margin-top: 24px; padding-top: 14px; border-top: 1px solid #1f2937; font-size: 10px; color: #64748b; text-align: center; letter-spacing: 0.5px; }
+    .sd-btn { background: var(--accent); color: white; border: none; padding: 11px 22px; font-family: inherit; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; border-radius: 3px; }
+    .sd-btn:hover { filter: brightness(1.05); }
+    .sd-btn-sec { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .sd-btn-sec:hover { background: var(--accent-wash); }
+    .sd-tab-action { background: transparent; color: var(--accent); border: 1px dashed var(--accent); padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; border-radius: 2px; }
+    .sd-tab-action:hover { background: var(--accent-wash); }
+    .sd-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+    .sd-modal { background: var(--bg); border: 1px solid var(--line); max-width: 700px; width: 100%; max-height: 85vh; overflow: auto; padding: 24px; border-radius: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+    .sd-modal-title { color: var(--accent); font-family: var(--font-sans, inherit); font-size: 16px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    .sd-modal-close { float: right; background: transparent; color: var(--ink-3); border: none; font-size: 18px; cursor: pointer; }
+    .sd-rate-grid { display: grid; grid-template-columns: 100px 1fr 80px 80px 80px; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 11px; }
+    .sd-rate-grid input { background: var(--bg); border: 1px solid var(--line); color: var(--ink); padding: 6px 8px; font-family: inherit; font-size: 12px; border-radius: 2px; width: 100%; }
+    .sd-footer { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 10px; color: var(--ink-3); text-align: center; letter-spacing: 0.5px; }
 
-    /* ── Proforma (screen preview + print) ── */
+    /* ── Proforma (screen preview + print) — always white/black as a print document ── */
     .sd-pf-page { background: white; color: black; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 10px; padding: 18mm 14mm; max-width: 210mm; margin: 0 auto; line-height: 1.3; }
     .sd-pf-title { text-align: center; font-weight: 700; font-size: 13px; }
     .sd-pf-subtitle { text-align: center; font-style: italic; font-size: 11px; margin-bottom: 12px; }
@@ -897,6 +897,16 @@ function SurfaceDressingDesigner({ schemeId }) {
     .sd-pf-footer-cell { display: grid; grid-template-columns: auto 1fr; gap: 6px; align-items: center; }
     .sd-pf-date-box { background: #ececec; border: 1px solid #555; padding: 2px 6px; min-width: 100px; font-size: 10px; display: flex; justify-content: space-between; align-items: center; }
     .sd-pf-notes { margin-top: 10px; padding: 6px 8px; border: 1px solid #888; font-size: 9.5px; }
+    @media (max-width: 640px) {
+      .sd-row-2, .sd-row-3 { grid-template-columns: 1fr; }
+      .sd-row-4 { grid-template-columns: 1fr 1fr; }
+      .sd-view-toggle { width: 100%; }
+      .sd-view-btn { flex: 1; text-align: center; }
+      .sd-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .sd-season-grid { grid-template-columns: repeat(6, 1fr); }
+      .sd-rate-grid { grid-template-columns: 60px 1fr 60px 60px 60px; font-size: 10px; }
+      .sd-rate-grid input { padding: 4px 5px; }
+    }
     @media print {
       @page { margin: 0; size: A4; }
       .sd-no-print { display: none !important; }
@@ -980,7 +990,7 @@ function SurfaceDressingDesigner({ schemeId }) {
               <select className="sd-select" value={active.location} onChange={e=>update({location:e.target.value})}>
                 <option>South</option><option>Central</option><option>North</option>
               </select>
-              <div className="sd-result-sub" style={{marginTop:4}}>Temperature Category: <strong style={{color:'var(--orange)'}}>{tempCat}</strong></div>
+              <div className="sd-result-sub" style={{marginTop:4}}>Temperature Category: <strong style={{color:'var(--accent)'}}>{tempCat}</strong></div>
             </div>
           </div>
         </div>
@@ -995,7 +1005,7 @@ function SurfaceDressingDesigner({ schemeId }) {
               {trafficCat && (
                 <div className="sd-result">
                   <div className="sd-result-label">Traffic Category</div>
-                  <div className="sd-result-value">{trafficCat.cat} <span style={{fontSize:13,color:'#94a3b8',fontWeight:400}}>({trafficCat.range} CV/day)</span></div>
+                  <div className="sd-result-value">{trafficCat.cat} <span style={{fontSize:13,color:'var(--ink-3)',fontWeight:400}}>({trafficCat.range} CV/day)</span></div>
                   <div className="sd-result-sub">NRSWA Road Type {trafficCat.nrswa}</div>
                 </div>
               )}
@@ -1108,7 +1118,7 @@ function SurfaceDressingDesigner({ schemeId }) {
             <div className="sd-field">
               <label className="sd-chk-label">
                 <input type="checkbox" checked={active.highStressBraking} onChange={e=>update({highStressBraking:e.target.checked})} />
-                <span style={{color:active.highStressBraking?'#fca5a5':'#cbd5e1'}}>High-stress braking zone (e.g. fast dual carriageway → roundabout)</span>
+                <span style={{color:active.highStressBraking?'var(--red)':'var(--ink-2)'}}>High-stress braking zone (e.g. fast dual carriageway → roundabout)</span>
               </label>
             </div>
             {suitability && !active.highStressBraking && (
@@ -1250,7 +1260,7 @@ function SurfaceDressingDesigner({ schemeId }) {
                     )}
                   </div>
                   <div className="sd-result-sub">Max +0.4 / −0.2 L/m² per RN39 Table 9.2.6</div>
-                  <div style={{marginTop:8,fontSize:10,color:'#94a3b8',lineHeight:1.6}}>
+                  <div style={{marginTop:8,fontSize:10,color:'var(--ink-3)',lineHeight:1.6}}>
                     Season {fmtAdj(totalAdjustment.components.season)} · Agg {fmtAdj(totalAdjustment.components.aggregate)} · Shape {fmtAdj(totalAdjustment.components.shape)} · Shade {fmtAdj(totalAdjustment.components.shade)}<br/>
                     Condition {fmtAdj(totalAdjustment.components.condition)} · Gradient {fmtAdj(totalAdjustment.components.gradient)} · Speed {fmtAdj(totalAdjustment.components.speed)} · Local {fmtAdj(totalAdjustment.components.localTraffic)}
                   </div>
@@ -1267,7 +1277,7 @@ function SurfaceDressingDesigner({ schemeId }) {
         {finalRates && (
           <div className="sd-panel">
             <div className="sd-panel-title"><div className="sd-panel-title-l"><span className="sd-step-num">7</span>SEASONAL RISK — TEMP. CAT. {tempCat}</div></div>
-            <div style={{fontSize:12,color:'#94a3b8',marginBottom:8}}>Click a month to assess installation risk for {finalRates.size}.</div>
+            <div style={{fontSize:12,color:'var(--ink-3)',marginBottom:8}}>Click a month to assess installation risk for {finalRates.size}.</div>
             <div className="sd-season-grid">
               {months.map((m,i) => {
                 const primary = finalRates.size.split('/')[0];
@@ -1275,13 +1285,13 @@ function SurfaceDressingDesigner({ schemeId }) {
                 return (
                   <div key={m}
                     className={`sd-season-cell ${active.installMonth === i+1 ? 'sd-active' : ''}`}
-                    style={{background:SD_RISK_COLORS[risk],color:'#0a0e1a'}}
+                    style={{background:SD_RISK_COLORS[risk],color:'#111'}}
                     onClick={()=>update({installMonth:i+1})}>{m}</div>
                 );
               })}
             </div>
             {seasonalRisk && (
-              <div className="sd-info" style={{background:`${SD_RISK_COLORS[seasonalRisk]}15`,borderLeftColor:SD_RISK_COLORS[seasonalRisk],color:'#cbd5e1'}}>
+              <div className="sd-info" style={{background:`${SD_RISK_COLORS[seasonalRisk]}15`,borderLeftColor:SD_RISK_COLORS[seasonalRisk],color:'var(--ink)'}}>
                 <strong style={{color:SD_RISK_COLORS[seasonalRisk]}}>{months[active.installMonth-1]}: {SD_RISK_LABELS[seasonalRisk]}</strong>
                 {seasonalRisk === 'high' && ' — surface dressing should not be undertaken.'}
                 {seasonalRisk === 'sig'  && ' — extra care in design and execution required.'}
@@ -1306,7 +1316,7 @@ function SurfaceDressingDesigner({ schemeId }) {
                 {matchingItems.map(item => (
                   <tr key={item.item} className={item.item === active.selectedItem ? 'sd-selected' : ''}
                     onClick={()=>update({selectedItem:item.item})}>
-                    <td><strong style={{color:'var(--orange)'}}>{item.item}</strong></td>
+                    <td><strong style={{color:'var(--accent)'}}>{item.item}</strong></td>
                     <td>{item.desc}</td>
                     <td>£{item.rates.small.toFixed(2)}</td>
                     <td>£{item.rates.medium.toFixed(2)}</td>
@@ -1319,15 +1329,15 @@ function SurfaceDressingDesigner({ schemeId }) {
               <div className="sd-pricing-hl">
                 <div>
                   <div className="sd-result-label">Selected Item</div>
-                  <div style={{fontSize:18,fontWeight:600,color:'#f8fafc'}}>{selectedRate.item.item}</div>
+                  <div style={{fontSize:18,fontWeight:600,color:'var(--ink)'}}>{selectedRate.item.item}</div>
                 </div>
                 <div>
                   <div className="sd-result-label">Quantity Band</div>
-                  <div style={{fontSize:14,fontWeight:600,color:'#f8fafc'}}>{SD_QTY_BAND_LABEL[selectedRate.band]}</div>
+                  <div style={{fontSize:14,fontWeight:600,color:'var(--ink)'}}>{SD_QTY_BAND_LABEL[selectedRate.band]}</div>
                 </div>
                 <div>
                   <div className="sd-result-label">Rate</div>
-                  <div style={{fontSize:18,fontWeight:600,color:'#f8fafc'}}>£{selectedRate.rate.toFixed(2)}/m²</div>
+                  <div style={{fontSize:18,fontWeight:600,color:'var(--ink)'}}>£{selectedRate.rate.toFixed(2)}/m²</div>
                 </div>
                 <div>
                   <div className="sd-result-label">Indicative Total</div>
@@ -1380,10 +1390,10 @@ function SurfaceDressingDesigner({ schemeId }) {
           <div className="sd-modal" onClick={e=>e.stopPropagation()} style={{maxWidth:780}}>
             <button className="sd-modal-close" onClick={()=>setShowRateEditor(false)}>✕</button>
             <div className="sd-modal-title">Edit Series 700 Rates</div>
-            <div style={{fontSize:12,color:'#cbd5e1',marginBottom:14,lineHeight:1.6}}>
+            <div style={{fontSize:12,color:'var(--ink-2)',marginBottom:14,lineHeight:1.6}}>
               Default rates are <strong style={{color:'var(--amber)'}}>indicative placeholders</strong>. Replace with your actual BERR 85/1 figures. Saved globally and applied across all schemes.
             </div>
-            <div className="sd-rate-grid" style={{fontWeight:700,color:'var(--orange)',borderBottom:'1px solid var(--orange)'}}>
+            <div className="sd-rate-grid" style={{fontWeight:700,color:'var(--accent)',borderBottom:'1px solid var(--orange)'}}>
               <div>Item</div><div>Description</div><div>&lt; 500</div><div>500–5,000</div><div>&gt; 5,000</div>
             </div>
             {SD_SERIES_700.map(item => {
@@ -1391,8 +1401,8 @@ function SurfaceDressingDesigner({ schemeId }) {
               const isOverridden = !!rateOverrides[item.item];
               return (
                 <div key={item.item} className="sd-rate-grid">
-                  <div><strong style={{color:isOverridden?'var(--green)':'var(--orange)'}}>{item.item}</strong></div>
-                  <div style={{fontSize:10,color:'#94a3b8'}}>{item.desc}</div>
+                  <div><strong style={{color:isOverridden?'var(--green)':'var(--accent)'}}>{item.item}</strong></div>
+                  <div style={{fontSize:10,color:'var(--ink-3)'}}>{item.desc}</div>
                   {['small','medium','large'].map(band => (
                     <input key={band} type="number" step="0.01" value={cur[band]}
                       onChange={e => {
@@ -1405,7 +1415,7 @@ function SurfaceDressingDesigner({ schemeId }) {
               );
             })}
             <div style={{marginTop:14,display:'flex',gap:10,justifyContent:'space-between',alignItems:'center'}}>
-              <div style={{fontSize:11,color:'#94a3b8'}}>{Object.keys(rateOverrides).length} of {SD_SERIES_700.length} items overridden</div>
+              <div style={{fontSize:11,color:'var(--ink-3)'}}>{Object.keys(rateOverrides).length} of {SD_SERIES_700.length} items overridden</div>
               <button className="sd-btn sd-btn-sec" onClick={()=>{if(confirm('Reset all rates to defaults?'))setRateOverrides({});}}>Reset to Defaults</button>
             </div>
           </div>
@@ -1418,15 +1428,15 @@ function SurfaceDressingDesigner({ schemeId }) {
           <div className="sd-modal" onClick={e=>e.stopPropagation()}>
             <button className="sd-modal-close" onClick={()=>setShowHelp(false)}>✕</button>
             <div className="sd-modal-title">Site Assessment Guidance</div>
-            <div style={{fontSize:13,color:'#cbd5e1',lineHeight:1.7}}>
-              <p><strong style={{color:'var(--orange)'}}>Surface Hardness</strong> determines how readily chippings will embed. Probe depth measurement gives quantitative result; categories shown are indicative ranges.</p>
+            <div style={{fontSize:13,color:'var(--ink)',lineHeight:1.7}}>
+              <p><strong style={{color:'var(--accent)'}}>Surface Hardness</strong> determines how readily chippings will embed. Probe depth measurement gives quantitative result; categories shown are indicative ranges.</p>
               <ul style={{marginTop:8,paddingLeft:18}}>
                 {Object.entries(SD_HARDNESS_GUIDANCE).map(([k,v]) => (
                   <li key={k} style={{marginBottom:6}}><strong>{k}:</strong> {v}</li>
                 ))}
               </ul>
-              <p style={{marginTop:14}}><strong style={{color:'var(--orange)'}}>High-stress braking zone</strong> overrides standard suitability check. Surface dressing has insufficient skid resistance in these zones — High Friction Surfacing required instead.</p>
-              <p style={{marginTop:14}}><strong style={{color:'var(--orange)'}}>Practical tip:</strong> Photograph and note conditions across the carriageway. Wheel tracks often differ from centreline. Where conditions vary, characterise the worst case.</p>
+              <p style={{marginTop:14}}><strong style={{color:'var(--accent)'}}>High-stress braking zone</strong> overrides standard suitability check. Surface dressing has insufficient skid resistance in these zones — High Friction Surfacing required instead.</p>
+              <p style={{marginTop:14}}><strong style={{color:'var(--accent)'}}>Practical tip:</strong> Photograph and note conditions across the carriageway. Wheel tracks often differ from centreline. Where conditions vary, characterise the worst case.</p>
             </div>
           </div>
         </div>
