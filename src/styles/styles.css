@@ -931,3 +931,23 @@ input[type=radio]:focus-visible{
   box-shadow: inset 0 0 0 2px var(--accent);
   background: var(--accent-wash);
 }
+
+/* ─── Surface Dressing Designer responsive (audit C1) ──────────────────── */
+/* The Proforma is a fixed-width A4 print layout (210mm ≈ 794px). On phones
+   it would overflow the viewport; wrap it in a horizontal-scroll container
+   so the user can swipe sideways without the rest of the page shifting. */
+.sd-pf-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+
+@media (max-width:768px){
+  /* Visible scroll affordance: a thin coloured edge on the right of the
+     wrapper hints "more content this way" until the user scrolls past it. */
+  .sd-pf-scroll{
+    box-shadow: inset -8px 0 8px -8px rgba(0,0,0,0.15);
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+  /* Input panels above the proforma — wrap rather than overflow. */
+  .sd-panel-row,.sd-pricing-row,.sd-rate-grid,.sd-pricing-grid{
+    flex-wrap:wrap;
+  }
+}

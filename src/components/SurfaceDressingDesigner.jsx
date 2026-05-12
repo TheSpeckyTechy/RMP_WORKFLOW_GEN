@@ -501,7 +501,11 @@ function SurfaceDressingDesigner({ schemeId }) {
   const renderProforma = () => {
     const proformaChip = finalRates?.size?.split('/')[0] || '';
     const isChipOn = (k) => k !== 'R10b' && proformaChip === k;
+    // sd-pf-scroll wrapper lets the fixed-width 210mm proforma scroll
+    // horizontally inside its tab on phones rather than overflow the
+    // viewport. On desktop the wrapper is a no-op (page fits).
     return (
+      <div className="sd-pf-scroll">
       <div className="sd-pf-page">
         <div className="sd-pf-title">PROFORMA FOR RECORDING DESIGNS</div>
         <div className="sd-pf-subtitle">Design of road surface dressings to Road Note 39 (Seventh Edition)</div>
@@ -790,6 +794,7 @@ function SurfaceDressingDesigner({ schemeId }) {
           </div>
         </div>
         {active.notes && <div className="sd-pf-notes"><strong>Notes:</strong> {active.notes}</div>}
+      </div>
       </div>
     );
   };
