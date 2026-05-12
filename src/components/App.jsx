@@ -97,7 +97,7 @@ window.useIsMobile = function useIsMobile() {
 // version is running — the modal footer renders this. If the tag
 // below doesn't match the actual deployed code, the browser is on a
 // stale cache and any "still failing" report is about old logic.
-const PACK_BUILD_TAG = 'mobile-fixes';
+const PACK_BUILD_TAG = 'letters-tab';
 
 const GenerateModal = ({ scheme, onClose }) => {
   // status per section: 'pending' | 'active' | 'done' | 'skipped' | 'error'
