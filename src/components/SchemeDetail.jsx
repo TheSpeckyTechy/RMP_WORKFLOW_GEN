@@ -83,7 +83,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
   const tabs = [
     { k:"workbook", l:"Master Workbook", badge: String(workbookFieldCount) },
     { k:"treatment", l:"Designer" },
-    { k:"sd_design", l:"SD Design" },
+    ...(scheme.scheme_type === 'Surface Dressing' ? [{ k:"sd_design", l:"SD Design" }] : []),
     { k:"ward", l:"Ward & Copies" },
     { k:"utilities", l:"Utilities", badge: String(window.UTILITIES.length) },
     { k:"boq", l:"Bill of Quantities" },
