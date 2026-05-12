@@ -897,6 +897,16 @@ function SurfaceDressingDesigner({ schemeId }) {
     .sd-pf-footer-cell { display: grid; grid-template-columns: auto 1fr; gap: 6px; align-items: center; }
     .sd-pf-date-box { background: #ececec; border: 1px solid #555; padding: 2px 6px; min-width: 100px; font-size: 10px; display: flex; justify-content: space-between; align-items: center; }
     .sd-pf-notes { margin-top: 10px; padding: 6px 8px; border: 1px solid #888; font-size: 9.5px; }
+    @media (max-width: 640px) {
+      .sd-row-2, .sd-row-3 { grid-template-columns: 1fr; }
+      .sd-row-4 { grid-template-columns: 1fr 1fr; }
+      .sd-view-toggle { width: 100%; }
+      .sd-view-btn { flex: 1; text-align: center; }
+      .sd-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .sd-season-grid { grid-template-columns: repeat(6, 1fr); }
+      .sd-rate-grid { grid-template-columns: 60px 1fr 60px 60px 60px; font-size: 10px; }
+      .sd-rate-grid input { padding: 4px 5px; }
+    }
     @media print {
       @page { margin: 0; size: A4; }
       .sd-no-print { display: none !important; }
