@@ -699,7 +699,10 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
       }
     };
     return () => { window.__downloadFront = null; };
-  }, [scheme, docsGen]); // eslint-disable-line
+    // Same pattern as BoQTab.jsx: we register a fresh closure on every
+    // scheme / docsGen change, but the setState setter and updateScheme
+    // identities are stable and don't need to live in the dep array.
+  }, [scheme, docsGen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleManual = (key) => {
     updateScheme(scheme.id, { docs_generated: { ...docsGen, [key]: !docsGen[key] } });

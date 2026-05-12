@@ -303,6 +303,12 @@ function SurfaceDressingDesigner({ schemeId }) {
     const area = window.schemeArea ? window.schemeArea(scheme) : 0;
     if (area > 0) patch.areaM2 = String(area);
     updateScheme(schemeId, { sd_design: { ...sdBlankDesign(), ...patch } });
+    // Runs once when the SD-Design tab is first opened for this scheme.
+    // The early-return on `scheme.sd_design` makes this idempotent; on
+    // remount (e.g. switching schemes) the new scheme either already
+    // has sd_design and we no-op, or we seed it freshly. Listing
+    // scheme/schemeId/updateScheme in deps would cause a useless
+    // re-run on every parent rerender.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

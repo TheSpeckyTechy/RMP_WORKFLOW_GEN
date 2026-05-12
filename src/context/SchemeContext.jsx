@@ -214,6 +214,9 @@ const SchemeProvider = ({ children }) => {
       setSyncStatus('synced');
       setLastSynced(new Date());
     });
+    // Fetch from Supabase exactly once on provider mount; per-scheme
+    // updates after that flow through updateScheme(). Setters are
+    // stable identities so they don't need to appear in the dep array.
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getScheme = (id) => schemes.find(s => s.id === id);
