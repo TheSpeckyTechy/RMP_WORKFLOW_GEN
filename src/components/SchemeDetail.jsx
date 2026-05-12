@@ -80,9 +80,11 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
   const isMobile = window.useIsMobile ? window.useIsMobile() : React.useMemo(()=>window.innerWidth<=768,[]);
   const [mobileExpanded, setMobileExpanded] = React.useState(false);
   const workbookFieldCount = window.WORKBOOK_SCHEMA.flatMap(s=>s.fields).filter(f=>f.type!=="subheader"&&f.type!=="zone-label").length;
+  const isSurfaceDressing = scheme.scheme_type === "Surface Dressing";
   const tabs = [
     { k:"workbook", l:"Master Workbook", badge: String(workbookFieldCount) },
     { k:"treatment", l:"Designer" },
+    ...(isSurfaceDressing ? [{ k:"sd_design", l:"SD Design" }] : []),
     { k:"ward", l:"Ward & Copies" },
     { k:"utilities", l:"Utilities", badge: String(window.UTILITIES.length) },
     { k:"boq", l:"Bill of Quantities" },
@@ -168,6 +170,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
       </div>
       {tab==="workbook"&&<MasterWorkbook schemeId={schemeId} />}
       {tab==="treatment"&&<window.TreatmentDesigner schemeId={schemeId} />}
+      {tab==="sd_design"&&isSurfaceDressing&&<window.SurfaceDressingDesigner schemeId={schemeId} />}
       {tab==="ward"&&<WardTab schemeId={schemeId} />}
       {tab==="utilities"&&<UtilitiesTab scheme={scheme} />}
       {tab==="boq"&&<BoQTab schemeId={schemeId} onOpenDesigner={()=>setTab("treatment")} />}

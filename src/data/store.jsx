@@ -548,7 +548,7 @@ window.TAYSIDE_STAFF = [
 // The full Master Workbook schema — all 8 sections, 49 named ranges, in cell order
 window.WORKBOOK_SCHEMA = [
   { section: "1. Scheme Identity", fields: [
-    { key: "scheme_type", label: "Scheme Type", type: "select", options: ["Carriageway", "Footway", "Junction", "Cycleway"] },
+    { key: "scheme_type", label: "Scheme Type", type: "select", options: ["Carriageway", "Footway", "Junction", "Cycleway", "Surface Dressing"] },
     { key: "road_name", label: "Road Name", type: "text" },
     { key: "project_number", label: "Project Number", type: "text", mono: true },
     { key: "financial_year", label: "Financial Year", type: "text", mono: true },
