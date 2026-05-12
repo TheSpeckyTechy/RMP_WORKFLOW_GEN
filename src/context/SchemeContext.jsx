@@ -167,7 +167,11 @@ const initSchemes = () => {
 // ── Supabase helpers ─────────────────────────────────────────────────────────
 const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
   onStatus('syncing');
-  const { error } = await sb.from('schemes').upsert({ id, data, updated_at: new Date().toISOString() });
+  // Use the embedded data.updated_at so the row column and the data field
+  // stay in sync — on the next fetch we compare the row column against
+  // localStorage's data.updated_at to resolve which side is newer.
+  const updatedAt = data.updated_at || new Date().toISOString();
+  const { error } = await sb.from('schemes').upsert({ id, data, updated_at: updatedAt });
   if (error) { onStatus('error'); } else { onStatus('synced'); onSuccess?.(); }
 };
 
@@ -179,16 +183,31 @@ const SchemeProvider = ({ children }) => {
 
   React.useEffect(() => { latestSchemes.current = schemes; }, [schemes]);
 
-  // On mount: fetch from Supabase and merge into state
+  // On mount: fetch from Supabase and merge into state. Per-scheme,
+  // compare embedded data.updated_at against the local copy and keep
+  // whichever is newer — this protects against the race where a user
+  // edits locally, refreshes before the async sbUpsert lands, and the
+  // GET returns the pre-edit server value. Without this guard, the
+  // remote spread { ...local, ...remote } silently clobbers the
+  // in-flight local edit.
   React.useEffect(() => {
-    sb.from('schemes').select('id, data').then(({ data: rows, error }) => {
+    sb.from('schemes').select('id, data, updated_at').then(({ data: rows, error }) => {
       if (error) { setSyncStatus('error'); return; }
       if (rows && rows.length > 0) {
-        const remoteMap = Object.fromEntries(rows.map(r => [r.id, r.data]));
+        const remoteMap = Object.fromEntries(rows.map(r => [r.id, { data: r.data, updated_at: r.updated_at }]));
         setSchemes(prev => {
           const localIds = new Set(prev.map(s => s.id));
-          const updated  = prev.map(s => remoteMap[s.id] ? migrate({ ...s, ...remoteMap[s.id] }) : s);
-          const extras   = rows.filter(r => !localIds.has(r.id) && r.data).map(r => migrate(r.data));
+          const updated  = prev.map(s => {
+            const remote = remoteMap[s.id];
+            if (!remote) return s;
+            const localTs  = s.updated_at         ? Date.parse(s.updated_at)         : 0;
+            const remoteTs = remote.updated_at    ? Date.parse(remote.updated_at)    : 0;
+            // Local wins on tie so a freshly-typed edit (still being
+            // upserted) doesn't get rolled back by the older server value.
+            if (localTs >= remoteTs && localTs > 0) return s;
+            return migrate({ ...s, ...remote.data });
+          });
+          const extras = rows.filter(r => !localIds.has(r.id) && r.data).map(r => migrate(r.data));
           return extras.length ? [...extras, ...updated] : updated;
         });
       }
@@ -202,7 +221,9 @@ const SchemeProvider = ({ children }) => {
   const updateScheme = (id, updates) => {
     const current = latestSchemes.current.find(s => s.id === id);
     if (!current) return;
-    const merged = { ...current, ...updates };
+    // Stamp updated_at on every edit so the next Supabase fetch can tell
+    // whether the local copy is newer than what came back from the server.
+    const merged = { ...current, ...updates, updated_at: new Date().toISOString() };
     lsSet(id, merged);
     setSchemes(prev => prev.map(s => s.id === id ? merged : s));
     sbUpsertFn(id, merged, setSyncStatus, () => setLastSynced(new Date()));
