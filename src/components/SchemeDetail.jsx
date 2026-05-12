@@ -153,22 +153,33 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
         const zoneTotal = zones.reduce((s, z) => s + (+z.area_m2 || 0), 0);
         const masterArea = window.schemeArea(scheme);
         const eitherNonZero = zoneTotal > 0.5 || masterArea > 0.5;
+        // Reusable "snap Master to zone-total" action for the drift
+        // warnings. The Designer's zones are usually the source of
+        // truth (drawn from real measurements); the Master area is the
+        // summary that needs to follow. Keeps this one-click instead
+        // of forcing the user to navigate to the Workbook.
+        const syncAction = (target) => ({
+          label: `Sync Master to ${target.toLocaleString()} m²`,
+          onClick: () => updateScheme(schemeId, { carriageway_area_m2: target }),
+        });
         if (eitherNonZero) {
           if (masterArea < 0.5 && zoneTotal > 0.5) {
-            zoneFlags.push(
-              `Master Workbook area is 0 m² but Designer zones sum to ${zoneTotal.toLocaleString()} m² — ` +
-              `set Carriageway Area in the Workbook so the figures match.`
-            );
+            zoneFlags.push({
+              msg: `Master Workbook area is 0 m² but Designer zones sum to ${zoneTotal.toLocaleString()} m² — ` +
+                   `set Carriageway Area in the Workbook so the figures match.`,
+              action: syncAction(zoneTotal),
+            });
           } else if (zoneTotal < 0.5 && masterArea > 0.5 && zones.length === 0) {
             // Don't fire when there simply aren't any zones yet — that's
             // the normal pre-design state, not a drift.
           } else {
             const diff = zoneTotal - masterArea;
             if (Math.abs(diff) > 0.5) {
-              zoneFlags.push(
-                `Treatment zones sum to ${zoneTotal.toLocaleString()} m² but scheme area is ${masterArea.toLocaleString()} m² ` +
-                `(${diff > 0 ? '+' : ''}${diff.toLocaleString()} m² ${diff > 0 ? 'over' : 'under'})`
-              );
+              zoneFlags.push({
+                msg: `Treatment zones sum to ${zoneTotal.toLocaleString()} m² but scheme area is ${masterArea.toLocaleString()} m² ` +
+                     `(${diff > 0 ? '+' : ''}${diff.toLocaleString()} m² ${diff > 0 ? 'over' : 'under'})`,
+                action: syncAction(zoneTotal),
+              });
             }
           }
         }
@@ -185,17 +196,34 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
         const ds = parseDdMmYyyy(scheme.date_start);
         const df = parseDdMmYyyy(scheme.date_finish);
         if (ds && df && df.getTime() < ds.getTime()) {
-          zoneFlags.push(
-            `Finish date (${scheme.date_finish}) is before start date (${scheme.date_start}) — ` +
-            `BoQ working-day count will fall back to 1 day until the order is corrected.`
-          );
+          zoneFlags.push({
+            msg: `Finish date (${scheme.date_finish}) is before start date (${scheme.date_start}) — ` +
+                 `BoQ working-day count will fall back to 1 day until the order is corrected.`,
+          });
         }
-        const flags = [...persisted, ...zoneFlags];
+        // Persisted scheme.flags are plain strings; normalise to the
+        // structured shape so the render loop can treat them uniformly.
+        const persistedFlags = persisted.map(f => typeof f === 'string' ? { msg: f } : f);
+        const flags = [...persistedFlags, ...zoneFlags];
         if (!flags.length) return null;
         return (
           <div style={{background:"var(--amber-wash)",border:"1px solid var(--amber)",padding:"10px 14px",borderRadius:"var(--radius-sm)",marginBottom:20,display:"flex",gap:10,alignItems:"flex-start",fontSize:13}}>
             <span style={{color:"var(--amber)",paddingTop:2}}><Icon.Alert /></span>
-            <div><strong>Inconsistencies detected</strong><ul style={{margin:"4px 0 0",paddingLeft:16}}>{flags.map((f,i)=><li key={i} style={{color:"var(--ink-2)"}}>{f}</li>)}</ul></div>
+            <div style={{flex:1,minWidth:0}}>
+              <strong>Inconsistencies detected</strong>
+              <ul style={{margin:"4px 0 0",paddingLeft:16}}>
+                {flags.map((f,i) => (
+                  <li key={i} style={{color:"var(--ink-2)",marginBottom:f.action?6:0}}>
+                    {f.msg}
+                    {f.action && (
+                      <button className="btn sm" style={{marginLeft:8,verticalAlign:"middle"}} onClick={f.action.onClick}>
+                        {f.action.label}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         );
       })()}
