@@ -326,7 +326,7 @@ const FrontSheetDoc = ({ scheme, contents }) => {
   const summaryRows = [
     ["Treatment",        window.schemeTreatment(scheme)],
     ["Scheme Type",      scheme.scheme_type],
-    ["BoQ Total",        boqTotal > 0 ? `£${boqTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` : null],
+    ["BoQ Total",        boqTotal > 0 ? (window.BOQ_ENGINE?.fmtGBP || (n=>'£'+n))(boqTotal) : null],
     ["Date Prepared",    scheme.date_prepared],
   ];
   return (

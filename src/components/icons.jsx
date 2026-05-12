@@ -34,7 +34,10 @@ const Icon = {
   Eye: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>,
 };
 
-const fmtGBP = (n) => "£" + Number(n).toLocaleString("en-GB", { maximumFractionDigits: 0 });
+// fmtGBP / fmtGBP0 (the £ formatters) live on window.BOQ_ENGINE — see
+// src/data/boq_engine.js. They're the single source of truth so the
+// dashboard, BoQ tab, print doc, and front sheet all format money
+// consistently.
 const fmtDate = (iso) => { const d = new Date(iso); return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }); };
 const STATUS_LABELS = { design: "In Design", review: "In Review", ready: "Ready to Issue", works: "On Site", archived: "Archived", constructed: "Constructed" };
 
@@ -91,4 +94,4 @@ const htmlToPdfBuffer = async (element) => {
   return pdf.output('arraybuffer');
 };
 
-Object.assign(window, { Icon, fmtGBP, fmtDate, STATUS_LABELS, htmlToPdf, htmlToPdfBuffer });
+Object.assign(window, { Icon, fmtDate, STATUS_LABELS, htmlToPdf, htmlToPdfBuffer });

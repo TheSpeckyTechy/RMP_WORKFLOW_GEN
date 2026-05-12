@@ -88,6 +88,11 @@
   const fmtGBP = (v) =>
     '£' + (+v || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
+  // Compact variant — no pence. For dashboard summaries where a £100k+
+  // figure with ".00" reads as visual noise. Same thousands separator.
+  const fmtGBP0 = (v) =>
+    '£' + Math.round(+v || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
   const fmtQty = (v, unit) => {
     const n = +v || 0;
     if (unit === 'No' || unit === 'Item') return n.toFixed(0);
@@ -630,7 +635,7 @@
       SURFACE_OPTIONS, BINDER_OPTIONS, BASE_OPTIONS,
       FOOTWAY_SURFACE_OPTIONS, KERB_OPTIONS, MILLING_DEPTHS,
     },
-    fmtGBP, fmtQty, fmtPct, uid, snapMillingDepth, matchSurfaceTag, seriesOf,
+    fmtGBP, fmtGBP0, fmtQty, fmtPct, uid, snapMillingDepth, matchSurfaceTag, seriesOf,
     regenAutoLines, buildBoQLines,
     deriveQuickInputsFromScheme, effectiveQuickInputs,
     mapSchemeTmType, computeWorkingDays, isSevenDayPattern,
