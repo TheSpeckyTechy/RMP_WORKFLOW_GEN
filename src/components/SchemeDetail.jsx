@@ -129,8 +129,8 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
           {scheme.sketch_pdf && <button className="btn ghost" onClick={()=>setShowSketch(true)} title="View pre-design sketch">📄 View sketch</button>}
           <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>
-          {onDuplicate && <button className="btn ghost sm" title="Duplicate scheme" onClick={()=>onDuplicate(scheme)}><Icon.Copy /></button>}
-          <button className="btn ghost sm" title="Delete scheme" style={{color:"var(--red)"}} onClick={async()=>{
+          {onDuplicate && <button className="btn ghost sm" title="Duplicate scheme" aria-label="Duplicate scheme" onClick={()=>onDuplicate(scheme)}><Icon.Copy /></button>}
+          <button className="btn ghost sm" title="Delete scheme" aria-label="Delete scheme" style={{color:"var(--red)"}} onClick={async()=>{
             const ask = window.confirmDialog || ((o)=>Promise.resolve(window.confirm(o.body||o.title)));
             const ok = await ask({ title:`Delete "${scheme.road_name}"?`, body:'This cannot be undone.', confirmLabel:'Delete', danger:true });
             if (ok) { deleteScheme(schemeId); onBack(); if (window.Toast) window.Toast.show({kind:'info',msg:`Deleted "${scheme.road_name}".`}); }
@@ -556,7 +556,7 @@ const PackFileModal = ({ packFile, docName, onClose }) => (
           <a className="btn sm" href={packFile.data} download={packFile.name} title="Download file">
             <Icon.Download /> Download
           </a>
-          <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
+          <button className="btn ghost sm" aria-label="Close dialog" onClick={onClose}><Icon.X /></button>
         </div>
       </div>
       <div className="sketch-body">
@@ -937,7 +937,7 @@ const SketchModal = ({ pdf, road, onClose }) => (
         <div style={{fontWeight:600,fontSize:15}}>Pre-design sketch · {road}</div>
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           <a className="btn sm" href={`templates/${pdf}`} download={pdf} title="Download sketch PDF"><Icon.Download /> Download</a>
-          <button className="btn ghost sm" onClick={onClose}><Icon.X /></button>
+          <button className="btn ghost sm" aria-label="Close dialog" onClick={onClose}><Icon.X /></button>
         </div>
       </div>
       <div className="sketch-body">
