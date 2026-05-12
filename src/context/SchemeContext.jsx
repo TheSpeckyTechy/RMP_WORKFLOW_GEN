@@ -135,6 +135,15 @@ const withDesign = (s) => {
   if (!s) return s;
   let next = s;
 
+  // 0. scheme_type default. Several downstream consumers assume the
+  //    field is populated (PCIPreview falls back to "Carriageway" at
+  //    its callsite; the area-migration below branches on === 'Footway').
+  //    Defaulting here means every loaded scheme presents a consistent
+  //    shape regardless of whether the seed/legacy row carried it.
+  if (next.scheme_type == null || next.scheme_type === '') {
+    next = { ...next, scheme_type: 'Carriageway' };
+  }
+
   // 1. area_m2 → carriageway_area_m2 / footway_area_m2. The legacy field is
   //    left in place so any unmigrated readers keep working through Phase 1.
   const hasNewArea = next.carriageway_area_m2 != null || next.footway_area_m2 != null;
