@@ -892,3 +892,42 @@ body{overflow-x:hidden}
   .stat,
   .stat *{min-width:0}
 }
+
+/* ─── Focus-visible coverage (audit B3) ──────────────────────────────────── */
+/* `.btn` and form inputs already get the --focus-ring earlier in this file.
+   This block extends that ring to every other interactive surface a
+   keyboard user might tab through, so the focused element is always
+   visually unambiguous — not just the obvious primary buttons. The rule
+   is offset slightly so it works on both bordered and borderless controls. */
+.chip:focus-visible,
+.tab:focus-visible,
+.nav-item:focus-visible,
+.ward-btn:focus-visible,
+.letter-recip:focus-visible,
+.portal-card:focus-visible,
+.btn-construct:focus-visible,
+.fab:focus-visible,
+.bottom-nav-tab:focus-visible,
+.scheme-list-card:focus-visible,
+.modal-tab:focus-visible,
+.tweak-seg button:focus-visible{
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Checkboxes and radios use the browser default outline, which on
+   light backgrounds is a near-invisible 1px grey ring. Replace with
+   the same focus-ring token. */
+input[type=checkbox]:focus-visible,
+input[type=radio]:focus-visible{
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Keyboard row-navigation through the schemes table — currently the
+   only feedback is hover, which doesn't paint for keyboard users. */
+.schemes tbody tr:focus-visible{
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+  background: var(--accent-wash);
+}
