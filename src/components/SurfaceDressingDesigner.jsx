@@ -273,10 +273,26 @@ function SurfaceDressingDesigner({ schemeId }) {
     catch { return {}; }
   });
 
-  // Persist rate overrides to localStorage
+  // Persist rate overrides to localStorage. If the write fails (quota
+  // exhaustion / private browsing sandbox), surface a Toast so the user
+  // doesn't think their edits saved and silently lose them on refresh.
+  // The bare catch{} that used to live here was the same bug class as
+  // A7 — only on a per-component basis instead of via the central
+  // SchemeContext.
   React.useEffect(() => {
-    try { localStorage.setItem(SD_RATES_KEY, JSON.stringify(rateOverrides)); }
-    catch {}
+    try {
+      localStorage.setItem(SD_RATES_KEY, JSON.stringify(rateOverrides));
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[SD] rate-override save failed:', e);
+      if (window.Toast) {
+        window.Toast.show({
+          kind: 'error',
+          msg: "Couldn't save SD rate overrides — browser storage may be full.",
+          duration: 10000,
+        });
+      }
+    }
   }, [rateOverrides]);
 
   const effectiveSeries700 = React.useMemo(() =>
