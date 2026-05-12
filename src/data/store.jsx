@@ -61,7 +61,6 @@ window.defaultBoq = () => ({
     useBERR:     false,
     berrIndex:   1.000,
     berrDate:    'May 2022',
-    vatRate:     0.20,
     showPWP:     true,
     areaBandOverride: null,
     percentAdditions: {
