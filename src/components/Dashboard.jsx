@@ -9,7 +9,7 @@
 //
 // Exports (via window): Dashboard
 // Depends on: React, window.SchemeContext, window.Icon,
-//             window.fmtGBP, window.STATUS_LABELS, window.WARDS
+//             window.BOQ_ENGINE.fmtGBP0, window.STATUS_LABELS, window.WARDS
 // ─────────────────────────────────────────────────────────────────────────────
 
 const COMPLETENESS_FIELDS = ['scheme_extent','grid_ref','date_start','date_finish','contractor','treatment_type','prepared_by'];
@@ -149,7 +149,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
                     return dom?.depth_mm ? `${dom.depth_mm}mm · ` : '';
                   })()}{s.scheme_type}</div></td>
                   <td className="mono" style={{fontSize:12}}>{window.schemeArea(s).toLocaleString()} m²</td>
-                  <td className="mono" style={{fontSize:12}}>{fmtGBP(+s.tender_total||0)}</td>
+                  <td className="mono" style={{fontSize:12}}>{(window.BOQ_ENGINE?.fmtGBP0 || (n=>'£'+n))(+s.tender_total||0)}</td>
                   <td><div className="pack-bar"><div className="pack-bar-track"><div className={"pack-bar-fill "+(pct===100?"full":"")} style={{width:pct+"%"}}></div></div><div className="pack-bar-count">{s.packProgress}/{s.packTotal}</div></div></td>
                   <td><span className="mono" style={{fontSize:12,fontWeight:600,color:scoreColor}}>{score}%</span></td>
                   <td><span className={"pill "+s.status}>{STATUS_LABELS[s.status]}</span></td>

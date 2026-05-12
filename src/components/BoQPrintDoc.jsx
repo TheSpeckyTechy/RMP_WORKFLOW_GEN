@@ -21,9 +21,9 @@ const BoQPrintDoc = ({ scheme, computed }) => {
   const E = window.BOQ_ENGINE;
   if (!E || !computed) return null;
 
-  const fmtGBP = E.fmtGBP || (n => '£' + (+n || 0).toFixed(2));
-  const fmtQty = E.fmtQty || (n => String(+n || 0));
-  const fmtPct = E.fmtPct || (p => ((+p || 0) * 100).toFixed(1) + '%');
+  // E is guaranteed non-null by the early return above, so we can pull
+  // the engine helpers straight off it without fallback chains.
+  const { fmtGBP, fmtQty, fmtPct } = E;
 
   const groups   = computed.groups   || [];
   const subtotal = +computed.subtotal || 0;

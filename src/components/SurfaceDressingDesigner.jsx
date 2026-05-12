@@ -1304,7 +1304,7 @@ function SurfaceDressingDesigner({ schemeId }) {
                 </div>
                 <div>
                   <div className="sd-result-label">Indicative Total</div>
-                  <div className="sd-pricing-big">£{selectedRate.total.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                  <div className="sd-pricing-big">{(window.BOQ_ENGINE?.fmtGBP || (n=>'£'+n))(selectedRate.total)}</div>
                 </div>
               </div>
             )}
