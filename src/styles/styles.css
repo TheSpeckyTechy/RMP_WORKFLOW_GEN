@@ -968,4 +968,32 @@ input[type=radio]:focus-visible{
   .td-site-conditions{
     grid-template-columns:1fr;
   }
+
+  /* A4 preview scale-to-fit (audit C3) ──────────────────────────────────
+     The RSR / PCI / Letter preview panes render their doc at a fixed
+     ~760-860px width — readable on desktop, but on a 375px phone the
+     user has to pinch-zoom and horizontal-scroll. Apply CSS transform
+     scaling so the doc fits the viewport.
+
+     transform-origin: top left keeps the doc flush with the top-left
+     of the pane so vertical scroll still works naturally. overflow-x
+     hidden on the pane clips the unused right-side of the natural
+     layout box (which transform: scale doesn't shrink).
+
+     Per-doc --doc-w lets each doc declare its intrinsic width;
+     min(1, …) prevents up-scaling past 1× on viewports that are wider
+     than the doc's intrinsic width.
+
+     Trade-off accepted: transform: scale doesn't change layout, so
+     there's empty whitespace below the visible doc (the unscaled
+     layout box reserves the full natural height). User can scroll
+     past; better than pinch-zoom + horizontal-scroll. */
+  .rsr-preview-pane{overflow-x:hidden}
+  .rsr-doc        {--doc-w:760px}
+  .pci-docx-mount {--doc-w:860px}
+  .rsr-doc,
+  .pci-docx-mount{
+    transform-origin:top left;
+    transform:scale(min(1, calc((100vw - 32px) / var(--doc-w))));
+  }
 }
