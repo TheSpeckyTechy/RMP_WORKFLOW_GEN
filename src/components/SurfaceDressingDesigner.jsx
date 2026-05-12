@@ -46,11 +46,11 @@ const SD_SUITABILITY_MATRIX = {
 };
 
 const SD_SUITABILITY_KEY = {
-  Y: { label: 'Suitable',        color: '#4ade80', desc: 'Surface dressing can be designed to meet most onerous requirements (BS EN 12272-2).' },
-  T: { label: 'Texture concern', color: '#fbbf24', desc: 'Difficult to maintain high macrotexture, especially in wheel tracks. Achievable on low-speed roads.' },
-  D: { label: 'Defects concern', color: '#fbbf24', desc: 'Difficult to meet most onerous defect requirements; less onerous levels should not be specified.' },
-  E: { label: 'Expert design',   color: '#fb923c', desc: 'Design may be achievable by an expert to meet less onerous performance levels. Extra care in execution required.' },
-  N: { label: 'Not appropriate', color: '#ef4444', desc: 'Surface dressing is not an appropriate treatment.' },
+  Y: { label: 'Suitable',        color: 'var(--green)',  desc: 'Surface dressing can be designed to meet most onerous requirements (BS EN 12272-2).' },
+  T: { label: 'Texture concern', color: 'var(--amber)',  desc: 'Difficult to maintain high macrotexture, especially in wheel tracks. Achievable on low-speed roads.' },
+  D: { label: 'Defects concern', color: 'var(--amber)',  desc: 'Difficult to meet most onerous defect requirements; less onerous levels should not be specified.' },
+  E: { label: 'Expert design',   color: 'var(--orange)', desc: 'Design may be achievable by an expert to meet less onerous performance levels. Extra care in execution required.' },
+  N: { label: 'Not appropriate', color: 'var(--red)',    desc: 'Surface dressing is not an appropriate treatment.' },
 };
 
 const SD_HARDNESS_GUIDANCE = {
@@ -181,7 +181,7 @@ const SD_SEASON_DATA = {
   },
 };
 
-const SD_RISK_COLORS = { high:'#ef4444', sig:'#fbbf24', low:'#4ade80' };
+const SD_RISK_COLORS = { high:'var(--red)', sig:'var(--amber)', low:'var(--green)' };
 const SD_RISK_LABELS = { high:'High risk', sig:'Significant risk', low:'Low risk' };
 
 const SD_SERIES_700 = [
@@ -953,7 +953,7 @@ function SurfaceDressingDesigner({ schemeId }) {
               <select className="sd-select" value={active.location} onChange={e=>update({location:e.target.value})}>
                 <option>South</option><option>Central</option><option>North</option>
               </select>
-              <div className="sd-result-sub" style={{marginTop:4}}>Temperature Category: <strong style={{color:'#f97316'}}>{tempCat}</strong></div>
+              <div className="sd-result-sub" style={{marginTop:4}}>Temperature Category: <strong style={{color:'var(--orange)'}}>{tempCat}</strong></div>
             </div>
           </div>
         </div>
@@ -1217,7 +1217,7 @@ function SurfaceDressingDesigner({ schemeId }) {
                   <div className="sd-result-value">
                     {totalAdjustment.capped >= 0 ? '+' : ''}{totalAdjustment.capped.toFixed(2)} L/m²
                     {totalAdjustment.wasCapped && (
-                      <span style={{fontSize:11,color:'#fbbf24',marginLeft:12}}>
+                      <span style={{fontSize:11,color:'var(--amber)',marginLeft:12}}>
                         (raw {totalAdjustment.raw >= 0 ? '+' : ''}{totalAdjustment.raw.toFixed(2)} capped)
                       </span>
                     )}
@@ -1279,7 +1279,7 @@ function SurfaceDressingDesigner({ schemeId }) {
                 {matchingItems.map(item => (
                   <tr key={item.item} className={item.item === active.selectedItem ? 'sd-selected' : ''}
                     onClick={()=>update({selectedItem:item.item})}>
-                    <td><strong style={{color:'#f97316'}}>{item.item}</strong></td>
+                    <td><strong style={{color:'var(--orange)'}}>{item.item}</strong></td>
                     <td>{item.desc}</td>
                     <td>£{item.rates.small.toFixed(2)}</td>
                     <td>£{item.rates.medium.toFixed(2)}</td>
@@ -1354,9 +1354,9 @@ function SurfaceDressingDesigner({ schemeId }) {
             <button className="sd-modal-close" onClick={()=>setShowRateEditor(false)}>✕</button>
             <div className="sd-modal-title">Edit Series 700 Rates</div>
             <div style={{fontSize:12,color:'#cbd5e1',marginBottom:14,lineHeight:1.6}}>
-              Default rates are <strong style={{color:'#fbbf24'}}>indicative placeholders</strong>. Replace with your actual BERR 85/1 figures. Saved globally and applied across all schemes.
+              Default rates are <strong style={{color:'var(--amber)'}}>indicative placeholders</strong>. Replace with your actual BERR 85/1 figures. Saved globally and applied across all schemes.
             </div>
-            <div className="sd-rate-grid" style={{fontWeight:700,color:'#f97316',borderBottom:'1px solid #f97316'}}>
+            <div className="sd-rate-grid" style={{fontWeight:700,color:'var(--orange)',borderBottom:'1px solid var(--orange)'}}>
               <div>Item</div><div>Description</div><div>&lt; 500</div><div>500–5,000</div><div>&gt; 5,000</div>
             </div>
             {SD_SERIES_700.map(item => {
@@ -1364,7 +1364,7 @@ function SurfaceDressingDesigner({ schemeId }) {
               const isOverridden = !!rateOverrides[item.item];
               return (
                 <div key={item.item} className="sd-rate-grid">
-                  <div><strong style={{color:isOverridden?'#4ade80':'#f97316'}}>{item.item}</strong></div>
+                  <div><strong style={{color:isOverridden?'var(--green)':'var(--orange)'}}>{item.item}</strong></div>
                   <div style={{fontSize:10,color:'#94a3b8'}}>{item.desc}</div>
                   {['small','medium','large'].map(band => (
                     <input key={band} type="number" step="0.01" value={cur[band]}
@@ -1392,14 +1392,14 @@ function SurfaceDressingDesigner({ schemeId }) {
             <button className="sd-modal-close" onClick={()=>setShowHelp(false)}>✕</button>
             <div className="sd-modal-title">Site Assessment Guidance</div>
             <div style={{fontSize:13,color:'#cbd5e1',lineHeight:1.7}}>
-              <p><strong style={{color:'#f97316'}}>Surface Hardness</strong> determines how readily chippings will embed. Probe depth measurement gives quantitative result; categories shown are indicative ranges.</p>
+              <p><strong style={{color:'var(--orange)'}}>Surface Hardness</strong> determines how readily chippings will embed. Probe depth measurement gives quantitative result; categories shown are indicative ranges.</p>
               <ul style={{marginTop:8,paddingLeft:18}}>
                 {Object.entries(SD_HARDNESS_GUIDANCE).map(([k,v]) => (
                   <li key={k} style={{marginBottom:6}}><strong>{k}:</strong> {v}</li>
                 ))}
               </ul>
-              <p style={{marginTop:14}}><strong style={{color:'#f97316'}}>High-stress braking zone</strong> overrides standard suitability check. Surface dressing has insufficient skid resistance in these zones — High Friction Surfacing required instead.</p>
-              <p style={{marginTop:14}}><strong style={{color:'#f97316'}}>Practical tip:</strong> Photograph and note conditions across the carriageway. Wheel tracks often differ from centreline. Where conditions vary, characterise the worst case.</p>
+              <p style={{marginTop:14}}><strong style={{color:'var(--orange)'}}>High-stress braking zone</strong> overrides standard suitability check. Surface dressing has insufficient skid resistance in these zones — High Friction Surfacing required instead.</p>
+              <p style={{marginTop:14}}><strong style={{color:'var(--orange)'}}>Practical tip:</strong> Photograph and note conditions across the carriageway. Wheel tracks often differ from centreline. Where conditions vary, characterise the worst case.</p>
             </div>
           </div>
         </div>

@@ -48,7 +48,7 @@ class ErrorBoundary extends React.Component {
           <div style={{fontSize:13,color:'var(--ink-2,#666)',maxWidth:480,lineHeight:1.6}}>
             An unexpected error occurred. Your data is safe — it is stored in localStorage and Supabase.
           </div>
-          <div style={{fontFamily:'monospace',fontSize:11,color:'#c00',background:'#fff0f0',padding:'8px 14px',borderRadius:6,maxWidth:560,wordBreak:'break-word'}}>
+          <div style={{fontFamily:'monospace',fontSize:11,color:'var(--red)',background:'var(--red-wash)',padding:'8px 14px',borderRadius:6,maxWidth:560,wordBreak:'break-word'}}>
             {this.state.error?.message}
           </div>
           <button
