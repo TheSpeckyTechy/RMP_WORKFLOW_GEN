@@ -109,13 +109,38 @@
     return MILLING_DEPTHS.reduce((a, b) => Math.abs(b - d) < Math.abs(a - d) ? b : a);
   };
 
+  // Canonical lookup maps built once from SURFACE_OPTIONS so the
+  // matcher's first two passes are O(1) and exact rather than
+  // substring-based. Without these, an input like "SD 10mm intermediate"
+  // falls through every substring check and silently returns null,
+  // dropping the zone's surface course from the BoQ.
+  const SURFACE_TAGS  = new Set(SURFACE_OPTIONS.map(o => o.tag));
+  const SURFACE_BY_LABEL = new Map(
+    SURFACE_OPTIONS.map(o => [o.label.toLowerCase(), o.tag])
+  );
+
   const matchSurfaceTag = (treatmentType) => {
-    const t = (treatmentType || '').toLowerCase();
+    const raw = String(treatmentType || '').trim();
+    if (!raw) return null;
+    // Pass 1 — caller already gave us a known tag.
+    if (SURFACE_TAGS.has(raw)) return raw;
+    // Pass 2 — exact (case-insensitive) match against a SURFACE_OPTIONS label.
+    const exact = SURFACE_BY_LABEL.get(raw.toLowerCase());
+    if (exact) return exact;
+    // Pass 3 — heuristic substring matcher for free-text inputs that come
+    // from older schemes or Master-level treatment_type strings.
+    const t = raw.toLowerCase();
     // Preventive treatments — matched FIRST so explicit micro/SD selections
     // aren't swallowed by broader substring checks below.
     if (t.includes('micro') || t.includes('slurry'))
       return 'surf_micro';
-    if (t.includes('surface dressing') || t.includes('surface-dressing')) {
+    // "SD 10mm intermediate" / "SD 6mm" — the abbreviated form that
+    // the previous matcher missed because it required the full phrase
+    // "surface dressing".
+    const isSD = t.includes('surface dressing')
+              || t.includes('surface-dressing')
+              || /\bsd\b/.test(t);
+    if (isSD) {
       if (t.includes('6mm') || t.includes('6 mm'))   return 'sd_6mm_int';
       if (t.includes('prem'))                         return 'sd_10mm_prem';
       return 'sd_10mm_int';
@@ -139,6 +164,11 @@
     if (t.includes('ac 14')  || t.includes('ac14'))  return 'surf_ac14_40';
     if (t.includes('ac 10')  || t.includes('ac10'))  return 'surf_ac10_40';
     if (t.includes('ac 6')   || t.includes('ac6'))   return 'surf_ac6_30';
+    // Reached only if every pass failed. Log so the silent-null case is
+    // visible in dev tools and so a future test can assert this never
+    // happens for any canonical SURFACE_OPTIONS label.
+    // eslint-disable-next-line no-console
+    console.warn(`[BOQ_ENGINE] matchSurfaceTag: no tag for surface "${raw}" — surface course line will be omitted from BoQ.`);
     return null;
   };
 
