@@ -123,7 +123,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
             </select>
           </p>
         </div>
-        <div style={{display:"flex",gap:8}}>
+        <div className="scheme-actions" style={{display:"flex",gap:8}}>
           {scheme.sketch_pdf && <button className="btn ghost" onClick={()=>setShowSketch(true)} title="View pre-design sketch">📄 View sketch</button>}
           <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>

@@ -833,3 +833,62 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
   .stat-value{order:2;font-size:30px}
   .stat-meta{display:none}
 }
+
+/* ─── Mobile formatting fixes (PR #111) ──────────────────────────────────── */
+
+/* Defensive: phones should never need horizontal scrolling. Stops any
+   future single-element overflow from shifting the whole viewport. */
+body{overflow-x:hidden}
+
+@media (max-width:768px){
+  /* Filter chip strip — single horizontal scroll line, not wrapping
+     into broken-pill rows. iOS App Store / Twitter pattern. */
+  .filters{
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    margin:0 -16px 14px;
+    padding:0 16px;
+  }
+  .filters::-webkit-scrollbar{display:none}
+  .filters > .chip{flex-shrink:0;white-space:nowrap}
+  /* "13 of 15" result count — too tight on mobile, drop it. */
+  .filters > div:last-child{display:none}
+
+  /* Status select rendered as a chip — PR #110's select{font-size:16px}
+     iOS-auto-zoom rule was over-inflating it on phones. Constrain
+     width + use 13px (above auto-zoom threshold of 12, below body 15px
+     so the pill reads as secondary chrome). */
+  .smc-header > select.pill,
+  .scheme-list-card select.pill{
+    max-width:130px;
+    font-size:13px;
+    padding:4px 10px;
+    flex-shrink:0;
+  }
+  .smc-header{gap:10px}
+  .smc-title{font-size:18px;line-height:1.25}
+
+  /* Master Workbook header — let the right-hand controls drop to a
+     second line and hide the wordy "synced" indicator on mobile. */
+  .mwb-head{flex-wrap:wrap;gap:10px}
+  .mwb-sync-note{display:none}
+
+  /* SchemeDetail top-of-page action buttons — wrap to multiple rows
+     when they don't fit, and let each button take a fair share of
+     the available width. Hide kbd hints (already done globally but
+     reasserted in case any inline-rendered .kbd snuck through). */
+  .scheme-actions{flex-wrap:wrap;width:100%}
+  .scheme-actions > .btn{flex:1 1 auto;justify-content:center}
+  .scheme-actions .kbd{display:none}
+
+  /* Belt-and-braces: any flex-child that owns intrinsic content can
+     shrink. Eliminates the "label wider than column" overflow that
+     was clipping stat labels and scheme card project numbers in the
+     PR #110 screenshots. */
+  .scheme-list-card,
+  .scheme-list-card > *{min-width:0}
+  .stat,
+  .stat *{min-width:0}
+}
