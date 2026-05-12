@@ -637,6 +637,11 @@ const SCHEME_STATUSES = [
 
 const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
   const { schemes } = React.useContext(window.SchemeContext);
+  // Stable id base so each <label htmlFor=...> pairs with its <input id=...>
+  // for screen readers. React.useId() gives a unique, hydration-safe id
+  // per component instance.
+  const idBase = React.useId();
+  const fieldId = (name) => `${idBase}-${name}`;
   const [form, setForm] = React.useState(() => ({
     road_name: "", project_number: "", scheme_type: "Carriageway",
     financial_year: "2026/27", ward_num: 1, status: "design",
@@ -682,40 +687,41 @@ const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{display:"flex",flexDirection:"column",gap:14}}>
             <div className="field">
-              <label>Road Name <span style={{color:"var(--red)"}}>*</span></label>
-              <input ref={nameRef} type="text" placeholder="e.g. Lochee Road" value={form.road_name} onChange={e=>set("road_name",e.target.value)} />
+              <label htmlFor={fieldId("road_name")}>Road Name <span style={{color:"var(--red)"}}>*</span></label>
+              <input id={fieldId("road_name")} ref={nameRef} type="text" placeholder="e.g. Lochee Road" value={form.road_name} onChange={e=>set("road_name",e.target.value)} />
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div className="field">
-                <label>Project Number <span style={{color:"var(--red)"}}>*</span></label>
-                <input type="text" placeholder="e.g. R5042" value={form.project_number} onChange={e=>set("project_number",e.target.value)} className="mono" />
+                <label htmlFor={fieldId("project_number")}>Project Number <span style={{color:"var(--red)"}}>*</span></label>
+                <input id={fieldId("project_number")} type="text" placeholder="e.g. R5042" value={form.project_number} onChange={e=>set("project_number",e.target.value)} className="mono" />
               </div>
               <div className="field">
-                <label>Financial Year</label>
-                <select value={form.financial_year} onChange={e=>set("financial_year",e.target.value)}>
+                <label htmlFor={fieldId("financial_year")}>Financial Year</label>
+                <select id={fieldId("financial_year")} value={form.financial_year} onChange={e=>set("financial_year",e.target.value)}>
                   {FINANCIAL_YEARS.map(y=><option key={y}>{y}</option>)}
                 </select>
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <div className="field">
-                <label>Scheme Type</label>
-                <select value={form.scheme_type} onChange={e=>set("scheme_type",e.target.value)}>
+                <label htmlFor={fieldId("scheme_type")}>Scheme Type</label>
+                <select id={fieldId("scheme_type")} value={form.scheme_type} onChange={e=>set("scheme_type",e.target.value)}>
                   {SCHEME_TYPES.map(t=><option key={t}>{t}</option>)}
                 </select>
               </div>
               <div className="field">
-                <label>Initial Status</label>
-                <select value={form.status} onChange={e=>set("status",e.target.value)}>
+                <label htmlFor={fieldId("status")}>Initial Status</label>
+                <select id={fieldId("status")} value={form.status} onChange={e=>set("status",e.target.value)}>
                   {SCHEME_STATUSES.map(s=><option key={s.k} value={s.k}>{s.l}</option>)}
                 </select>
               </div>
             </div>
-            <div className="field">
-              <label>Ward</label>
+            <fieldset className="field" style={{border:"none",padding:0,margin:0}}>
+              <legend style={{fontSize:11,color:"var(--ink-2)",fontWeight:500,padding:0,marginBottom:4}}>Ward</legend>
               <div className="ward-picker" style={{marginBottom:0}}>
                 {window.WARDS.map(w=>(
                   <button key={w.num} type="button"
+                    aria-pressed={form.ward_num===w.num}
                     className={"ward-btn "+(form.ward_num===w.num?"active":"")}
                     onClick={()=>set("ward_num",w.num)}>
                     <span className="ward-num">W{w.num}</span>
@@ -723,7 +729,7 @@ const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
                   </button>
                 ))}
               </div>
-            </div>
+            </fieldset>
             {error && <div className="inline-error" style={{fontSize:12,color:"var(--red)",fontFamily:"var(--font-mono)",padding:"6px 10px",borderRadius:"var(--radius-sm)"}}>{error}</div>}
           </div>
           <div className="modal-foot">
@@ -894,11 +900,13 @@ const AppInner = () => {
       </div>
       <nav className="bottom-nav" role="navigation" aria-label="Primary">
         <button className={"bottom-nav-tab" + (view === "dashboard" ? " active" : "")}
+          aria-current={view === "dashboard" ? "page" : undefined}
           onClick={() => { setView("dashboard"); setOpenScheme(null); setMenuOpen(false); }}>
           <Icon.Folder />
           <span>Schemes</span>
         </button>
         <button className={"bottom-nav-tab" + (view === "settings" ? " active" : "")}
+          aria-current={view === "settings" ? "page" : undefined}
           onClick={() => { setView("settings"); setOpenScheme(null); setMenuOpen(false); }}>
           <Icon.Cog />
           <span>Settings</span>
