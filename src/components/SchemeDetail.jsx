@@ -144,15 +144,32 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
         const persisted = scheme.flags || [];
         const zones = (scheme.design && scheme.design.zones) || [];
         const zoneFlags = [];
-        if (zones.length && window.schemeArea(scheme) > 0) {
-          const zoneTotal = zones.reduce((s, z) => s + (+z.area_m2 || 0), 0);
-          const masterArea = window.schemeArea(scheme);
-          const diff = zoneTotal - masterArea;
-          if (Math.abs(diff) > 0.5) {
+        // Drift between Master Workbook area and the Designer's zone
+        // totals. Previously this only fired when BOTH sides were
+        // non-zero, which missed the case where the Designer has zones
+        // adding up to 1,500 m² but the Master area is still 0 — the
+        // BoQ silently prices off the zone path while the user sees a
+        // 0 m² header. Fire whenever either side has a real value.
+        const zoneTotal = zones.reduce((s, z) => s + (+z.area_m2 || 0), 0);
+        const masterArea = window.schemeArea(scheme);
+        const eitherNonZero = zoneTotal > 0.5 || masterArea > 0.5;
+        if (eitherNonZero) {
+          if (masterArea < 0.5 && zoneTotal > 0.5) {
             zoneFlags.push(
-              `Treatment zones sum to ${zoneTotal.toLocaleString()} m² but scheme area is ${masterArea.toLocaleString()} m² ` +
-              `(${diff > 0 ? '+' : ''}${diff.toLocaleString()} m² ${diff > 0 ? 'over' : 'under'})`
+              `Master Workbook area is 0 m² but Designer zones sum to ${zoneTotal.toLocaleString()} m² — ` +
+              `set Carriageway Area in the Workbook so the figures match.`
             );
+          } else if (zoneTotal < 0.5 && masterArea > 0.5 && zones.length === 0) {
+            // Don't fire when there simply aren't any zones yet — that's
+            // the normal pre-design state, not a drift.
+          } else {
+            const diff = zoneTotal - masterArea;
+            if (Math.abs(diff) > 0.5) {
+              zoneFlags.push(
+                `Treatment zones sum to ${zoneTotal.toLocaleString()} m² but scheme area is ${masterArea.toLocaleString()} m² ` +
+                `(${diff > 0 ? '+' : ''}${diff.toLocaleString()} m² ${diff > 0 ? 'over' : 'under'})`
+              );
+            }
           }
         }
         const flags = [...persisted, ...zoneFlags];
