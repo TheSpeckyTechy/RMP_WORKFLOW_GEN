@@ -1001,10 +1001,10 @@ function SurfaceDressingDesigner({ schemeId }) {
 
     /* ── Portal content + scroll-reveal ─────────────────────────────────────── */
     .sd-portal-content { flex: 1; overflow-y: auto; padding: 16px 20px; }
-    .sd-portal-content .sd-panel { opacity: 0; transform: translateY(14px); transition: opacity 350ms ease, transform 350ms ease; }
+    .sd-portal-content .sd-panel { opacity: 1; transform: none; transition: opacity 350ms ease, transform 350ms ease; }
+    .sd-portal-content .sd-panel.sd-scroll-hidden { opacity: 0; transform: translateY(14px); }
     .sd-portal-content .sd-panel.sd-revealed { opacity: 1; transform: none; }
     .sd-portal-content .sd-grid-2 .sd-panel { margin-bottom: 14px; }
-    @media (prefers-reduced-motion: reduce) { .sd-portal-content .sd-panel { opacity: 1 !important; transform: none !important; } }
     @media (max-width: 600px) {
       .sd-portal-rail { width: 40px; }
       .sd-rail-dot { width: 24px; height: 24px; font-size: 10px; }
@@ -1487,7 +1487,7 @@ function SurfaceDressingDesigner({ schemeId }) {
       )}
 
       {/* PORTAL OVERLAY — fullscreen zero-distraction mode */}
-      {portalOpen && (
+      {portalOpen && ReactDOM.createPortal(
         <div className="sd-portal-overlay">
 
           {/* Live header */}
@@ -1602,7 +1602,8 @@ function SurfaceDressingDesigner({ schemeId }) {
             </div>
           )}
 
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
