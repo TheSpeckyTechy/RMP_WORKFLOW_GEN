@@ -422,6 +422,15 @@ const SyncChip = () => {
     const t = setInterval(forceUpdate, 30000);
     return () => clearInterval(t);
   }, [lastSynced, syncStatus]);
+  // 'fs' on a browser without File System Access API (mobile, Firefox, Safari)
+  // → read-only notice rather than a broken picker button.
+  if (backendMode === 'fs' && !window.showDirectoryPicker) {
+    return (
+      <div className="sync-chip sync-error" title="File System Access API not available — open in desktop Edge to sync">
+        <span className="sync-chip-label">Mobile — open in desktop Edge to sync</span>
+      </div>
+    );
+  }
   // 'fs' backend with no folder picked → render an actionable chip
   // instead of the passive status one.
   if (backendMode === 'fs' && syncStatus === 'folder-required') {
@@ -480,7 +489,7 @@ const relativeTime = (date) => {
 };
 
 const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
-  const { resetAllSchemes, syncStatus, lastSynced } = React.useContext(window.SchemeContext);
+  const { resetAllSchemes, syncStatus, lastSynced, backendMode, folderName, pickDataFolder, forgetDataFolder, syncAllToFolder } = React.useContext(window.SchemeContext);
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
   const [userPrefs, setUserPrefs] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem('rmp_user_prefs')) || {}; } catch { return {}; }
@@ -588,18 +597,57 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
         <div className="settings-section">
           <div className="settings-section-title">Storage</div>
           <div className="settings-card">
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <SyncDot status={syncStatus} />
+            {backendMode === 'fs' ? (
               <div>
-                <div style={{fontSize:13,fontWeight:500}}>Supabase · Workload</div>
-                <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>
-                  {syncStatus==='synced' && `All changes synced · West EU (Ireland)${lastSynced ? ' · ' + relativeTime(lastSynced) : ''}`}
-                  {syncStatus==='syncing' && 'Syncing…'}
-                  {syncStatus==='loading' && 'Connecting…'}
-                  {syncStatus==='error' && <span style={{color:"var(--red)"}}>Sync error — check console</span>}
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <SyncDot status={syncStatus === 'folder-required' ? 'error' : syncStatus} />
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:500}}>
+                      OneDrive folder{folderName ? ` · ${folderName}` : ''}
+                    </div>
+                    <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>
+                      {syncStatus==='synced'          && `All changes synced · DCC OneDrive${lastSynced ? ' · ' + relativeTime(lastSynced) : ''}`}
+                      {syncStatus==='syncing'         && 'Writing to folder…'}
+                      {syncStatus==='loading'         && 'Connecting…'}
+                      {syncStatus==='folder-required' && 'No folder selected — pick one to start syncing'}
+                      {syncStatus==='error'           && <span style={{color:"var(--red)"}}>Write error — check console</span>}
+                    </div>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+                  <button className="btn sm" onClick={() => pickDataFolder && pickDataFolder()}>
+                    {syncStatus === 'folder-required' ? '📁 Choose folder' : '📁 Change folder'}
+                  </button>
+                  {syncStatus !== 'folder-required' && (<>
+                    <button className="btn sm" onClick={() => syncAllToFolder && syncAllToFolder()}
+                      title="Write every scheme to the folder now — useful after first setup">
+                      Sync all to folder
+                    </button>
+                    <button className="btn sm" style={{color:"var(--red)",borderColor:"var(--red)"}}
+                      onClick={async () => {
+                        const ask = window.confirmDialog || ((o) => Promise.resolve(window.confirm(o.body || o.title)));
+                        const ok = await ask({ title:'Forget folder?', body:'The app will stop syncing until you pick a folder again. Your files stay in OneDrive.', confirmLabel:'Forget', danger:true });
+                        if (ok) forgetDataFolder && forgetDataFolder();
+                      }}>
+                      Forget folder
+                    </button>
+                  </>)}
                 </div>
               </div>
-            </div>
+            ) : (
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <SyncDot status={syncStatus} />
+                <div>
+                  <div style={{fontSize:13,fontWeight:500}}>Supabase · Workload</div>
+                  <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>
+                    {syncStatus==='synced' && `All changes synced · West EU (Ireland)${lastSynced ? ' · ' + relativeTime(lastSynced) : ''}`}
+                    {syncStatus==='syncing' && 'Syncing…'}
+                    {syncStatus==='loading' && 'Connecting…'}
+                    {syncStatus==='error' && <span style={{color:"var(--red)"}}>Sync error — check console</span>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <div className="settings-section">
