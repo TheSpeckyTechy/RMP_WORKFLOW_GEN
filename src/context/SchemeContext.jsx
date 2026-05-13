@@ -61,6 +61,15 @@ const fsIdbSet = async (key, value) => {
   });
 };
 
+const fsIdbDelete = async (key) => {
+  const db = await fsOpenDb();
+  return new Promise((resolve, reject) => {
+    const del = db.transaction(FS_STORE, 'readwrite').objectStore(FS_STORE).delete(key);
+    del.onsuccess = () => resolve();
+    del.onerror   = () => reject(del.error);
+  });
+};
+
 let _fsDir = null;
 
 // Must run from a user gesture (button click) — browsers refuse
@@ -423,9 +432,17 @@ const SchemeProvider = ({ children }) => {
   const [schemes, setSchemes]     = React.useState(initSchemes);
   const [syncStatus, setSyncStatus] = React.useState('loading');
   const [lastSynced, setLastSynced] = React.useState(null);
+  const [folderName, setFolderName] = React.useState(null);
   const latestSchemes = React.useRef(schemes);
 
   React.useEffect(() => { latestSchemes.current = schemes; }, [schemes]);
+
+  // Seed folderName from the cached IndexedDB handle so the Settings panel
+  // shows the folder name even before the first fsFetchAll resolves.
+  React.useEffect(() => {
+    if (BACKEND_MODE !== 'fs') return;
+    fsIdbGet(FS_HANDLE_KEY).then(h => { if (h) setFolderName(h.name); }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // On mount: fetch from Supabase and merge into state. Per-scheme,
   // compare embedded data.updated_at against the local copy and keep
@@ -483,6 +500,7 @@ const SchemeProvider = ({ children }) => {
           });
         }
       }
+      if (BACKEND_MODE === 'fs' && _fsDir) setFolderName(_fsDir.name);
       setSyncStatus('synced');
       setLastSynced(new Date());
       // Drain any writes that were queued while offline / Supabase was
@@ -549,16 +567,36 @@ const SchemeProvider = ({ children }) => {
     window.location.reload();
   };
 
+  const forgetDataFolder = async () => {
+    await fsIdbDelete(FS_HANDLE_KEY).catch(() => {});
+    _fsDir = null;
+    setFolderName(null);
+    setSyncStatus('folder-required');
+  };
+
+  const syncAllToFolder = async () => {
+    if (BACKEND_MODE !== 'fs') return;
+    setSyncStatus('syncing');
+    for (const s of latestSchemes.current) {
+      const { error } = await backendUpsertOnce(s.id, s);
+      if (error) { setSyncStatus('error'); return; }
+    }
+    setSyncStatus('synced');
+    setLastSynced(new Date());
+  };
+
   return (
     <window.SchemeContext.Provider value={{
       schemes, getScheme, updateScheme, addScheme, deleteScheme, resetAllSchemes,
       syncStatus, lastSynced,
       backendMode: BACKEND_MODE,
+      folderName, forgetDataFolder, syncAllToFolder,
       // Folder-picker for the 'fs' backend. Wired up from a topbar
       // button when syncStatus === 'folder-required'.
       pickDataFolder: async () => {
         try {
           await fsPickFolder();
+          if (_fsDir) setFolderName(_fsDir.name);
           setSyncStatus('syncing');
           const { data: rows, error } = await backendFetchAll();
           if (error) { setSyncStatus('error'); return false; }
