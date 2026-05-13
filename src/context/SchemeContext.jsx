@@ -11,10 +11,152 @@
 
 window.SchemeContext = React.createContext(null);
 
+// ── Backend mode ─────────────────────────────────────────────────────────
+// Default 'supabase'. Flip to 'graph' once your DCC Azure AD app
+// registration is in place and GRAPH_CONFIG below has real IDs.
+// See SETUP_GRAPH.md at the repo root for the registration steps.
+const BACKEND_MODE = 'supabase';   // 'supabase' | 'graph'
+
+// ── Supabase backend ─────────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://humgbvwpxkhgfznnvhrn.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_0mH4xC8eTp_HZaMmzBb8tQ_zMqXgm1o';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── Microsoft Graph (SharePoint/OneDrive) backend ────────────────────────
+// Activated when BACKEND_MODE === 'graph'. Each scheme is stored as a
+// JSON file in the signed-in user's OneDrive under the schemeFolder path.
+// Auth uses MSAL.js (CDN-loaded in index.html). Replace clientId/tenantId
+// with values from the Azure AD app registration; see SETUP_GRAPH.md.
+const GRAPH_CONFIG = {
+  clientId: 'REPLACE_WITH_AZURE_AD_APP_ID',
+  tenantId: 'REPLACE_WITH_AZURE_AD_TENANT_ID',
+  scopes: ['Files.ReadWrite', 'User.Read'],
+  // Path inside OneDrive. Folder is auto-created on first write.
+  schemeFolder: 'RMP/scheme-data',
+};
+
+let _msal = null;
+let _msalReady = null;   // Promise resolving after MSAL.initialize + handleRedirectPromise
+
+const initMsal = () => {
+  if (_msal) return _msal;
+  if (!window.msal) throw new Error('msal-browser CDN not loaded');
+  _msal = new window.msal.PublicClientApplication({
+    auth: {
+      clientId: GRAPH_CONFIG.clientId,
+      authority: `https://login.microsoftonline.com/${GRAPH_CONFIG.tenantId}`,
+      redirectUri: window.location.origin + window.location.pathname,
+    },
+    cache: { cacheLocation: 'localStorage' },
+  });
+  _msalReady = _msal.initialize().then(() => _msal.handleRedirectPromise());
+  return _msal;
+};
+
+const graphAccount = () => {
+  if (!_msal) return null;
+  const list = _msal.getAllAccounts();
+  return list[0] || null;
+};
+
+const graphSignIn = async () => {
+  initMsal();
+  await _msalReady;
+  const r = await _msal.loginPopup({ scopes: GRAPH_CONFIG.scopes });
+  _msal.setActiveAccount(r.account);
+  return r.account;
+};
+
+const graphSignOut = async () => {
+  if (!_msal) return;
+  await _msalReady;
+  await _msal.logoutPopup();
+};
+
+const getGraphToken = async () => {
+  initMsal();
+  await _msalReady;
+  const account = graphAccount();
+  if (!account) throw new Error('not_authenticated');
+  try {
+    const r = await _msal.acquireTokenSilent({ scopes: GRAPH_CONFIG.scopes, account });
+    return r.accessToken;
+  } catch (e) {
+    if (e && e.name === 'InteractionRequiredAuthError') {
+      const r = await _msal.acquireTokenPopup({ scopes: GRAPH_CONFIG.scopes });
+      return r.accessToken;
+    }
+    throw e;
+  }
+};
+
+const graphFetch = async (path, opts = {}) => {
+  const token = await getGraphToken();
+  return fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    ...opts,
+    headers: { ...(opts.headers || {}), Authorization: `Bearer ${token}` },
+  });
+};
+
+const graphFolderPath = (sub) =>
+  `/me/drive/root:/${GRAPH_CONFIG.schemeFolder}${sub || ''}`;
+
+// Upsert a single scheme as a JSON file. Mirrors sbUpsertOnce's shape so
+// callers don't need to branch — both return { error: null | Error }.
+const graphUpsertOnce = async (id, data) => {
+  const stamped = { ...data, updated_at: data.updated_at || new Date().toISOString() };
+  const url = `${graphFolderPath(`/${encodeURIComponent(id)}.json`)}:/content`;
+  try {
+    const res = await graphFetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(stamped),
+    });
+    return { error: res.ok ? null : new Error(`Graph upsert ${res.status} ${res.statusText}`) };
+  } catch (e) {
+    return { error: e instanceof Error ? e : new Error(String(e)) };
+  }
+};
+
+// Mount-effect fetch — list and read every JSON file in the folder.
+// Returns the same { data: rows, error } shape Supabase returns so the
+// caller's merge loop is identical for both backends.
+const graphFetchAll = async () => {
+  try {
+    const list = await graphFetch(`${graphFolderPath()}:/children?$select=id,name,lastModifiedDateTime&$top=200`);
+    // 404 = folder not yet created (first ever use). Treat as empty.
+    if (list.status === 404) return { data: [], error: null };
+    if (!list.ok) return { data: null, error: new Error(`Graph list ${list.status}`) };
+    const json = await list.json();
+    const files = (json.value || []).filter(f => f.name && f.name.endsWith('.json'));
+    const rows = await Promise.all(files.map(async f => {
+      const content = await graphFetch(`/me/drive/items/${f.id}/content`);
+      if (!content.ok) return null;
+      const data = await content.json();
+      return {
+        id: data.id || f.name.replace(/\.json$/, ''),
+        data,
+        updated_at: data.updated_at || f.lastModifiedDateTime,
+      };
+    }));
+    return { data: rows.filter(Boolean), error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error(String(e)) };
+  }
+};
+
+// Single dispatch points so the SchemeProvider logic doesn't have to
+// branch per call. Each picks the correct backend based on BACKEND_MODE.
+const backendUpsertOnce = (id, data) =>
+  BACKEND_MODE === 'graph'
+    ? graphUpsertOnce(id, data)
+    : sbUpsertOnce(id, data);
+
+const backendFetchAll = () =>
+  BACKEND_MODE === 'graph'
+    ? graphFetchAll()
+    : sb.from('schemes').select('id, data, updated_at').then(r => r);
 
 // ── localStorage helpers ─────────────────────────────────────────────────────
 const LS_PREFIX = 'rmp_scheme_';
@@ -236,7 +378,7 @@ const sbUpsertOnce = async (id, data) => {
 
 const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
   onStatus('syncing');
-  const { error } = await sbUpsertOnce(id, data);
+  const { error } = await backendUpsertOnce(id, data);
   if (error) {
     // Network/permission failure — queue for retry so the edit isn't lost
     // if the user refreshes before connectivity returns.
@@ -263,7 +405,7 @@ const sbDrainQueue = async (onStatus, onSynced) => {
   // Sort FIFO so the oldest queued edit retries first.
   queue.sort((a, b) => a.queuedAt - b.queuedAt);
   for (const item of queue) {
-    const { error } = await sbUpsertOnce(item.id, item.data);
+    const { error } = await backendUpsertOnce(item.id, item.data);
     if (error) { onStatus('error'); return; }
     sbqRemove(item.id);
   }
@@ -287,8 +429,15 @@ const SchemeProvider = ({ children }) => {
   // remote spread { ...local, ...remote } silently clobbers the
   // in-flight local edit.
   React.useEffect(() => {
-    sb.from('schemes').select('id, data, updated_at').then(({ data: rows, error }) => {
-      if (error) { setSyncStatus('error'); return; }
+    backendFetchAll().then(({ data: rows, error }) => {
+      if (error) {
+        // Graph "not authenticated" isn't an error — it's the
+        // first-time-user state. The UI surfaces a sign-in prompt.
+        if (BACKEND_MODE === 'graph' && /not_authenticated/.test(String(error.message || error))) {
+          setSyncStatus('auth-required');
+        } else { setSyncStatus('error'); }
+        return;
+      }
       if (rows && rows.length > 0) {
         const remoteMap = Object.fromEntries(rows.map(r => [r.id, { data: r.data, updated_at: r.updated_at }]));
         // Track schemes where remote genuinely overwrote a locally-edited
@@ -391,7 +540,21 @@ const SchemeProvider = ({ children }) => {
   };
 
   return (
-    <window.SchemeContext.Provider value={{ schemes, getScheme, updateScheme, addScheme, deleteScheme, resetAllSchemes, syncStatus, lastSynced }}>
+    <window.SchemeContext.Provider value={{ schemes, getScheme, updateScheme, addScheme, deleteScheme, resetAllSchemes, syncStatus, lastSynced, backendMode: BACKEND_MODE, signIn: async () => {
+      try {
+        await graphSignIn();
+        setSyncStatus('syncing');
+        const { data: rows, error } = await backendFetchAll();
+        if (error) { setSyncStatus('error'); return; }
+        if (rows && rows.length > 0) {
+          const remoteMap = Object.fromEntries(rows.map(r => [r.id, { data: r.data, updated_at: r.updated_at }]));
+          setSchemes(prev => prev.map(s => remoteMap[s.id] ? migrate({ ...s, ...remoteMap[s.id].data }) : s));
+        }
+        setSyncStatus('synced');
+        setLastSynced(new Date());
+        sbDrainQueue(setSyncStatus, () => setLastSynced(new Date()));
+      } catch (e) { setSyncStatus('error'); }
+    }, signOut: async () => { await graphSignOut(); setSyncStatus('auth-required'); } }}>
       {children}
     </window.SchemeContext.Provider>
   );
