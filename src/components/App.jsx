@@ -415,13 +415,22 @@ const SyncDot = ({ status }) => {
 // Topbar chip combining the SyncDot with a live "Synced · 4s ago" label.
 // Self-consumes SchemeContext so it can keep its own refresh timer.
 const SyncChip = () => {
-  const { syncStatus, lastSynced } = React.useContext(window.SchemeContext);
+  const { syncStatus, lastSynced, backendMode, pickDataFolder } = React.useContext(window.SchemeContext);
   const [, forceUpdate] = React.useReducer(x => x + 1, 0);
   React.useEffect(() => {
     if (syncStatus !== 'synced' || !lastSynced) return;
     const t = setInterval(forceUpdate, 30000);
     return () => clearInterval(t);
   }, [lastSynced, syncStatus]);
+  // 'fs' backend with no folder picked → render an actionable chip
+  // instead of the passive status one.
+  if (backendMode === 'fs' && syncStatus === 'folder-required') {
+    return (
+      <button className="btn sm" onClick={() => pickDataFolder && pickDataFolder()} title="Pick a folder in your OneDrive to store schemes">
+        📁 Choose data folder
+      </button>
+    );
+  }
   let label;
   if (syncStatus === 'loading')      label = 'Connecting…';
   else if (syncStatus === 'syncing') label = 'Saving…';

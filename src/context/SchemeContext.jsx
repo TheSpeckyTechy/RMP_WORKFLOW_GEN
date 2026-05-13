@@ -11,10 +11,138 @@
 
 window.SchemeContext = React.createContext(null);
 
+// ── Backend mode ─────────────────────────────────────────────────────────
+// 'supabase' — third-party Postgres, default for backward compat.
+// 'fs'       — File System Access API. Stores each scheme as a JSON file
+//              in a user-picked OneDrive folder. Zero IT setup; data stays
+//              on the work laptop + DCC's OneDrive tenant. Desktop Edge /
+//              Chrome / Opera only (no Firefox, no Safari, no mobile).
+//              See SETUP_FS.md for usage.
+const BACKEND_MODE = 'supabase';   // 'supabase' | 'fs'
+
+// ── Supabase backend ─────────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://humgbvwpxkhgfznnvhrn.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_0mH4xC8eTp_HZaMmzBb8tQ_zMqXgm1o';
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── File System Access backend ───────────────────────────────────────────
+// Stores each scheme as a {id}.json file in a folder the user picks once.
+// Handle cached in IndexedDB so it survives refreshes. Point at a
+// OneDrive-synced folder and every save round-trips to DCC's OneDrive
+// cloud automatically. No app registration, no Azure AD, no anon key.
+
+const FS_DB_NAME    = 'rmp_fs_v1';
+const FS_STORE      = 'handles';
+const FS_HANDLE_KEY = 'data_dir';
+
+const fsOpenDb = () => new Promise((resolve, reject) => {
+  const req = indexedDB.open(FS_DB_NAME, 1);
+  req.onupgradeneeded = () => req.result.createObjectStore(FS_STORE);
+  req.onerror   = () => reject(req.error);
+  req.onsuccess = () => resolve(req.result);
+});
+
+const fsIdbGet = async (key) => {
+  const db = await fsOpenDb();
+  return new Promise((resolve, reject) => {
+    const get = db.transaction(FS_STORE, 'readonly').objectStore(FS_STORE).get(key);
+    get.onsuccess = () => resolve(get.result);
+    get.onerror   = () => reject(get.error);
+  });
+};
+
+const fsIdbSet = async (key, value) => {
+  const db = await fsOpenDb();
+  return new Promise((resolve, reject) => {
+    const put = db.transaction(FS_STORE, 'readwrite').objectStore(FS_STORE).put(value, key);
+    put.onsuccess = () => resolve();
+    put.onerror   = () => reject(put.error);
+  });
+};
+
+let _fsDir = null;
+
+// Must run from a user gesture (button click) — browsers refuse
+// showDirectoryPicker outside one.
+const fsPickFolder = async () => {
+  if (!window.showDirectoryPicker) {
+    throw new Error('File System Access API not available in this browser. Use Edge or Chrome on desktop.');
+  }
+  const handle = await window.showDirectoryPicker({
+    id: 'rmp-data', mode: 'readwrite', startIn: 'documents',
+  });
+  await fsIdbSet(FS_HANDLE_KEY, handle);
+  _fsDir = handle;
+  return handle;
+};
+
+// Resolve the cached handle; re-requests permission if the browser
+// cleared the grant. Throws 'no_folder_chosen' / 'permission_denied'
+// so the caller can prompt the user via a folder-picker button.
+const fsResolveFolder = async () => {
+  if (_fsDir) {
+    const p = await _fsDir.queryPermission({ mode: 'readwrite' });
+    if (p === 'granted') return _fsDir;
+  }
+  const stored = await fsIdbGet(FS_HANDLE_KEY);
+  if (!stored) throw new Error('no_folder_chosen');
+  const perm = await stored.queryPermission({ mode: 'readwrite' });
+  if (perm !== 'granted') {
+    const req = await stored.requestPermission({ mode: 'readwrite' });
+    if (req !== 'granted') throw new Error('permission_denied');
+  }
+  _fsDir = stored;
+  return stored;
+};
+
+const fsUpsertOnce = async (id, data) => {
+  try {
+    const dir = await fsResolveFolder();
+    const stamped = { ...data, updated_at: data.updated_at || new Date().toISOString() };
+    const fileHandle = await dir.getFileHandle(`${id}.json`, { create: true });
+    const writable   = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(stamped, null, 2));
+    await writable.close();
+    return { error: null };
+  } catch (e) {
+    return { error: e instanceof Error ? e : new Error(String(e)) };
+  }
+};
+
+const fsFetchAll = async () => {
+  try {
+    const dir = await fsResolveFolder();
+    const rows = [];
+    for await (const [name, handle] of dir.entries()) {
+      if (handle.kind !== 'file' || !name.endsWith('.json')) continue;
+      const file = await handle.getFile();
+      try {
+        const data = JSON.parse(await file.text());
+        rows.push({
+          id: data.id || name.replace(/\.json$/, ''),
+          data,
+          updated_at: data.updated_at || new Date(file.lastModified).toISOString(),
+        });
+      } catch { /* skip corrupt JSON */ }
+    }
+    return { data: rows, error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error(String(e)) };
+  }
+};
+
+// Single dispatcher — switches on BACKEND_MODE so SchemeProvider doesn't
+// have to know which backend it's talking to.
+const backendUpsertOnce = (id, data) =>
+  BACKEND_MODE === 'fs'
+    ? fsUpsertOnce(id, data)
+    : sbUpsertOnce(id, data);
+
+const backendFetchAll = () =>
+  BACKEND_MODE === 'fs'
+    ? fsFetchAll()
+    : sb.from('schemes').select('id, data, updated_at').then(r => r);
 
 // ── localStorage helpers ─────────────────────────────────────────────────────
 const LS_PREFIX = 'rmp_scheme_';
@@ -236,7 +364,7 @@ const sbUpsertOnce = async (id, data) => {
 
 const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
   onStatus('syncing');
-  const { error } = await sbUpsertOnce(id, data);
+  const { error } = await backendUpsertOnce(id, data);
   if (error) {
     // Network/permission failure — queue for retry so the edit isn't lost
     // if the user refreshes before connectivity returns.
@@ -263,7 +391,7 @@ const sbDrainQueue = async (onStatus, onSynced) => {
   // Sort FIFO so the oldest queued edit retries first.
   queue.sort((a, b) => a.queuedAt - b.queuedAt);
   for (const item of queue) {
-    const { error } = await sbUpsertOnce(item.id, item.data);
+    const { error } = await backendUpsertOnce(item.id, item.data);
     if (error) { onStatus('error'); return; }
     sbqRemove(item.id);
   }
@@ -287,8 +415,19 @@ const SchemeProvider = ({ children }) => {
   // remote spread { ...local, ...remote } silently clobbers the
   // in-flight local edit.
   React.useEffect(() => {
-    sb.from('schemes').select('id, data, updated_at').then(({ data: rows, error }) => {
-      if (error) { setSyncStatus('error'); return; }
+    backendFetchAll().then(({ data: rows, error }) => {
+      if (error) {
+        // 'fs' mode: no folder picked yet (or permission cleared on tab
+        // restore) → not an error, just a first-run state the UI handles
+        // by surfacing a "Choose data folder" button.
+        const msg = String(error.message || error);
+        if (BACKEND_MODE === 'fs' && /no_folder_chosen|permission_denied/.test(msg)) {
+          setSyncStatus('folder-required');
+        } else {
+          setSyncStatus('error');
+        }
+        return;
+      }
       if (rows && rows.length > 0) {
         const remoteMap = Object.fromEntries(rows.map(r => [r.id, { data: r.data, updated_at: r.updated_at }]));
         // Track schemes where remote genuinely overwrote a locally-edited
@@ -391,7 +530,34 @@ const SchemeProvider = ({ children }) => {
   };
 
   return (
-    <window.SchemeContext.Provider value={{ schemes, getScheme, updateScheme, addScheme, deleteScheme, resetAllSchemes, syncStatus, lastSynced }}>
+    <window.SchemeContext.Provider value={{
+      schemes, getScheme, updateScheme, addScheme, deleteScheme, resetAllSchemes,
+      syncStatus, lastSynced,
+      backendMode: BACKEND_MODE,
+      // Folder-picker for the 'fs' backend. Wired up from a topbar
+      // button when syncStatus === 'folder-required'.
+      pickDataFolder: async () => {
+        try {
+          await fsPickFolder();
+          setSyncStatus('syncing');
+          const { data: rows, error } = await backendFetchAll();
+          if (error) { setSyncStatus('error'); return false; }
+          if (rows && rows.length > 0) {
+            const remoteMap = Object.fromEntries(rows.map(r => [r.id, { data: r.data, updated_at: r.updated_at }]));
+            setSchemes(prev => prev.map(s => remoteMap[s.id] ? migrate({ ...s, ...remoteMap[s.id].data }) : s));
+          }
+          setSyncStatus('synced');
+          setLastSynced(new Date());
+          // Drain any writes queued while the folder was unset.
+          sbDrainQueue(setSyncStatus, () => setLastSynced(new Date()));
+          return true;
+        } catch (e) {
+          if (window.Toast) window.Toast.show({ kind:'error', msg: String(e.message || e), duration: 8000 });
+          setSyncStatus('folder-required');
+          return false;
+        }
+      },
+    }}>
       {children}
     </window.SchemeContext.Provider>
   );
