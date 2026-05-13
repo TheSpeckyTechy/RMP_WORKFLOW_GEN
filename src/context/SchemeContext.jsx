@@ -18,7 +18,7 @@ window.SchemeContext = React.createContext(null);
 //              on the work laptop + DCC's OneDrive tenant. Desktop Edge /
 //              Chrome / Opera only (no Firefox, no Safari, no mobile).
 //              See SETUP_FS.md for usage.
-const BACKEND_MODE = 'supabase';   // 'supabase' | 'fs'
+const BACKEND_MODE = 'fs';   // 'supabase' | 'fs'
 
 // ── Supabase backend ─────────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://humgbvwpxkhgfznnvhrn.supabase.co';
@@ -96,6 +96,21 @@ const fsResolveFolder = async () => {
   return stored;
 };
 
+const fsDeleteOnce = async (id) => {
+  try {
+    const dir = await fsResolveFolder();
+    try {
+      await dir.removeEntry(`${id}.json`);
+    } catch (e) {
+      // File not found is fine — nothing to delete.
+      if (e.name !== 'NotFoundError') throw e;
+    }
+    return { error: null };
+  } catch (e) {
+    return { error: e instanceof Error ? e : new Error(String(e)) };
+  }
+};
+
 const fsUpsertOnce = async (id, data) => {
   try {
     const dir = await fsResolveFolder();
@@ -132,12 +147,17 @@ const fsFetchAll = async () => {
   }
 };
 
-// Single dispatcher — switches on BACKEND_MODE so SchemeProvider doesn't
+// Single dispatchers — switch on BACKEND_MODE so SchemeProvider doesn't
 // have to know which backend it's talking to.
 const backendUpsertOnce = (id, data) =>
   BACKEND_MODE === 'fs'
     ? fsUpsertOnce(id, data)
     : sbUpsertOnce(id, data);
+
+const backendDeleteOnce = (id) =>
+  BACKEND_MODE === 'fs'
+    ? fsDeleteOnce(id)
+    : sb.from('schemes').delete().eq('id', id).then(r => r);
 
 const backendFetchAll = () =>
   BACKEND_MODE === 'fs'
@@ -517,7 +537,7 @@ const SchemeProvider = ({ children }) => {
     lsSetIds(lsGetIds().filter(i => i !== id));
     setSchemes(prev => prev.filter(s => s.id !== id));
     setSyncStatus('syncing');
-    sb.from('schemes').delete().eq('id', id)
+    backendDeleteOnce(id)
       .then(({ error }) => setSyncStatus(error ? 'error' : 'synced'));
   };
 
