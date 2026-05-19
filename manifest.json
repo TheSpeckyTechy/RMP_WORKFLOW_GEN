@@ -1,0 +1,18 @@
+{
+  "name": "RMP Design Studio",
+  "short_name": "RMP Studio",
+  "description": "Road Maintenance Partnership design and BoQ tool — Dundee City Council",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f2f2",
+  "theme_color": "#c46a2c",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}
