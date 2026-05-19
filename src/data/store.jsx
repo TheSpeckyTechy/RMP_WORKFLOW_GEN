@@ -206,7 +206,7 @@ const baseScheme = (overrides) => ({
   haz_environment: "All waste generated through cold milling to be removed from site.",
   haz_other: "Contractor to adhere with latest government guidance relating to site safety.",
   haz_additional: "Contact has been made with each business and resident along the scheme extents. All informed of access restrictions during working hours.",
-  cdm_principal_designer: "N/A",
+  cdm_principal_designer: "Jake McAllister",
   // Letter content overrides — when non-empty, these replace the auto-derived
   // subject / body text in the resident / business letter preview and mail merge.
   letter_subject_override: "",
