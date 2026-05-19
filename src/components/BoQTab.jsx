@@ -159,8 +159,8 @@ const BoQLedger = ({ computed, onEditLine, onDeleteLine, onMoveLine, onDuplicate
       }}>
         <div style={{marginBottom:12}}>No BoQ lines yet.</div>
         <div style={{fontSize:12,marginBottom:16}}>
-          Fill the Quick Input form on the left and hit <em>Regenerate auto-lines</em>,
-          or add items from the full catalogue.
+          Auto-lines generate from the <strong>Treatment Designer</strong>.
+          Add catalogue items or custom lines below.
         </div>
         <button className="btn accent" onClick={onOpenCatalogue}>
           <Icon.Search /> Add from catalogue
@@ -254,7 +254,14 @@ const CatalogueDrawer = ({ open, onClose, onPick, recent = [] }) => {
   const [results, setResults] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const debounceRef = React.useRef(null);
+  const inputRef    = React.useRef(null);
   const idle = !query && !seriesFilter && !unitFilter;
+
+  React.useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 210);
+    return () => clearTimeout(t);
+  }, [open]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -287,11 +294,11 @@ const CatalogueDrawer = ({ open, onClose, onPick, recent = [] }) => {
             <button className="btn ghost sm" onClick={onClose} title="Close">✕</button>
           </div>
           <input
+            ref={inputRef}
             type="text" placeholder="Search 1,700+ items by description or ID…"
             value={query} onChange={e=>setQuery(e.target.value)}
             style={{width:'100%',fontSize:12,padding:'8px 10px',
                     border:'1px solid var(--line)',borderRadius:4,marginBottom:10}}
-            autoFocus
           />
           <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
             <button
