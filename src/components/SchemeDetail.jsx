@@ -73,7 +73,7 @@ const SchemeMobileCard = ({ scheme, onExpand, onBack, onGenerate }) => {
 };
 
 const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) => {
-  const { getScheme, updateScheme, deleteScheme } = React.useContext(window.SchemeContext);
+  const { getScheme, updateScheme, deleteScheme, provisionSchemeFolder, backendMode } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
   const [tab, setTab] = React.useState("workbook");
   const [showSketch, setShowSketch] = React.useState(false);
@@ -127,6 +127,19 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
         </div>
         <div className="scheme-actions" style={{display:"flex",gap:8}}>
           {scheme.sketch_pdf && <button className="btn ghost" onClick={()=>setShowSketch(true)} title="View pre-design sketch">📄 View sketch</button>}
+          {backendMode === 'fs' && (
+            <button className="btn ghost" title={`Create project folder: ${window.schemeFolderName ? window.schemeFolderName(scheme) : ''}`}
+              onClick={async () => {
+                const { error, folderName } = await provisionSchemeFolder(schemeId);
+                if (error) {
+                  window.Toast?.show({ kind:'error', msg: `Folder creation failed: ${error.message}` });
+                } else {
+                  window.Toast?.show({ kind:'success', msg: `Folder created: ${folderName}` });
+                }
+              }}>
+              📁 Create folder
+            </button>
+          )}
           <button className="btn" onClick={()=>{ if(tab==="workbook"&&window.__workbookExport){ window.__workbookExport(); } else { setTab("workbook"); } }}><Icon.Download /> Export workbook</button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack <span className="kbd">⌘G</span></button>
           {onDuplicate && <button className="btn ghost sm" title="Duplicate scheme" aria-label="Duplicate scheme" onClick={()=>onDuplicate(scheme)}><Icon.Copy /></button>}
