@@ -1,0 +1,4 @@
+# BoQ rate schedules — commercially sensitive pricing data
+src/data/boq_rates_full.js
+src/data/boq_rates.js
+src/data/boq_engine.js
