@@ -62,13 +62,13 @@ const RoadSpaceRequestDoc = ({ scheme }) => {
           <tr><td className="rsr-th">Starting Date</td><td><Bound k="date_start" /></td></tr>
           <tr><td className="rsr-th">Finish Date</td><td><Bound k="date_finish" /></td></tr>
           <tr><td className="rsr-th">Duration of Closure</td><td>{daysBetween(scheme.date_start,scheme.date_finish,scheme.working_pattern)} working days</td></tr>
-          <tr><td className="rsr-th">Working Hours</td><td><Bound k="tm_hours" /></td></tr>
-          <tr><td className="rsr-th">Diversion Route(s)</td><td><Bound k="tm_diversion" fallback="—" /></td></tr>
+          <tr><td className="rsr-th">Working Hours</td><td>{window.schemeTM(scheme).hours || scheme.tm_hours || <span className="bound" data-field="tm_hours">[tm_hours]</span>}</td></tr>
+          <tr><td className="rsr-th">Diversion Route(s)</td><td>{window.schemeTM(scheme).diversion_by || scheme.tm_diversion_by || '—'}</td></tr>
         </tbody></table>
         <div className="rsr-section-title">3. Sign-Off</div>
         <table className="rsr-table"><tbody>
           <tr><td className="rsr-th">Signed:</td><td><Bound k="prepared_by" /></td></tr>
-          <tr><td className="rsr-th">Date:</td><td><Bound k="date_prepared" /></td></tr>
+          <tr><td className="rsr-th">Date:</td><td>{scheme.date_prepared || new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}</td></tr>
         </tbody></table>
         <div className="rsr-notes">
           <div style={{fontWeight:600,marginBottom:4}}>Notes</div>
@@ -105,9 +105,9 @@ function buildRSRFields(scheme) {
     DATE_START:       scheme.date_start || '',
     DATE_FINISH:      scheme.date_finish || '',
     DURATION:         String(days),
-    TM_HOURS:         tm.hours,
-    TM_DIVERSION:     tm.diversion_by,
-    DATE_PREPARED:    scheme.date_prepared || '',
+    TM_HOURS:         tm.hours || scheme.tm_hours || '',
+    TM_DIVERSION:     tm.diversion_by || scheme.tm_diversion_by || '',
+    DATE_PREPARED:    scheme.date_prepared || new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }),
   };
 }
 

@@ -319,10 +319,11 @@ const MasterWorkbook = ({ schemeId }) => {
             <select value={scheme.assigned_designer_id || ''} onChange={e => {
               const d = window.DESIGNERS.find(x => x.id === e.target.value);
               if (d) updateScheme(schemeId, {
-                assigned_designer_id: d.id,
-                prepared_by:    d.name,
-                designer_email: d.email,
-                designer_phone: d.phone,
+                assigned_designer_id:   d.id,
+                prepared_by:            d.name,
+                designer_email:         d.email,
+                designer_phone:         d.phone,
+                cdm_principal_designer: d.name,
               });
             }}>
               <option value="">— select designer —</option>
