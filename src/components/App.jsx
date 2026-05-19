@@ -951,6 +951,8 @@ const AppInner = () => {
                 onDuplicate={(scheme) => { setDuplicateSource({ road_name: scheme.road_name, scheme_type: scheme.scheme_type, financial_year: scheme.financial_year, ward_num: scheme.ward_num, status: 'design' }); setNewSchemeOpen(true); }} />
             ) : view === "settings" ? (
               <SettingsView tweaks={tweaks} setTweaks={setTweaks} darkMode={darkMode} setDarkMode={setDarkMode} />
+            ) : view === "analytics" ? (
+              <window.Analytics />
             ) : (
               <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} onNew={()=>setNewSchemeOpen(true)} filter={filter} setFilter={setFilter} search={search} />
             )}
@@ -963,6 +965,12 @@ const AppInner = () => {
           onClick={() => { setView("dashboard"); setOpenScheme(null); setMenuOpen(false); }}>
           <Icon.Folder />
           <span>Schemes</span>
+        </button>
+        <button className={"bottom-nav-tab" + (view === "analytics" ? " active" : "")}
+          aria-current={view === "analytics" ? "page" : undefined}
+          onClick={() => { setView("analytics"); setOpenScheme(null); setMenuOpen(false); }}>
+          <Icon.BarChart />
+          <span>Analysis</span>
         </button>
         <button className={"bottom-nav-tab" + (view === "settings" ? " active" : "")}
           aria-current={view === "settings" ? "page" : undefined}
