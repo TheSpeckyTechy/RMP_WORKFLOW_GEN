@@ -302,6 +302,36 @@ const MasterWorkbook = ({ schemeId }) => {
         <div className="mwb-val"><select value={value} onChange={e=>update(f.key,e.target.value)}>{f.options.map(o=><option key={o} value={o}>{o}</option>)}</select></div>
       </div>
     );
+    if (f.type === "designer") {
+      const selected = window.DESIGNERS.find(d => d.id === scheme.assigned_designer_id) || null;
+      return (
+        <div className="mwb-row" key={f.key}>
+          <div className="mwb-key mono">{f.key}</div>
+          <div className="mwb-label">{f.label}</div>
+          <div className="mwb-val" style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {selected && (
+              <span style={{
+                width:24, height:24, borderRadius:'50%', background: selected.colour,
+                color:'white', display:'grid', placeItems:'center',
+                fontSize:10, fontWeight:700, fontFamily:'var(--font-mono)', flexShrink:0,
+              }}>{selected.initials}</span>
+            )}
+            <select value={scheme.assigned_designer_id || ''} onChange={e => {
+              const d = window.DESIGNERS.find(x => x.id === e.target.value);
+              if (d) updateScheme(schemeId, {
+                assigned_designer_id: d.id,
+                prepared_by:    d.name,
+                designer_email: d.email,
+                designer_phone: d.phone,
+              });
+            }}>
+              <option value="">— select designer —</option>
+              {window.DESIGNERS.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+        </div>
+      );
+    }
     if (f.type === "tayside-pe") return (
       <div className="mwb-row" key={f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>

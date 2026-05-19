@@ -45,6 +45,13 @@ window.WARDS = [
   ]},
 ];
 
+window.DESIGNERS = [
+  { id: 'jake',    name: 'Jake McAllister',  initials: 'JM', colour: '#c46a2c', email: 'jake.mcallister@dundeecity.gov.uk', phone: '01382 834028' },
+  { id: 'barry',   name: 'Barry Carver',     initials: 'BC', colour: '#3b82f6', email: '', phone: '' },
+  { id: 'stephen', name: 'Stephen Lindsay',  initials: 'SL', colour: '#10b981', email: '', phone: '' },
+  { id: 'new',     name: 'New Start',        initials: 'NS', colour: '#9ca3af', email: '', phone: '' },
+];
+
 // Default shape for the BoQ tab. Quantities are derived from scheme.design{}
 // at render time by the BoQ engine — this record only carries the things
 // the BoQ tab itself owns: custom (user-added) lines, recent catalogue
@@ -140,6 +147,7 @@ const baseScheme = (overrides) => ({
   // Informational on the Master / RSR; does not currently affect rates.
   shift_pattern:   "Day",
   // 3. Project Team
+  assigned_designer_id: "jake",
   prepared_by: "Jake McAllister",
   designer_email: "jake.mcallister@dundeecity.gov.uk",
   designer_phone: "01382 834028",
@@ -567,7 +575,7 @@ window.WORKBOOK_SCHEMA = [
       options: ["Day", "Night", "Day & night"] },
   ]},
   { section: "3. Project Team", fields: [
-    { key: "prepared_by", label: "Prepared By (Designer)", type: "text" },
+    { key: "prepared_by", label: "Prepared By (Designer)", type: "designer" },
     { key: "designer_email", label: "Designer Email", type: "email" },
     { key: "designer_phone", label: "Designer Phone", type: "text", mono: true },
     { key: "reviewed_by", label: "Reviewed By", type: "text" },

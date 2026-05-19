@@ -134,7 +134,10 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
                 <tr key={s.id} className={urgent ? 'urgent-row' : ''} onClick={() => onOpen(s.id)} style={{animationDelay: `${Math.min(rowIdx * 20, 140)}ms`}}>
                   <td><span className="row-ref mono">{s.project_number}</span>{s.flags&&s.flags.length>0&&<span style={{marginLeft:6,color:"var(--amber)",display:"inline-flex",verticalAlign:"middle"}}><Icon.Alert /></span>}</td>
                   <td>
-                    <div className="row-name">{s.road_name}{urgent && <span className="urgent-chip">⚡ Urgent</span>}</div>
+                    <div className="row-name" style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      {(() => { const d = (window.DESIGNERS||[]).find(x=>x.id===s.assigned_designer_id); return d ? <span title={d.name} style={{ width:18,height:18,borderRadius:'50%',background:d.colour,color:'white',display:'grid',placeItems:'center',fontSize:8,fontWeight:700,fontFamily:'var(--font-mono)',flexShrink:0 }}>{d.initials}</span> : null; })()}
+                      {s.road_name}{urgent && <span className="urgent-chip">⚡ Urgent</span>}
+                    </div>
                     <div className="row-sub">{s.scheme_extent}</div>
                   </td>
                   <td className="mono" style={{fontSize:11,whiteSpace:'nowrap'}}>{s.date_start||'—'}</td>
@@ -189,7 +192,10 @@ const SchemeListCard = ({ scheme: s, onOpen, updateScheme }) => {
           {Object.entries(STATUS_LABELS).map(([k,l])=><option key={k} value={k}>{l}</option>)}
         </select>
       </div>
-      <div className="slc-title">{s.road_name}{urgent && <span className="urgent-chip">⚡ Urgent</span>}</div>
+      <div className="slc-title" style={{ display:'flex', alignItems:'center', gap:6 }}>
+        {(() => { const d = (window.DESIGNERS||[]).find(x=>x.id===s.assigned_designer_id); return d ? <span title={d.name} style={{ width:20,height:20,borderRadius:'50%',background:d.colour,color:'white',display:'grid',placeItems:'center',fontSize:9,fontWeight:700,fontFamily:'var(--font-mono)',flexShrink:0 }}>{d.initials}</span> : null; })()}
+        {s.road_name}{urgent && <span className="urgent-chip">⚡ Urgent</span>}
+      </div>
       {(s.scheme_extent || ward) && (
         <div className="slc-sub">
           {s.scheme_extent}{s.scheme_extent && ward ? " · " : ""}{ward ? `Ward ${ward.num}` : ""}
