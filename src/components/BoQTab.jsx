@@ -252,7 +252,7 @@ const CatalogueDrawer = ({ open, onClose, onPick, recent = [] }) => {
   const [seriesFilter, setSeriesFilter] = React.useState(null);
   const [unitFilter, setUnitFilter] = React.useState('');
   const [results, setResults] = React.useState([]);
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
   const debounceRef = React.useRef(null);
   const idle = !query && !seriesFilter && !unitFilter;
 
