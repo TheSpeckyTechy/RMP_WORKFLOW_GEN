@@ -50,22 +50,11 @@ const isUrgentScheme = (s) => {
 };
 
 const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
-  const { schemes, resetAllSchemes, updateScheme, provisionAllFolders, backendMode } = React.useContext(window.SchemeContext);
+  const { schemes, updateScheme, provisionAllFolders, backendMode } = React.useContext(window.SchemeContext);
   const [provisioning, setProvisioning] = React.useState(false);
   const isMobile = window.useIsMobile ? window.useIsMobile() : false;
-  const handleReset = async () => {
-    const ask = window.confirmDialog || ((o) => Promise.resolve(window.confirm(o.body || o.title)));
-    const ok = await ask({
-      title: 'Reset the whole automation?',
-      body: 'This clears all local scheme edits and reloads the app with the default schemes. Cross-device data in Supabase is not affected.',
-      confirmLabel: 'Reset',
-      danger: true,
-    });
-    if (ok) {
-      resetAllSchemes();
-      if (window.Toast) window.Toast.show({ kind: 'info', msg: 'Automation reset to defaults.' });
-    }
-  };
+  const useCounter = window.useCounter || ((v) => v);
+
   const statusFiltered = filter === "all" ? schemes.filter(s => s.status !== 'constructed') : schemes.filter(s => s.status === filter);
   const list = (search
     ? statusFiltered.filter(s => {
@@ -89,6 +78,12 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
     m2: activeSchemes.reduce((a,s) => a + (window.schemeArea(s)), 0),
     ready: activeSchemes.filter(s => s.packProgress === s.packTotal).length,
   };
+  const animLive   = useCounter(totals.live);
+  const animUrgent = useCounter(totals.urgent);
+  const animM2     = useCounter(totals.m2);
+  const animReady  = useCounter(totals.ready);
+  const animTender = useCounter(totals.tender);
+  const fmtGBP0 = window.BOQ_ENGINE?.fmtGBP0 || (n => '£' + Math.round(n).toLocaleString());
   const filters = [
     { k: "all", l: "All" },{ k: "design", l: "In design" },{ k: "review", l: "In review" },
     { k: "ready", l: "Ready" },{ k: "works", l: "On site" },{ k: "constructed", l: "Constructed" },{ k: "archived", l: "Archived" },
@@ -120,10 +115,11 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
         </div>
       </div>
       <div className="stats">
-        <div className="stat"><div className="stat-label">Live schemes</div><div className="stat-value">{totals.live}</div><div className="stat-meta">FY 2025/26 + 2026/27</div></div>
-        <div className="stat"><div className="stat-label">Starts within 6 weeks</div><div className="stat-value" style={totals.urgent>0?{color:'var(--amber)'}:{}}>{totals.urgent}</div><div className="stat-meta">{totals.urgent>0?'⚡ Action required':'All future schemes have time'}</div></div>
-        <div className="stat"><div className="stat-label">Total area</div><div className="stat-value">{totals.m2.toLocaleString()}<span className="unit">m²</span></div><div className="stat-meta">across {totals.live} roads</div></div>
-        <div className="stat"><div className="stat-label">Packs ready to issue</div><div className="stat-value">{totals.ready}<span className="unit">/ {totals.live}</span></div><div className="stat-meta">auto-generated from workbook</div></div>
+        <div className="stat"><div className="stat-label">Live schemes</div><div className="stat-value">{animLive}</div><div className="stat-meta">FY 2025/26 + 2026/27</div></div>
+        <div className="stat"><div className="stat-label">Starts within 6 weeks</div><div className="stat-value" style={totals.urgent>0?{color:'var(--amber)'}:{}}>{animUrgent}</div><div className="stat-meta">{totals.urgent>0?'⚡ Action required':'All future schemes have time'}</div></div>
+        <div className="stat"><div className="stat-label">Total area</div><div className="stat-value">{animM2.toLocaleString()}<span className="unit">m²</span></div><div className="stat-meta">across {totals.live} roads</div></div>
+        <div className="stat"><div className="stat-label">Packs ready to issue</div><div className="stat-value">{animReady}<span className="unit">/ {totals.live}</span></div><div className="stat-meta">auto-generated from workbook</div></div>
+        <div className="stat"><div className="stat-label">Committed spend</div><div className="stat-value" style={{fontSize:'clamp(18px,2.2vw,28px)'}}>{fmtGBP0(animTender)}<span className="unit">ex VAT</span></div><div className="stat-meta">across {totals.live} schemes</div></div>
       </div>
       <div className="filters">
         {filters.map(f => <button key={f.k} className={"chip "+(filter===f.k?"active":"")} onClick={()=>setFilter(f.k)}>{f.l}</button>)}

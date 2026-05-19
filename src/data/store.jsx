@@ -602,6 +602,25 @@ window.PORTAL_LINKS = [
   { name: "Grid Ref Finder",    desc: "OS Grid Reference lookup",            url: "https://gridreferencefinder.com/",                                   domain: "gridreferencefinder.com" },
 ];
 
+// Animated counter hook — counts from 0 → target using ease-out cubic over dur ms.
+// Exported to window so Dashboard and Analytics can share the same implementation.
+window.useCounter = (target, dur = 900) => {
+  const [val, setVal] = React.useState(0);
+  React.useEffect(() => {
+    if (!target) { setVal(0); return; }
+    let start = null, raf;
+    const step = (ts) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / dur, 1);
+      setVal(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return val;
+};
+
 window.UTILITIES = [
   { name: "LSBUD (multi-utility)", portal: "linesearchbeforeudig.co.uk" },
   { name: "SGN (Gas)", portal: "sgn.co.uk/safety" },
