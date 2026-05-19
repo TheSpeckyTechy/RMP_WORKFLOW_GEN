@@ -50,7 +50,8 @@ const isUrgentScheme = (s) => {
 };
 
 const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
-  const { schemes, resetAllSchemes, updateScheme } = React.useContext(window.SchemeContext);
+  const { schemes, resetAllSchemes, updateScheme, provisionAllFolders, backendMode } = React.useContext(window.SchemeContext);
+  const [provisioning, setProvisioning] = React.useState(false);
   const isMobile = window.useIsMobile ? window.useIsMobile() : false;
   const handleReset = async () => {
     const ask = window.confirmDialog || ((o) => Promise.resolve(window.confirm(o.body || o.title)));
@@ -100,6 +101,20 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
           <p className="page-sub">Your RMP design workload — from survey to handover pack, in one place.</p>
         </div>
         <div style={{ display:"flex", gap:8 }}>
+          {backendMode === 'fs' && (
+            <button className="btn ghost" disabled={provisioning}
+              title="Create the standard project folder structure for every scheme in your data folder"
+              onClick={async () => {
+                setProvisioning(true);
+                const count = await provisionAllFolders((done, total) => {
+                  // Could show progress here in future
+                });
+                setProvisioning(false);
+                window.Toast?.show({ kind:'success', msg: `Created folders for ${count} scheme${count !== 1 ? 's' : ''}.` });
+              }}>
+              {provisioning ? '📁 Creating…' : '📁 Provision all folders'}
+            </button>
+          )}
           <button className="btn" onClick={()=>exportRegister(list)}><Icon.Download /> Export register</button>
           <button className="btn accent" onClick={onNew}><Icon.Plus /> New scheme <span className="kbd">N</span></button>
         </div>

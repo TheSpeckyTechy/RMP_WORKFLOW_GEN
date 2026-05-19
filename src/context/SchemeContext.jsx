@@ -173,6 +173,51 @@ const backendFetchAll = () =>
     ? fsFetchAll()
     : sb.from('schemes').select('id, data, updated_at').then(r => r);
 
+// ── Folder structure provisioning ────────────────────────────────────────────
+// Defines the subfolder tree to create inside each scheme's project folder.
+// Each entry is a path from the scheme root — ['Drawings','Approved','Contract']
+// creates Drawings/Approved/Contract/. Idempotent: existing folders are untouched.
+const SCHEME_FOLDER_TREE = [
+  ['CDM'],
+  ['Contract'],
+  ['Design & Reports'],
+  ['Drawings', 'Approved', 'As-Built'],
+  ['Drawings', 'Approved', 'Building Warrant & Planning'],
+  ['Drawings', 'Approved', 'Contract'],
+  ['Drawings', 'Approved', 'Feasibility & Costing'],
+  ['Drawings', 'Approved', 'Superseded'],
+  ['Drawings', 'Approved', 'Tender'],
+  ['Drawings', 'Draft'],
+  ['Drawings', 'Received'],
+  ['H&S File'],
+  ['Minutes'],
+  ['Photographs'],
+  ['Project Admin'],
+  ['Site Investigations'],
+];
+
+// Canonical folder name for a scheme: "R6020 - Mid Craigie Road"
+// or just the road name when no project number is assigned yet.
+const schemeFolderName = (scheme) => {
+  const ref  = (scheme.project_number || '').trim();
+  const name = (scheme.road_name || scheme.id || '').trim();
+  return ref ? `${ref} - ${name}` : name;
+};
+window.schemeFolderName = schemeFolderName;
+
+const fsProvisionSchemeFolder = async (scheme) => {
+  const dir        = await fsResolveFolder();
+  const folderName = schemeFolderName(scheme);
+  const schemeDir  = await dir.getDirectoryHandle(folderName, { create: true });
+  for (const pathParts of SCHEME_FOLDER_TREE) {
+    let node = schemeDir;
+    for (const part of pathParts) {
+      node = await node.getDirectoryHandle(part, { create: true });
+    }
+  }
+  return schemeDir;
+};
+
 // ── localStorage helpers ─────────────────────────────────────────────────────
 const LS_PREFIX = 'rmp_scheme_';
 const LS_IDS    = 'rmp_scheme_ids';
@@ -591,6 +636,28 @@ const SchemeProvider = ({ children }) => {
       syncStatus, lastSynced,
       backendMode: BACKEND_MODE,
       folderName, forgetDataFolder, syncAllToFolder,
+      // Provision the standard folder structure for one scheme.
+      provisionSchemeFolder: async (id) => {
+        const scheme = latestSchemes.current.find(s => s.id === id);
+        if (!scheme) return { error: new Error('Scheme not found') };
+        try {
+          await fsProvisionSchemeFolder(scheme);
+          return { error: null, folderName: schemeFolderName(scheme) };
+        } catch (e) {
+          return { error: e instanceof Error ? e : new Error(String(e)) };
+        }
+      },
+      // Provision folders for every scheme in the programme — bulk action.
+      provisionAllFolders: async (onProgress) => {
+        const list = latestSchemes.current;
+        let done = 0;
+        for (const scheme of list) {
+          try { await fsProvisionSchemeFolder(scheme); } catch { /* skip on error */ }
+          done++;
+          onProgress?.(done, list.length);
+        }
+        return done;
+      },
       // Folder-picker for the 'fs' backend. Wired up from a topbar
       // button when syncStatus === 'folder-required'.
       pickDataFolder: async () => {
