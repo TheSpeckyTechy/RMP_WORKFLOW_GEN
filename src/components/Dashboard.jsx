@@ -100,7 +100,6 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
           <p className="page-sub">Your RMP design workload — from survey to handover pack, in one place.</p>
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          <button className="btn ghost" onClick={handleReset} title="Clear all local scheme data and reload">↺ Reset automation</button>
           <button className="btn" onClick={()=>exportRegister(list)}><Icon.Download /> Export register</button>
           <button className="btn accent" onClick={onNew}><Icon.Plus /> New scheme <span className="kbd">N</span></button>
         </div>
