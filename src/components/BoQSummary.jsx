@@ -326,6 +326,7 @@ const RatesFooter = ({ computed, boq }) => {
 
 // ── BoQSummary (top-level, exported) ─────────────────────────────────────────
 const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downloading, onDownloadTC, downloadingTC }) => {
+  const hasLines = computed.groups.length > 0;
   return (
     <div className="boq-summary">
       <ProjectHeader scheme={scheme} computed={computed} onDownload={onDownload} downloading={downloading} onDownloadTC={onDownloadTC} downloadingTC={downloadingTC} />
@@ -335,10 +336,14 @@ const BoQSummary = ({ scheme, boq, computed, onSettingsChange, onDownload, downl
           Add Series 700 or custom items manually using the controls below.
         </div>
       )}
-      <CostBreakdownBar groups={computed.groups} subtotal={computed.subtotal} />
-      <SeriesCardGrid groups={computed.groups} subtotal={computed.subtotal} />
-      <GrandTotalPanel computed={computed} boq={boq} onSettingsChange={onSettingsChange} />
-      <RatesFooter computed={computed} boq={boq} />
+      {hasLines && (
+        <>
+          <CostBreakdownBar groups={computed.groups} subtotal={computed.subtotal} />
+          <SeriesCardGrid groups={computed.groups} subtotal={computed.subtotal} />
+          <GrandTotalPanel computed={computed} boq={boq} onSettingsChange={onSettingsChange} />
+          <RatesFooter computed={computed} boq={boq} />
+        </>
+      )}
     </div>
   );
 };
