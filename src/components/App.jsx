@@ -800,7 +800,13 @@ const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
 };
 
 const AppInner = () => {
-  const { addScheme, getScheme, syncAllToFolder, backendMode, syncStatus } = React.useContext(window.SchemeContext);
+  const { addScheme, getScheme, syncAllToFolder, backendMode, syncStatus, lastSnapshot } = React.useContext(window.SchemeContext);
+  const [, snapshotTick] = React.useReducer(x => x + 1, 0);
+  React.useEffect(() => {
+    if (!lastSnapshot) return;
+    const id = setInterval(() => snapshotTick(), 30000);
+    return () => clearInterval(id);
+  }, [lastSnapshot]);
   const [saving, setSaving] = React.useState(false);
   const [designerView, setDesignerViewState] = React.useState(
     () => localStorage.getItem('rmp_designer_view') || null
@@ -933,17 +939,19 @@ const AppInner = () => {
             <Icon.Search />
           </button>
           {backendMode === 'fs' && (
-            <button className="btn ghost sm" title="Save all schemes to OneDrive folder now" aria-label="Save all"
+            <button className="btn ghost sm"
+              title={lastSnapshot ? `Last backup: ${lastSnapshot.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'})} — autosaves every 10 minutes` : 'Save all schemes to OneDrive folder and create a backup snapshot'}
+              aria-label="Save all"
               disabled={saving}
               onClick={async () => {
                 if (!syncAllToFolder) return;
                 setSaving(true);
                 await syncAllToFolder();
                 setSaving(false);
-                window.Toast?.show({ kind: 'success', msg: 'All schemes saved to folder.' });
+                window.Toast?.show({ kind: 'success', msg: 'All schemes saved and backup snapshot created.' });
               }}
               style={{fontSize:12,fontWeight:600,padding:"4px 10px",gap:4,display:"flex",alignItems:"center"}}>
-              {saving ? '💾 Saving…' : '💾 Save'}
+              {saving ? '💾 Saving…' : lastSnapshot ? `💾 Backed up · ${relativeTime(lastSnapshot)}` : '💾 Save'}
             </button>
           )}
           <button className="btn ghost sm" title="Save all data then reload — bypasses cache and fetches latest code" aria-label="Force reload"
