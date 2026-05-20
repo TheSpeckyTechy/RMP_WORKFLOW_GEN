@@ -1367,3 +1367,5 @@ const SketchModal = ({ pdf, road, onClose }) => (
 );
 
 window.SchemeDetail = SchemeDetail;
+window.loadLeaflet = loadLeaflet;
+window.LEAFLET_VERSION = LEAFLET_VERSION;
