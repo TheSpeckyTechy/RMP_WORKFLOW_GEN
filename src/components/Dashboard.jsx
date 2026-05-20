@@ -50,7 +50,7 @@ const isUrgentScheme = (s) => {
 };
 
 const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, setDesignerView }) => {
-  const { schemes, updateScheme, provisionAllFolders, backendMode } = React.useContext(window.SchemeContext);
+  const { schemes, updateScheme, provisionAllFolders, backendMode, folderName } = React.useContext(window.SchemeContext);
   const [provisioning, setProvisioning] = React.useState(false);
   const isMobile = window.useIsMobile ? window.useIsMobile() : false;
   const useCounter = window.useCounter || ((v) => v);
@@ -113,20 +113,29 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, set
           <p className="page-sub">{activeDesigner ? `${activeDesigner.name}'s RMP design workload` : 'Your RMP design workload — from survey to handover pack, in one place.'}</p>
         </div>
         <div style={{ display:"flex", gap:8 }}>
-          {backendMode === 'fs' && (
-            <button className="btn ghost" disabled={provisioning}
-              title="Create the standard project folder structure for every scheme in your data folder"
-              onClick={async () => {
-                setProvisioning(true);
-                const count = await provisionAllFolders((done, total) => {
-                  // Could show progress here in future
-                });
-                setProvisioning(false);
-                window.Toast?.show({ kind:'success', msg: `Created folders for ${count} scheme${count !== 1 ? 's' : ''}.` });
-              }}>
-              {provisioning ? '📁 Creating…' : '📁 Provision all folders'}
-            </button>
-          )}
+          {backendMode === 'fs' && (() => {
+            const isFiltered = !!activeDesigner;
+            const firstName = isFiltered ? activeDesigner.name.split(' ')[0] : null;
+            const shortFolder = folderName ? (folderName.length > 28 ? '…' + folderName.slice(-26) : folderName) : null;
+            const label = isFiltered
+              ? `📁 ${firstName}'s folders${shortFolder ? ' · ' + shortFolder : ''}`
+              : `📁 Provision all folders${shortFolder ? ' · ' + shortFolder : ''}`;
+            const tip = isFiltered
+              ? `Create standard folder structure for ${activeDesigner.name}'s ${activeSchemes.length} scheme${activeSchemes.length !== 1 ? 's' : ''}${shortFolder ? ' in ' + folderName : ''}`
+              : `Create standard folder structure for all ${activeSchemes.length} schemes${shortFolder ? ' in ' + folderName : ''}`;
+            const filterIds = isFiltered ? activeSchemes.map(s => s.id) : undefined;
+            return (
+              <button className="btn ghost" disabled={provisioning} title={tip}
+                onClick={async () => {
+                  setProvisioning(true);
+                  const count = await provisionAllFolders(undefined, filterIds);
+                  setProvisioning(false);
+                  window.Toast?.show({ kind:'success', msg: `Created folders for ${count} scheme${count !== 1 ? 's' : ''}.` });
+                }}>
+                {provisioning ? '📁 Creating…' : label}
+              </button>
+            );
+          })()}
           <button className="btn" onClick={()=>exportRegister(list)}><Icon.Download /> Export register</button>
           <button className="btn accent" onClick={onNew}><Icon.Plus /> New scheme <span className="kbd">N</span></button>
         </div>

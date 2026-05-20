@@ -647,9 +647,10 @@ const SchemeProvider = ({ children }) => {
           return { error: e instanceof Error ? e : new Error(String(e)) };
         }
       },
-      // Provision folders for every scheme in the programme — bulk action.
-      provisionAllFolders: async (onProgress) => {
-        const list = latestSchemes.current;
+      // Provision folders for every scheme (or a filtered subset by id array).
+      provisionAllFolders: async (onProgress, filterIds) => {
+        const all = latestSchemes.current;
+        const list = filterIds ? all.filter(s => filterIds.includes(s.id)) : all;
         let done = 0;
         for (const scheme of list) {
           try { await fsProvisionSchemeFolder(scheme); } catch { /* skip on error */ }
