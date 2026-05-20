@@ -802,6 +802,14 @@ const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
 const AppInner = () => {
   const { addScheme, getScheme, syncAllToFolder, backendMode, syncStatus } = React.useContext(window.SchemeContext);
   const [saving, setSaving] = React.useState(false);
+  const [designerView, setDesignerViewState] = React.useState(
+    () => localStorage.getItem('rmp_designer_view') || null
+  );
+  const setDesignerView = (id) => {
+    if (id) localStorage.setItem('rmp_designer_view', id);
+    else localStorage.removeItem('rmp_designer_view');
+    setDesignerViewState(id);
+  };
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [notifOpen, setNotifOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState([]);
@@ -909,6 +917,15 @@ const AppInner = () => {
             {view === "settings" ? "Settings" : openScheme ? <span className="mono">{openScheme}</span> : "Schemes"}
           </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
+          {designerView && (() => {
+            const d = (window.DESIGNERS||[]).find(x => x.id === designerView);
+            return d ? (
+              <button className="topbar-designer-badge" title="Viewing filtered workload — click to show all designers" onClick={() => setDesignerView(null)}>
+                <span style={{width:18,height:18,borderRadius:'50%',background:d.colour,color:'white',display:'grid',placeItems:'center',fontSize:8,fontWeight:700,fontFamily:'var(--font-mono)',flexShrink:0}}>{d.initials}</span>
+                {d.name.split(' ')[0]}'s view <span style={{opacity:0.5,fontSize:10,marginLeft:2}}>✕</span>
+              </button>
+            ) : null;
+          })()}
           <SyncChip />
           <button className="btn ghost sm" title="Open command palette (⌘K)" aria-label="Open command palette"
             onClick={() => window.CommandPalette && window.CommandPalette.open()}
@@ -972,9 +989,9 @@ const AppInner = () => {
             ) : view === "settings" ? (
               <SettingsView tweaks={tweaks} setTweaks={setTweaks} darkMode={darkMode} setDarkMode={setDarkMode} />
             ) : view === "analytics" ? (
-              <window.Analytics />
+              <window.Analytics designerView={designerView} setDesignerView={setDesignerView} />
             ) : (
-              <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} onNew={()=>setNewSchemeOpen(true)} filter={filter} setFilter={setFilter} search={search} />
+              <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} onNew={()=>setNewSchemeOpen(true)} filter={filter} setFilter={setFilter} search={search} designerView={designerView} setDesignerView={setDesignerView} />
             )}
           </div>
         </div>

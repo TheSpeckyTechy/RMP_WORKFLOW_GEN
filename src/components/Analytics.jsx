@@ -582,12 +582,16 @@ const SchemeTable = ({ metrics }) => {
 };
 
 // ── Analytics (top-level export) ──────────────────────────────────────────────
-const Analytics = () => {
+const Analytics = ({ designerView, setDesignerView }) => {
   const { schemes } = React.useContext(window.SchemeContext);
   const [activeTab, setActiveTab] = React.useState('overview');
   const useCounter = window.useCounter || ((v) => v);
 
-  const metrics = React.useMemo(() => schemes.map(deriveMetrics), [schemes]);
+  const designers = (window.DESIGNERS||[]).filter(d => d.id !== 'new');
+  const activeDesigner = designerView ? designers.find(d => d.id === designerView) : null;
+  const viewSchemes = designerView ? schemes.filter(s => s.assigned_designer_id === designerView) : schemes;
+
+  const metrics = React.useMemo(() => viewSchemes.map(deriveMetrics), [viewSchemes]);
 
   const totals = React.useMemo(() => {
     const priced   = metrics.filter(m => m.subtotal > 0);
@@ -618,10 +622,21 @@ const Analytics = () => {
 
   return (
     <div>
+      <div className="designer-selector">
+        <button className={"designer-chip all" + (!designerView ? " active" : "")} onClick={() => setDesignerView && setDesignerView(null)}>Everyone</button>
+        {designers.map(d => (
+          <button key={d.id} className={"designer-chip" + (designerView === d.id ? " active" : "")}
+            style={designerView === d.id ? { borderColor: d.colour } : {}}
+            onClick={() => setDesignerView && setDesignerView(designerView === d.id ? null : d.id)}>
+            <span className="designer-chip-avatar" style={{ background: d.colour }}>{d.initials}</span>
+            {d.name.split(' ')[0]}
+          </button>
+        ))}
+      </div>
       <div className="page-head">
         <div>
-          <div className="page-title">Analysis</div>
-          <div className="page-sub">{totals.total} scheme{totals.total === 1 ? '' : 's'} · programme snapshot</div>
+          <div className="page-title">{activeDesigner ? `${activeDesigner.name.split(' ')[0]}'s Analysis` : 'Analysis'}</div>
+          <div className="page-sub">{totals.total} scheme{totals.total === 1 ? '' : 's'} · {activeDesigner ? `${activeDesigner.name}'s workload` : 'programme snapshot'}</div>
         </div>
       </div>
 
@@ -647,7 +662,7 @@ const Analytics = () => {
         ))}
       </div>
 
-      {activeTab === 'overview'   && <OverviewTab   metrics={metrics} schemes={schemes} />}
+      {activeTab === 'overview'   && <OverviewTab   metrics={metrics} schemes={viewSchemes} />}
       {activeTab === 'status'     && <StatusTab     metrics={metrics} />}
       {activeTab === 'ward'       && <WardTab        metrics={metrics} />}
       {activeTab === 'treatment'  && <TreatmentTab   metrics={metrics} />}

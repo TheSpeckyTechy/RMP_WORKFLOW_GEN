@@ -49,13 +49,17 @@ const isUrgentScheme = (s) => {
   return ms > now && ms - now <= 42 * 24 * 60 * 60 * 1000;
 };
 
-const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
+const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, setDesignerView }) => {
   const { schemes, updateScheme, provisionAllFolders, backendMode } = React.useContext(window.SchemeContext);
   const [provisioning, setProvisioning] = React.useState(false);
   const isMobile = window.useIsMobile ? window.useIsMobile() : false;
   const useCounter = window.useCounter || ((v) => v);
 
-  const statusFiltered = filter === "all" ? schemes.filter(s => s.status !== 'constructed') : schemes.filter(s => s.status === filter);
+  const designers = (window.DESIGNERS||[]).filter(d => d.id !== 'new');
+  const activeDesigner = designerView ? designers.find(d => d.id === designerView) : null;
+  const byDesigner = designerView ? (s => s.assigned_designer_id === designerView) : (() => true);
+
+  const statusFiltered = (filter === "all" ? schemes.filter(s => s.status !== 'constructed') : schemes.filter(s => s.status === filter)).filter(byDesigner);
   const list = (search
     ? statusFiltered.filter(s => {
         const q = search.toLowerCase();
@@ -70,7 +74,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
       if (ua !== ub) return ua ? -1 : 1;
       return parseStartDate(a.date_start) - parseStartDate(b.date_start);
     });
-  const activeSchemes = schemes.filter(s => s.status !== "archived" && s.status !== "constructed");
+  const activeSchemes = schemes.filter(s => s.status !== "archived" && s.status !== "constructed" && byDesigner(s));
   const totals = {
     live: activeSchemes.length,
     urgent: activeSchemes.filter(s => isUrgentScheme(s)).length,
@@ -90,10 +94,23 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search }) => {
   ];
   return (
     <>
+      <div className="designer-selector">
+        <button className={"designer-chip all" + (!designerView ? " active" : "")} onClick={() => setDesignerView && setDesignerView(null)}>Everyone</button>
+        {designers.map(d => (
+          <button key={d.id} className={"designer-chip" + (designerView === d.id ? " active" : "")}
+            style={designerView === d.id ? { borderColor: d.colour } : {}}
+            onClick={() => setDesignerView && setDesignerView(designerView === d.id ? null : d.id)}>
+            <span className="designer-chip-avatar" style={{ background: d.colour }}>{d.initials}</span>
+            {d.name.split(' ')[0]}
+          </button>
+        ))}
+      </div>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Schemes</h1>
-          <p className="page-sub">Your RMP design workload — from survey to handover pack, in one place.</p>
+          <h1 className="page-title">
+            {activeDesigner ? <>{activeDesigner.name.split(' ')[0]}'s Schemes <span style={{fontSize:'0.6em',fontWeight:400,color:'var(--ink-3)'}}>— personal view</span></> : 'Schemes'}
+          </h1>
+          <p className="page-sub">{activeDesigner ? `${activeDesigner.name}'s RMP design workload` : 'Your RMP design workload — from survey to handover pack, in one place.'}</p>
         </div>
         <div style={{ display:"flex", gap:8 }}>
           {backendMode === 'fs' && (
