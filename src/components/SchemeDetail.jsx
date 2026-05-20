@@ -85,6 +85,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
     { k:"treatment", l:"Designer" },
     ...(scheme.scheme_type === 'Surface Dressing' ? [{ k:"sd_design", l:"SD Design" }] : []),
     { k:"ward", l:"Ward & Copies" },
+    { k:"location", l:"Location" },
     { k:"utilities", l:"Utilities", badge: String(window.UTILITIES.length) },
     { k:"boq", l:"Bill of Quantities" },
     { k:"letters", l:"Letters", badge: String((scheme.recipients||[]).length) },
@@ -248,6 +249,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
         {tab==="treatment"&&<window.TreatmentDesigner schemeId={schemeId} />}
         {tab==="sd_design"&&<window.SurfaceDressingDesigner schemeId={schemeId} />}
         {tab==="ward"&&<WardTab schemeId={schemeId} />}
+        {tab==="location"&&<LocationTab schemeId={schemeId} />}
         {tab==="utilities"&&<UtilitiesTab scheme={scheme} />}
         {tab==="boq"&&<BoQTab schemeId={schemeId} onOpenDesigner={()=>setTab("treatment")} />}
         {tab==="letters"&&<LettersTab scheme={scheme} onPreview={onPreview} />}
@@ -286,6 +288,138 @@ const WardTab = ({ schemeId }) => {
       <div className="form-section">
         <div className="section-head"><div className="section-title"><span className="section-num">CC</span> Letter copy list</div><span className="mono" style={{fontSize:11,color:"var(--green)"}}>● live</span></div>
         <div className="copy-list">{copyList.map((e,i)=>(<div key={i} className={"entry "+(e.ward?"ward-entry":"")}>{e.nameless?<span className="role">{e.role}</span>:e.ward?<span className="name">{e.role==="Bailie"?"Bailie":"Councillor"} {e.name}</span>:e.role==="Lord Provost"?<span><span className="role">Lord Provost</span> <span className="name">{e.name}</span></span>:<span><span className="role">{e.role}</span> – <span className="name">{e.name}</span></span>}</div>))}</div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Location Tab ─────────────────────────────────────────────────────────────
+// Map pin per scheme. Leaflet + CARTO Positron tiles are fetched the first
+// time this tab opens, never on the initial app load — see loadLeaflet().
+// Coordinates persist as scheme.lat / scheme.lng via updateScheme.
+
+const DUNDEE_CENTRE = [56.462, -2.971];
+const LEAFLET_VERSION = "1.9.4";
+
+let leafletPromise = null;
+const loadLeaflet = () => {
+  if (window.L) return Promise.resolve(window.L);
+  if (leafletPromise) return leafletPromise;
+  leafletPromise = new Promise((resolve, reject) => {
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/leaflet.css`;
+    document.head.appendChild(css);
+    const js = document.createElement("script");
+    js.src = `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/leaflet.js`;
+    js.onload = () => resolve(window.L);
+    js.onerror = () => { leafletPromise = null; reject(new Error("Failed to load Leaflet")); };
+    document.head.appendChild(js);
+  });
+  return leafletPromise;
+};
+
+const LocationTab = ({ schemeId }) => {
+  const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
+  const scheme = getScheme(schemeId);
+  const containerRef = React.useRef(null);
+  const mapRef = React.useRef(null);
+  const markerRef = React.useRef(null);
+  const [status, setStatus] = React.useState("loading");
+
+  const hasPin = scheme.lat != null && scheme.lng != null;
+
+  React.useEffect(() => {
+    let cancelled = false;
+    loadLeaflet().then((L) => {
+      if (cancelled || !containerRef.current) return;
+
+      const start = hasPin ? [scheme.lat, scheme.lng] : DUNDEE_CENTRE;
+      const map = L.map(containerRef.current, { zoomControl: true }).setView(start, hasPin ? 16 : 13);
+      mapRef.current = map;
+
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: "abcd",
+      }).addTo(map);
+
+      const icon = L.icon({
+        iconUrl:       `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/images/marker-icon.png`,
+        iconRetinaUrl: `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/images/marker-icon-2x.png`,
+        shadowUrl:     `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/images/marker-shadow.png`,
+        iconSize:    [25, 41],
+        iconAnchor:  [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize:  [41, 41],
+      });
+
+      const placeMarker = (latlng) => {
+        if (markerRef.current) {
+          markerRef.current.setLatLng(latlng);
+        } else {
+          const m = L.marker(latlng, { icon, draggable: true }).addTo(map);
+          m.on("dragend", () => {
+            const p = m.getLatLng();
+            updateScheme(schemeId, { lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6) });
+          });
+          markerRef.current = m;
+        }
+      };
+
+      if (hasPin) placeMarker([scheme.lat, scheme.lng]);
+
+      map.on("click", (e) => {
+        placeMarker(e.latlng);
+        updateScheme(schemeId, { lat: +e.latlng.lat.toFixed(6), lng: +e.latlng.lng.toFixed(6) });
+      });
+
+      setStatus("ready");
+    }).catch(() => {
+      if (!cancelled) setStatus("error");
+    });
+
+    return () => {
+      cancelled = true;
+      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; markerRef.current = null; }
+    };
+  }, [schemeId]);
+
+  const clearPin = () => {
+    if (markerRef.current && mapRef.current) {
+      mapRef.current.removeLayer(markerRef.current);
+      markerRef.current = null;
+      mapRef.current.setView(DUNDEE_CENTRE, 13);
+    }
+    updateScheme(schemeId, { lat: null, lng: null });
+  };
+
+  return (
+    <div className="form-section">
+      <div className="section-head">
+        <div className="section-title"><span className="section-num">L</span> Scheme location</div>
+        <span className="mono" style={{fontSize:11,color:"var(--ink-3)"}}>
+          {hasPin ? `${scheme.lat.toFixed(5)}, ${scheme.lng.toFixed(5)}` : "No pin set"}
+        </span>
+      </div>
+      <p style={{fontSize:12,color:"var(--ink-3)",margin:"0 0 12px"}}>
+        Click anywhere on the map to drop a pin. Drag the pin to fine-tune. The location saves automatically with this scheme.
+      </p>
+      <div style={{position:"relative",borderRadius:8,overflow:"hidden",border:"1px solid var(--line)"}}>
+        <div ref={containerRef} style={{height:480,width:"100%",background:"#eef1f4"}} />
+        {status === "loading" && (
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(255,255,255,0.6)",fontSize:12,color:"var(--ink-3)"}}>
+            Loading map…
+          </div>
+        )}
+        {status === "error" && (
+          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(255,255,255,0.9)",fontSize:12,color:"var(--red)"}}>
+            Map failed to load. Check your connection and try again.
+          </div>
+        )}
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:12}}>
+        <button className="btn ghost sm" onClick={clearPin} disabled={!hasPin}>Clear pin</button>
       </div>
     </div>
   );
