@@ -3,7 +3,7 @@
 // Bump this string whenever you push an update and want users to get the
 // new version on their next (briefly-online) visit. The activate handler
 // below deletes every cache whose name doesn't match.
-const CACHE_NAME = 'rmp-studio-v2-map';
+const CACHE_NAME = 'rmp-studio-v3-no-draw';
 
 // Cache-first with background population. Every GET response (local files
 // AND cross-origin CDN scripts) is cached on first load, then served from

@@ -92,119 +92,6 @@ const useDesignWriter = (schemeId) => {
   }, [schemeId, getScheme, updateScheme]);
 };
 
-// ── Draw-zone modal ──────────────────────────────────────────────────────────
-// Click-to-add-vertex polygon drawer over a CARTO Positron map of Dundee.
-// Returns { polygon: [{lat,lng},...], area_m2 } on confirm.
-
-const TD_DUNDEE_CENTRE = [56.462, -2.971];
-
-// Polygon area on the WGS84 sphere via local equirectangular projection at
-// the polygon's centroid. Accurate to <0.5% for areas up to ~1 km across,
-// which covers anything a single road scheme would ever enclose.
-const polygonAreaM2 = (verts) => {
-  if (!verts || verts.length < 3) return 0;
-  const R = 6378137;
-  const meanLat = verts.reduce((s, p) => s + p.lat, 0) / verts.length;
-  const cosMean = Math.cos(meanLat * Math.PI / 180);
-  const xs = verts.map(p => R * (p.lng * Math.PI / 180) * cosMean);
-  const ys = verts.map(p => R * (p.lat * Math.PI / 180));
-  let sum = 0;
-  for (let i = 0; i < xs.length; i++) {
-    const j = (i + 1) % xs.length;
-    sum += xs[i] * ys[j] - xs[j] * ys[i];
-  }
-  return Math.abs(sum) / 2;
-};
-
-const DrawZoneModal = ({ scheme, initialPolygon, zoneLabel, onConfirm, onCancel }) => {
-  const containerRef = React.useRef(null);
-  const mapRef = React.useRef(null);
-  const layersRef = React.useRef({ markers: [], polyline: null, polygon: null });
-  const [verts, setVerts] = React.useState(() => initialPolygon && initialPolygon.length ? initialPolygon : []);
-  const [status, setStatus] = React.useState('loading');
-
-  React.useEffect(() => {
-    let cancelled = false;
-    if (!window.loadLeaflet) { setStatus('error'); return; }
-    window.loadLeaflet().then((L) => {
-      if (cancelled || !containerRef.current) return;
-      const start = (scheme.lat != null && scheme.lng != null)
-        ? [scheme.lat, scheme.lng]
-        : (initialPolygon && initialPolygon.length)
-          ? [initialPolygon[0].lat, initialPolygon[0].lng]
-          : TD_DUNDEE_CENTRE;
-      const map = L.map(containerRef.current, { doubleClickZoom: false }).setView(start, 18);
-      mapRef.current = map;
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: "abcd",
-      }).addTo(map);
-      map.on('click', (e) => {
-        setVerts((v) => [...v, { lat: +e.latlng.lat.toFixed(6), lng: +e.latlng.lng.toFixed(6) }]);
-      });
-      setStatus('ready');
-    }).catch(() => { if (!cancelled) setStatus('error'); });
-    return () => {
-      cancelled = true;
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
-    };
-  }, []);
-
-  React.useEffect(() => {
-    const L = window.L, map = mapRef.current;
-    if (!L || !map) return;
-    const layers = layersRef.current;
-    layers.markers.forEach(m => map.removeLayer(m));
-    layers.markers = [];
-    if (layers.polyline) { map.removeLayer(layers.polyline); layers.polyline = null; }
-    if (layers.polygon)  { map.removeLayer(layers.polygon);  layers.polygon  = null; }
-    verts.forEach((p) => {
-      const m = L.circleMarker([p.lat, p.lng], { radius: 5, color: '#c46a2c', fillColor: '#fff', fillOpacity: 1, weight: 2 }).addTo(map);
-      layers.markers.push(m);
-    });
-    if (verts.length === 2) {
-      layers.polyline = L.polyline(verts.map(p => [p.lat, p.lng]), { color: '#c46a2c', weight: 2 }).addTo(map);
-    } else if (verts.length >= 3) {
-      layers.polygon = L.polygon(verts.map(p => [p.lat, p.lng]), { color: '#c46a2c', fillColor: '#c46a2c', fillOpacity: 0.2, weight: 2 }).addTo(map);
-    }
-  }, [verts]);
-
-  const area = polygonAreaM2(verts);
-
-  return (
-    <window.ModalShell onClose={onCancel} ariaLabel="Draw zone on map" className="draw-zone-modal" closeOnBackdrop={false}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderBottom:'1px solid var(--line)'}}>
-        <div>
-          <div style={{fontWeight:600,fontSize:14}}>Draw zone area{zoneLabel ? ` — ${zoneLabel}` : ''}</div>
-          <div style={{fontSize:11,color:'var(--ink-3)',marginTop:2}}>Click on the map to drop a corner. Add at least 3, then Save. The area auto-fills this zone and the Master Workbook.</div>
-        </div>
-        <button className="btn ghost sm" onClick={onCancel} aria-label="Close">✕</button>
-      </div>
-      <div style={{padding:0,position:'relative'}}>
-        <div ref={containerRef} style={{height:'min(70vh, 600px)',width:'100%',background:'#eef1f4'}} />
-        {status === 'loading' && (
-          <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(255,255,255,0.6)',fontSize:12,color:'var(--ink-3)'}}>Loading map…</div>
-        )}
-        {status === 'error' && (
-          <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(255,255,255,0.9)',fontSize:12,color:'var(--red)'}}>Map failed to load.</div>
-        )}
-      </div>
-      <div style={{display:'flex',alignItems:'center',gap:8,padding:'12px 16px',borderTop:'1px solid var(--line)'}}>
-        <span className="mono" style={{fontSize:12}}>
-          {verts.length < 3
-            ? `${verts.length} corner${verts.length===1?'':'s'} — add ${3 - verts.length} more`
-            : `${Math.round(area).toLocaleString()} m² • ${verts.length} corners`}
-        </span>
-        <span style={{flex:1}} />
-        <button className="btn ghost sm" onClick={() => setVerts([])} disabled={verts.length === 0}>Reset</button>
-        <button className="btn sm" onClick={onCancel}>Cancel</button>
-        <button className="btn accent sm" disabled={verts.length < 3} onClick={() => onConfirm({ polygon: verts, area_m2: Math.round(area) })}>Save</button>
-      </div>
-    </window.ModalShell>
-  );
-};
-
 // ── Live preview bar ─────────────────────────────────────────────────────────
 // Mini stat strip at the top of the Designer — same calculation as
 // MasterPreviewBar but mounted here so designers see BoQ totals refresh as
@@ -252,45 +139,12 @@ const TDPreviewBar = ({ scheme }) => {
 };
 
 // ── Surface zones panel ──────────────────────────────────────────────────────
-const TDZonesPanel = ({ schemeId, scheme, write }) => {
-  const { updateScheme } = React.useContext(window.SchemeContext);
+const TDZonesPanel = ({ scheme, write }) => {
   const design = scheme.design || window.defaultDesign();
   const zones  = design.zones || [];
-  const [drawingZoneId, setDrawingZoneId] = React.useState(null);
 
   const setZones = (nextZones) => write({ zones: nextZones });
   const updZone  = (id, patch) => setZones(zones.map(z => z.id === id ? { ...z, ...patch } : z));
-
-  // Sum all zone areas (including the just-edited one) and push the total into
-  // the Master Workbook area field that matches the scheme type. Drawing is
-  // declared as the authoritative source of truth so this is an unconditional
-  // overwrite — matches the "drawing always wins, and vice versa" rule.
-  const syncMasterFromZones = (nextZones) => {
-    const total = nextZones.reduce((s, z) => s + (+z.area_m2 || 0), 0);
-    const isFootway = scheme.scheme_type === 'Footway';
-    updateScheme(schemeId, isFootway ? { footway_area_m2: total } : { carriageway_area_m2: total });
-  };
-
-  const onDrawConfirm = (zoneId) => ({ polygon, area_m2 }) => {
-    const nextZones = zones.map(z => z.id === zoneId ? { ...z, polygon, area_m2 } : z);
-    setZones(nextZones);
-    syncMasterFromZones(nextZones);
-    setDrawingZoneId(null);
-  };
-
-  // Typing into the area field is also authoritative — when the user edits
-  // it directly, drop the saved polygon (it no longer matches the number).
-  const onTypeArea = (zoneId, value) => {
-    const nextZones = zones.map(z => {
-      if (z.id !== zoneId) return z;
-      const { polygon, ...rest } = z;
-      return { ...rest, area_m2: +value || 0 };
-    });
-    setZones(nextZones);
-    syncMasterFromZones(nextZones);
-  };
-
-  const drawingZone = drawingZoneId != null ? zones.find(z => z.id === drawingZoneId) : null;
   const addZone  = () => setZones([...zones, {
     id: Date.now(),
     label: '',
@@ -358,14 +212,9 @@ const TDZonesPanel = ({ schemeId, scheme, write }) => {
               </select>
             </div>
             <div className="field">
-              <label>Area (m²) {zone.polygon && zone.polygon.length >= 3 && <span title="Area is from a map polygon — edit it on the map, or type here to discard the polygon." style={{fontSize:10,color:'var(--accent)',marginLeft:4}}>● mapped</span>}</label>
-              <div style={{display:'flex',gap:6}}>
-                <input type="number" inputMode="decimal" className="mono" value={zone.area_m2} style={{flex:1}}
-                  onChange={e => onTypeArea(zone.id, e.target.value)} />
-                <button type="button" className="btn ghost sm" onClick={() => setDrawingZoneId(zone.id)} title="Draw this zone on a map">
-                  {zone.polygon && zone.polygon.length >= 3 ? 'Edit on map' : 'Draw on map'}
-                </button>
-              </div>
+              <label>Area (m²)</label>
+              <input type="number" inputMode="decimal" className="mono" value={zone.area_m2}
+                onChange={e => updZone(zone.id, { area_m2: +e.target.value || 0 })} />
             </div>
             <div className="field">
               <label>Total depth (mm)</label>
@@ -443,16 +292,6 @@ const TDZonesPanel = ({ schemeId, scheme, write }) => {
       <button className="btn sm" onClick={addZone} style={{ marginTop: 4 }}>
         <window.Icon.Plus /> Add zone
       </button>
-
-      {drawingZone && (
-        <DrawZoneModal
-          scheme={scheme}
-          initialPolygon={drawingZone.polygon}
-          zoneLabel={drawingZone.label || `Zone ${zones.findIndex(z => z.id === drawingZone.id) + 1}`}
-          onConfirm={onDrawConfirm(drawingZone.id)}
-          onCancel={() => setDrawingZoneId(null)}
-        />
-      )}
     </div>
   );
 };
@@ -813,7 +652,7 @@ const TreatmentDesigner = ({ schemeId }) => {
     <div style={{ maxWidth: 980 }}>
       <TDPreviewBar scheme={scheme} />
       <TDSiteConditions schemeId={schemeId} scheme={scheme} />
-      <TDZonesPanel     schemeId={schemeId} scheme={scheme} write={write} />
+      <TDZonesPanel     scheme={scheme} write={write} />
       <TDFootwayPanel   scheme={scheme} write={write} />
       <TDIronworksPanel scheme={scheme} write={write} />
       <TDKerbsPanel     scheme={scheme} write={write} />
