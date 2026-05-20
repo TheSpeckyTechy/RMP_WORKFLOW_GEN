@@ -497,6 +497,7 @@ const SchemeProvider = ({ children }) => {
   const [syncStatus, setSyncStatus] = React.useState('loading');
   const [lastSynced, setLastSynced] = React.useState(null);
   const [folderName, setFolderName] = React.useState(null);
+  const [lastSnapshot, setLastSnapshot] = React.useState(null);
   const latestSchemes = React.useRef(schemes);
 
   React.useEffect(() => { latestSchemes.current = schemes; }, [schemes]);
@@ -638,6 +639,43 @@ const SchemeProvider = ({ children }) => {
     setSyncStatus('folder-required');
   };
 
+  const createSnapshot = async () => {
+    if (BACKEND_MODE !== 'fs') return;
+    try {
+      const dir = await fsResolveFolder();
+      const backupsDir = await dir.getDirectoryHandle('_backups', { create: true });
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const snapName = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+      const snapDir = await backupsDir.getDirectoryHandle(snapName, { create: true });
+      for (const s of latestSchemes.current) {
+        const fh = await snapDir.getFileHandle(`${s.id}.json`, { create: true });
+        const w = await fh.createWritable();
+        await w.write(JSON.stringify(s, null, 2));
+        await w.close();
+      }
+      // Prune — keep only the 10 most recent snapshots
+      const names = [];
+      for await (const [name, handle] of backupsDir.entries()) {
+        if (handle.kind === 'directory') names.push(name);
+      }
+      names.sort();
+      for (const name of names.slice(0, Math.max(0, names.length - 10))) {
+        await backupsDir.removeEntry(name, { recursive: true }).catch(() => {});
+      }
+      setLastSnapshot(new Date());
+    } catch {
+      // Silent — autosave should never surface an error to the user
+    }
+  };
+
+  // Autosave snapshot every 10 minutes while a folder is connected
+  React.useEffect(() => {
+    if (BACKEND_MODE !== 'fs') return;
+    const id = setInterval(() => createSnapshot(), 10 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const syncAllToFolder = async () => {
     if (BACKEND_MODE !== 'fs') return;
     setSyncStatus('syncing');
@@ -647,6 +685,7 @@ const SchemeProvider = ({ children }) => {
     }
     setSyncStatus('synced');
     setLastSynced(new Date());
+    await createSnapshot();
   };
 
   return (
@@ -654,7 +693,7 @@ const SchemeProvider = ({ children }) => {
       schemes, getScheme, updateScheme, addScheme, deleteScheme, resetAllSchemes,
       syncStatus, lastSynced,
       backendMode: BACKEND_MODE,
-      folderName, forgetDataFolder, syncAllToFolder,
+      folderName, forgetDataFolder, syncAllToFolder, createSnapshot, lastSnapshot,
       // Provision the standard folder structure for one scheme.
       provisionSchemeFolder: async (id) => {
         const scheme = latestSchemes.current.find(s => s.id === id);
