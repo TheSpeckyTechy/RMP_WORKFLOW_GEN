@@ -426,6 +426,100 @@ const gridRefToLatLng = (raw) => {
   return { lat: +lat.toFixed(6), lng: +lng.toFixed(6) };
 };
 
+// WGS84 lat/lng → OSGB36 easting/northing. Inverse of osgbToWgs84: cartesian,
+// inverse Helmert, then forward Transverse Mercator on Airy 1830.
+const wgs84ToOsgb = (latDeg, lngDeg) => {
+  const lat = latDeg * Math.PI / 180;
+  const lng = lngDeg * Math.PI / 180;
+  const aW = 6378137, bW = 6356752.314245;
+  const e2W = 1 - (bW * bW) / (aW * aW);
+  const sp = Math.sin(lat), cp = Math.cos(lat);
+  const sl = Math.sin(lng), cl = Math.cos(lng);
+  const nuW = aW / Math.sqrt(1 - e2W * sp * sp);
+  const x = nuW * cp * cl;
+  const y = nuW * cp * sl;
+  const z = (1 - e2W) * nuW * sp;
+
+  // Helmert WGS84 → OSGB36 (parameters negated from the reverse direction)
+  const tx = -446.448, ty = 125.157, tz = -542.060;
+  const s1 = -20.4894e-6 + 1;
+  const rx = (-0.1502 / 3600) * Math.PI / 180;
+  const ry = (-0.2470 / 3600) * Math.PI / 180;
+  const rz = (-0.8421 / 3600) * Math.PI / 180;
+  const x2 = tx + s1 * x - rz * y + ry * z;
+  const y2 = ty + rz * x + s1 * y - rx * z;
+  const z2 = tz - ry * x + rx * y + s1 * z;
+
+  const a = 6377563.396, b = 6356256.909;
+  const e2 = 1 - (b * b) / (a * a);
+  const p = Math.sqrt(x2 * x2 + y2 * y2);
+  let phi = Math.atan2(z2, p * (1 - e2));
+  for (let i = 0; i < 10; i++) {
+    const sphi = Math.sin(phi);
+    const nuA = a / Math.sqrt(1 - e2 * sphi * sphi);
+    const newPhi = Math.atan2(z2 + e2 * nuA * sphi, p);
+    if (Math.abs(newPhi - phi) < 1e-12) { phi = newPhi; break; }
+    phi = newPhi;
+  }
+  const lam = Math.atan2(y2, x2);
+
+  // Forward Transverse Mercator on Airy 1830 → National Grid easting/northing
+  const F0 = 0.9996012717;
+  const lat0 = 49 * Math.PI / 180;
+  const lon0 = -2 * Math.PI / 180;
+  const N0 = -100000, E0 = 400000;
+  const nP = (a - b) / (a + b), n2 = nP * nP, n3 = nP * nP * nP;
+
+  const sinLat = Math.sin(phi), cosLat = Math.cos(phi);
+  const nu = a * F0 / Math.sqrt(1 - e2 * sinLat * sinLat);
+  const rho = a * F0 * (1 - e2) / Math.pow(1 - e2 * sinLat * sinLat, 1.5);
+  const eta2 = nu / rho - 1;
+  const tanLat = Math.tan(phi);
+  const t2 = tanLat * tanLat, t4 = t2 * t2;
+  const cos3 = cosLat * cosLat * cosLat, cos5 = cos3 * cosLat * cosLat;
+
+  const Ma = (1 + nP + 5 / 4 * n2 + 5 / 4 * n3) * (phi - lat0);
+  const Mb = (3 * nP + 3 * nP * nP + 21 / 8 * n3) * Math.sin(phi - lat0) * Math.cos(phi + lat0);
+  const Mc = (15 / 8 * n2 + 15 / 8 * n3) * Math.sin(2 * (phi - lat0)) * Math.cos(2 * (phi + lat0));
+  const Md = 35 / 24 * n3 * Math.sin(3 * (phi - lat0)) * Math.cos(3 * (phi + lat0));
+  const M = b * F0 * (Ma - Mb + Mc - Md);
+
+  const I = M + N0;
+  const II = nu / 2 * sinLat * cosLat;
+  const III = nu / 24 * sinLat * cos3 * (5 - t2 + 9 * eta2);
+  const IIIA = nu / 720 * sinLat * cos5 * (61 - 58 * t2 + t4);
+  const IV = nu * cosLat;
+  const V = nu / 6 * cos3 * (nu / rho - t2);
+  const VI = nu / 120 * cos5 * (5 - 18 * t2 + t4 + 14 * eta2 - 58 * t2 * eta2);
+
+  const dLon = lam - lon0;
+  const dLon2 = dLon * dLon;
+  const N = I + II * dLon2 + III * Math.pow(dLon, 4) + IIIA * Math.pow(dLon, 6);
+  const E = E0 + IV * dLon + V * dLon * dLon2 + VI * Math.pow(dLon, 5);
+  return { E, N };
+};
+
+// Format OSGB easting/northing as a 10-figure letter-prefixed grid reference
+// like "NO 40708 30644". Returns null for locations outside the British grid.
+const formatGridRef = (E, N) => {
+  const e100km = Math.floor(E / 100000);
+  const n100km = Math.floor(N / 100000);
+  if (e100km < 0 || e100km > 6 || n100km < 0 || n100km > 12) return null;
+  let l1 = (19 - n100km) - (19 - n100km) % 5 + Math.floor((e100km + 10) / 5);
+  let l2 = ((19 - n100km) * 5) % 25 + e100km % 5;
+  if (l1 > 7) l1++;
+  if (l2 > 7) l2++;
+  const letters = String.fromCharCode(l1 + 65) + String.fromCharCode(l2 + 65);
+  const eStr = Math.round(E % 100000).toString().padStart(5, "0");
+  const nStr = Math.round(N % 100000).toString().padStart(5, "0");
+  return `${letters} ${eStr} ${nStr}`;
+};
+
+const latLngToGridRef = (lat, lng) => {
+  const { E, N } = wgs84ToOsgb(lat, lng);
+  return formatGridRef(E, N);
+};
+
 let leafletPromise = null;
 const loadLeaflet = () => {
   if (window.L) return Promise.resolve(window.L);
@@ -481,6 +575,14 @@ const LocationTab = ({ schemeId }) => {
         shadowSize:  [41, 41],
       });
 
+      const saveFromMarker = (lat, lng) => {
+        const round = (v) => +v.toFixed(6);
+        const gridRef = latLngToGridRef(lat, lng);
+        const updates = { lat: round(lat), lng: round(lng) };
+        if (gridRef) updates.grid_ref = gridRef;
+        updateScheme(schemeId, updates);
+      };
+
       const placeMarker = (latlng) => {
         if (markerRef.current) {
           markerRef.current.setLatLng(latlng);
@@ -488,7 +590,7 @@ const LocationTab = ({ schemeId }) => {
           const m = L.marker(latlng, { icon, draggable: true }).addTo(map);
           m.on("dragend", () => {
             const p = m.getLatLng();
-            updateScheme(schemeId, { lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6) });
+            saveFromMarker(p.lat, p.lng);
           });
           markerRef.current = m;
         }
@@ -504,7 +606,7 @@ const LocationTab = ({ schemeId }) => {
 
       map.on("click", (e) => {
         placeMarker(e.latlng);
-        updateScheme(schemeId, { lat: +e.latlng.lat.toFixed(6), lng: +e.latlng.lng.toFixed(6) });
+        saveFromMarker(e.latlng.lat, e.latlng.lng);
       });
 
       setStatus("ready");
@@ -532,11 +634,11 @@ const LocationTab = ({ schemeId }) => {
       <div className="section-head">
         <div className="section-title"><span className="section-num">L</span> Scheme location</div>
         <span className="mono" style={{fontSize:11,color:"var(--ink-3)"}}>
-          {hasPin ? `${scheme.lat.toFixed(5)}, ${scheme.lng.toFixed(5)}` : "No pin set"}
+          {hasPin ? (scheme.grid_ref || `${scheme.lat.toFixed(5)}, ${scheme.lng.toFixed(5)}`) : "No pin set"}
         </span>
       </div>
       <p style={{fontSize:12,color:"var(--ink-3)",margin:"0 0 12px"}}>
-        Click anywhere on the map to drop a pin. Drag the pin to fine-tune. The location saves automatically with this scheme.
+        Click anywhere on the map to drop a pin, or drag the pin to fine-tune — the Master Workbook's Grid Reference field stays in sync automatically. If a Grid Reference is already set on this scheme, the pin appears there the first time you open this tab.
       </p>
       <div style={{position:"relative",borderRadius:8,overflow:"hidden",border:"1px solid var(--line)"}}>
         <div ref={containerRef} style={{height:480,width:"100%",background:"#eef1f4"}} />
@@ -572,7 +674,10 @@ const LocationTab = ({ schemeId }) => {
                 const m = L.marker(ll, { icon, draggable: true }).addTo(mapRef.current);
                 m.on("dragend", () => {
                   const p = m.getLatLng();
-                  updateScheme(schemeId, { lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6) });
+                  const gridRef = latLngToGridRef(p.lat, p.lng);
+                  const updates = { lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6) };
+                  if (gridRef) updates.grid_ref = gridRef;
+                  updateScheme(schemeId, updates);
                 });
                 markerRef.current = m;
               }
