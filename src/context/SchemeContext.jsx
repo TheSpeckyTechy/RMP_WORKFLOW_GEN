@@ -205,6 +205,24 @@ const schemeFolderName = (scheme) => {
 };
 window.schemeFolderName = schemeFolderName;
 
+// Copy the pre-design sketch PDF (bundled in /templates/) into the scheme's
+// Drawings/Approved/ folder. Best-effort: a missing file or fetch failure
+// must never break the folder-provisioning step.
+const fsSavePredesignSketch = async (schemeDir, scheme) => {
+  if (!scheme.sketch_pdf) return;
+  try {
+    const res = await fetch(`templates/${encodeURIComponent(scheme.sketch_pdf)}`);
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const drawings = await schemeDir.getDirectoryHandle('Drawings', { create: true });
+    const approved = await drawings.getDirectoryHandle('Approved', { create: true });
+    const fileHandle = await approved.getFileHandle(scheme.sketch_pdf, { create: true });
+    const writable   = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+  } catch { /* sketch is optional — never block folder provisioning */ }
+};
+
 const fsProvisionSchemeFolder = async (scheme) => {
   const dir        = await fsResolveFolder();
   const folderName = schemeFolderName(scheme);
@@ -215,6 +233,7 @@ const fsProvisionSchemeFolder = async (scheme) => {
       node = await node.getDirectoryHandle(part, { create: true });
     }
   }
+  await fsSavePredesignSketch(schemeDir, scheme);
   return schemeDir;
 };
 
