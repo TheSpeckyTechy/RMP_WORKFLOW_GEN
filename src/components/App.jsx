@@ -800,7 +800,8 @@ const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
 };
 
 const AppInner = () => {
-  const { addScheme, getScheme } = React.useContext(window.SchemeContext);
+  const { addScheme, getScheme, syncAllToFolder, backendMode, syncStatus } = React.useContext(window.SchemeContext);
+  const [saving, setSaving] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [notifOpen, setNotifOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState([]);
@@ -914,8 +915,27 @@ const AppInner = () => {
             style={{fontSize:14,lineHeight:1,padding:"6px 8px"}}>
             <Icon.Search />
           </button>
-          <button className="btn ghost sm" title="Force reload — bypasses cache and fetches latest code" aria-label="Force reload"
-            onClick={() => window.location.replace(window.location.pathname + '?nocache=' + Date.now())}
+          {backendMode === 'fs' && (
+            <button className="btn ghost sm" title="Save all schemes to OneDrive folder now" aria-label="Save all"
+              disabled={saving}
+              onClick={async () => {
+                if (!syncAllToFolder) return;
+                setSaving(true);
+                await syncAllToFolder();
+                setSaving(false);
+                window.Toast?.show({ kind: 'success', msg: 'All schemes saved to folder.' });
+              }}
+              style={{fontSize:12,fontWeight:600,padding:"4px 10px",gap:4,display:"flex",alignItems:"center"}}>
+              {saving ? '💾 Saving…' : '💾 Save'}
+            </button>
+          )}
+          <button className="btn ghost sm" title="Save all data then reload — bypasses cache and fetches latest code" aria-label="Force reload"
+            onClick={async () => {
+              if (backendMode === 'fs' && syncAllToFolder) {
+                await syncAllToFolder();
+              }
+              window.location.replace(window.location.pathname + '?nocache=' + Date.now());
+            }}
             style={{fontSize:16,lineHeight:1,padding:"4px 7px"}}>↻</button>
           <div style={{position:"relative"}} ref={notifRef}>
             <button className="btn ghost sm" aria-label="Notifications" aria-expanded={notifOpen} style={{position:"relative"}} onClick={()=>setNotifOpen(o=>!o)}>

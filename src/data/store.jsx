@@ -395,7 +395,7 @@ window.SCHEMES = [
   // ── 2026/27 programme — Jake McAllister schemes only (start date > Apr 2026) ──
   baseScheme({ id:"PR010", road_name:"Abertay Street", project_number:"PR010",
     scheme_type:"Footway", treatment_type:"AC10 Taycoat 100/150",
-    date_start:"15/06/2026",
+    date_start:"22/06/2026", date_finish:"26/06/2026",
     prepared_by:"Jake McAllister", supervisor_name:"D MacLachlan",
     ward_num:3, ward_selected:"Coldside", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
@@ -421,8 +421,8 @@ window.SCHEMES = [
     network_length: 320,
     budget_code: "",
     date_prepared: "05/05/2026",
-    date_start:"15/06/2026",
-    date_finish: "17/06/2026",
+    date_start:"25/05/2026",
+    date_finish:"29/05/2026",
     tm_type: "Complete Road Closure",
     tm_hours: "08:00-15:30",
     tm_phases: 1,
@@ -447,7 +447,7 @@ window.SCHEMES = [
   }),
   baseScheme({ id:"PR013", road_name:"Seagate — Nightshift", project_number:"R6087",
     scheme_type:"Carriageway", treatment_type:"HRA 30/14F surf 40/60",
-    date_start:"28/06/2026", tm_hours:"Nightshift (19:00-06:00)",
+    date_start:"28/06/2026", date_finish:"02/07/2026", tm_hours:"Nightshift (19:00-06:00)",
     prepared_by:"Jake McAllister", contractor_pe:"Garry Robertson", supervisor_name:"R Keen",
     ward_num:6, ward_selected:"East End", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
@@ -455,21 +455,21 @@ window.SCHEMES = [
   }),
   baseScheme({ id:"PR015", road_name:"Byron Crescent — Footway", project_number:"PR015",
     scheme_type:"Footway", treatment_type:"AC10 Taycoat 100/150",
-    date_start:"29/06/2026",
+    date_start:"29/06/2026", date_finish:"17/07/2026",
     prepared_by:"Jake McAllister", supervisor_name:"R McNab",
     ward_num:5, ward_selected:"North East", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
   }),
   baseScheme({ id:"PR017", road_name:"CAT 4 Week 2 — Old Glamis Road", project_number:"PR017",
     scheme_type:"Carriageway", treatment_type:"AC14 close binder 40/60",
-    date_start:"13/07/2026",
+    date_start:"06/07/2026", date_finish:"17/07/2026",
     prepared_by:"Jake McAllister", contractor_pe:"Garry Robertson", supervisor_name:"R Keen",
     ward_num:5, ward_selected:"North East", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
   }),
   baseScheme({ id:"PR022", road_name:"Dunholm Road — Footway", project_number:"R6080",
     scheme_type:"Footway", treatment_type:"AC10 Taycoat 100/150",
-    date_start:"10/08/2026",
+    date_start:"10/08/2026", date_finish:"21/08/2026",
     prepared_by:"Jake McAllister", supervisor_name:"R McNab",
     ward_num:1, ward_selected:"Strathmartine", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
@@ -477,21 +477,21 @@ window.SCHEMES = [
   }),
   baseScheme({ id:"PR025", road_name:"Eton Street — Thin Surfacing", project_number:"PR025",
     scheme_type:"Carriageway", treatment_type:"Micro-asphalt",
-    date_start:"24/08/2026",
+    date_start:"24/08/2026", date_finish:"28/08/2026",
     prepared_by:"Jake McAllister", contractor_pe:"Garry Robertson", supervisor_name:"R Keen",
     ward_num:4, ward_selected:"Maryfield", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
   }),
   baseScheme({ id:"PR032", road_name:"Brownhill Road & Balgarthno Road", project_number:"R6013",
     scheme_type:"Carriageway", treatment_type:"HRA 30/14F surf 40/60",
-    date_start:"05/10/2026",
+    date_start:"05/10/2026", date_finish:"09/10/2026",
     prepared_by:"Jake McAllister", contractor_pe:"Garry Robertson", supervisor_name:"R Keen",
     ward_num:2, ward_selected:"Lochee", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
   }),
   baseScheme({ id:"PR034", road_name:"Derwent Avenue", project_number:"R6078",
     scheme_type:"Carriageway", treatment_type:"HRA 30/14F surf 40/60",
-    date_start:"26/10/2026",
+    date_start:"26/10/2026", date_finish:"30/10/2026",
     prepared_by:"Jake McAllister", contractor_pe:"Garry Robertson", supervisor_name:"R Keen",
     ward_num:1, ward_selected:"Strathmartine", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
@@ -499,7 +499,7 @@ window.SCHEMES = [
   }),
   baseScheme({ id:"PR038", road_name:"Ambleside Avenue", project_number:"R6072",
     scheme_type:"Carriageway", treatment_type:"HRA 30/14F surf 40/60",
-    date_start:"16/11/2026",
+    date_start:"09/11/2026", date_finish:"13/11/2026",
     prepared_by:"Jake McAllister", contractor_pe:"Garry Robertson", supervisor_name:"R Keen",
     ward_num:5, ward_selected:"North East", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
@@ -507,7 +507,7 @@ window.SCHEMES = [
   }),
   baseScheme({ id:"PR049", road_name:"Marryat Street", project_number:"R6084",
     scheme_type:"Carriageway", treatment_type:"HRA 30/14F surf 40/60",
-    date_start:"22/02/2027",
+    date_start:"08/02/2027", date_finish:"12/02/2027",
     prepared_by:"Jake McAllister", contractor_pe:"Garry Robertson", supervisor_name:"R Keen",
     ward_num:8, ward_selected:"West End", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
@@ -515,7 +515,7 @@ window.SCHEMES = [
   }),
   baseScheme({ id:"PR053", road_name:"Saggar Street", project_number:"R6086",
     scheme_type:"Carriageway", treatment_type:"HRA 30/14F surf 40/60",
-    date_start:"29/03/2027",
+    date_start:"15/03/2027", date_finish:"19/03/2027",
     prepared_by:"Jake McAllister", contractor_pe:"Garry Robertson", supervisor_name:"R Keen",
     ward_num:6, ward_selected:"East End", financial_year:"2026/27",
     status:"design", packProgress:0, packTotal:14, lastUpdated:"today",
@@ -539,49 +539,49 @@ window.SCHEMES = [
 
   // NEW CARRIAGEWAYS (Ambleside→PR038, Guthrie→PR011, Seagate→PR013, Eton→PR025,
   //   Derwent→PR034, Marryat→PR049, Saggar→PR053, Brownhill→PR032 already exist)
-  baseScheme({ id:'R6012', road_name:'Ashbank Road', scheme_extent:'Logie Avenue to Scott Street', scheme_type:'Carriageway', project_number:'R6012', carriageway_area_m2:423, budget:14805, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-BALBEGGIE', road_name:'Balbeggie Street', scheme_extent:'4 Balbeggie Street to Baluniefield Road', scheme_type:'Carriageway', carriageway_area_m2:3982, budget:139370, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
+  baseScheme({ id:'R6012', road_name:'Ashbank Road', scheme_extent:'Logie Avenue to Scott Street', scheme_type:'Carriageway', project_number:'R6012', carriageway_area_m2:423, budget:14805, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'22/02/2027', date_finish:'26/02/2027', ..._XX }),
+  baseScheme({ id:'CW-BALBEGGIE', road_name:'Balbeggie Street', scheme_extent:'4 Balbeggie Street to Baluniefield Road', scheme_type:'Carriageway', carriageway_area_m2:3982, budget:139370, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'27/07/2026', date_finish:'07/08/2026', ..._XX }),
   baseScheme({ id:'CW-BALGARTHNO', road_name:'Balgarthno Street', scheme_extent:'Gourdie Street to Balgarthno Road', scheme_type:'Carriageway', project_number:'R6013', carriageway_area_m2:625, budget:21875, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-BALLANTRAE', road_name:'Ballantrae Road', scheme_extent:'Ballantrae Place to Balmerino Road', scheme_type:'Carriageway', carriageway_area_m2:764, budget:26740, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'R6014-A', road_name:'Balmerino Road', scheme_extent:'Balmoral Terrace to Nr 46', scheme_type:'Carriageway', project_number:'R6014', carriageway_area_m2:612, budget:36720, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'R6014-B', road_name:'Balmoral Terrace', scheme_extent:'Whole Road', scheme_type:'Carriageway', project_number:'R6014', carriageway_area_m2:1655, budget:87225, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'R6015', road_name:'Brook Street', scheme_extent:'10 Brook Street to Fort Street', scheme_type:'Carriageway', project_number:'R6015', carriageway_area_m2:3031, budget:106085, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-BROOMHILL', road_name:'Broomhill Road', scheme_extent:'Dunsinane Avenue to Carlunie Road', scheme_type:'Carriageway', carriageway_area_m2:500, budget:17500, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-CASTLE-TER', road_name:'Castle Terrace', scheme_extent:'Whole Road', scheme_type:'Carriageway', carriageway_area_m2:1256, budget:43960, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
+  baseScheme({ id:'CW-BALLANTRAE', road_name:'Ballantrae Road', scheme_extent:'Ballantrae Place to Balmerino Road', scheme_type:'Carriageway', carriageway_area_m2:764, budget:26740, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'15/02/2027', date_finish:'19/02/2027', ..._XX }),
+  baseScheme({ id:'R6014-A', road_name:'Balmerino Road', scheme_extent:'Balmoral Terrace to Nr 46', scheme_type:'Carriageway', project_number:'R6014', carriageway_area_m2:612, budget:36720, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'15/06/2026', date_finish:'19/06/2026', ..._XX }),
+  baseScheme({ id:'R6014-B', road_name:'Balmoral Terrace', scheme_extent:'Whole Road', scheme_type:'Carriageway', project_number:'R6014', carriageway_area_m2:1655, budget:87225, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'15/06/2026', date_finish:'19/06/2026', ..._XX }),
+  baseScheme({ id:'R6015', road_name:'Brook Street', scheme_extent:'10 Brook Street to Fort Street', scheme_type:'Carriageway', project_number:'R6015', carriageway_area_m2:3031, budget:106085, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'21/09/2026', date_finish:'02/10/2026', ..._XX }),
+  baseScheme({ id:'CW-BROOMHILL', road_name:'Broomhill Road', scheme_extent:'Dunsinane Avenue to Carlunie Road', scheme_type:'Carriageway', carriageway_area_m2:500, budget:17500, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'05/01/2027', date_finish:'08/01/2027', ..._XX }),
+  baseScheme({ id:'CW-CASTLE-TER', road_name:'Castle Terrace', scheme_extent:'Whole Road', scheme_type:'Carriageway', carriageway_area_m2:1256, budget:43960, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'08/03/2027', date_finish:'12/03/2027', ..._XX }),
   baseScheme({ id:'CW-CLEP-2', road_name:'Clepington Road', scheme_extent:'Hindmarsh Avenue to Nr 249', scheme_type:'Carriageway', project_number:'R6016', carriageway_area_m2:2220, budget:77700, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-CRAIGOWL', road_name:'Craigowl Street', scheme_extent:'Whole Road', scheme_type:'Carriageway', carriageway_area_m2:1486, budget:52010, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-DUNCRAIG', road_name:'Duncraig Road', scheme_extent:'Whole Road', scheme_type:'Carriageway', carriageway_area_m2:516, budget:18060, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-DUNHOLM', road_name:'Dunholm Road', scheme_extent:'Dunholm Street to Duncraig Road', scheme_type:'Carriageway', carriageway_area_m2:1391, budget:48685, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-ELGIN', road_name:'Elgin Street', scheme_extent:'Kingsway Terrace to Nr 6', scheme_type:'Carriageway', carriageway_area_m2:1396, budget:48860, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
+  baseScheme({ id:'CW-CRAIGOWL', road_name:'Craigowl Street', scheme_extent:'Whole Road', scheme_type:'Carriageway', carriageway_area_m2:1486, budget:52010, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'11/01/2027', date_finish:'14/01/2027', ..._XX }),
+  baseScheme({ id:'CW-DUNCRAIG', road_name:'Duncraig Road', scheme_extent:'Whole Road', scheme_type:'Carriageway', carriageway_area_m2:516, budget:18060, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'18/01/2027', date_finish:'22/01/2027', ..._XX }),
+  baseScheme({ id:'CW-DUNHOLM', road_name:'Dunholm Road', scheme_extent:'Dunholm Street to Duncraig Road', scheme_type:'Carriageway', carriageway_area_m2:1391, budget:48685, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'25/01/2027', date_finish:'29/01/2027', ..._XX }),
+  baseScheme({ id:'CW-ELGIN', road_name:'Elgin Street', scheme_extent:'Kingsway Terrace to Nr 6', scheme_type:'Carriageway', carriageway_area_m2:1396, budget:48860, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'16/11/2026', date_finish:'20/11/2026', ..._XX }),
   baseScheme({ id:'R6017', road_name:'Fairfield Street', scheme_extent:'Whole Road', scheme_type:'Carriageway', project_number:'R6017', carriageway_area_m2:1533, budget:70955, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'R6018', road_name:'Findcastle Terrace', scheme_extent:'Whole Road', scheme_type:'Carriageway', project_number:'R6018', carriageway_area_m2:1252, budget:43820, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-FINELLA', road_name:'Finella Terrace', scheme_extent:'Fintry Road to Nr 24', scheme_type:'Carriageway', carriageway_area_m2:789, budget:27615, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-FINTRY-GDNS', road_name:'Fintry Gardens', scheme_extent:'Whole Road', scheme_type:'Carriageway', carriageway_area_m2:1556, budget:54460, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
+  baseScheme({ id:'R6018', road_name:'Findcastle Terrace', scheme_extent:'Whole Road', scheme_type:'Carriageway', project_number:'R6018', carriageway_area_m2:1252, budget:43820, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'10/08/2026', date_finish:'14/08/2026', ..._XX }),
+  baseScheme({ id:'CW-FINELLA', road_name:'Finella Terrace', scheme_extent:'Fintry Road to Nr 24', scheme_type:'Carriageway', carriageway_area_m2:789, budget:27615, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'05/01/2027', date_finish:'09/01/2027', ..._XX }),
+  baseScheme({ id:'CW-FINTRY-GDNS', road_name:'Fintry Gardens', scheme_extent:'Whole Road', scheme_type:'Carriageway', carriageway_area_m2:1556, budget:54460, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'02/11/2026', date_finish:'06/11/2026', ..._XX }),
   baseScheme({ id:'CW-HILLSIDE', road_name:'Hillside Road', scheme_extent:'Glamis Drive to Hillside Terrace', scheme_type:'Carriageway', carriageway_area_m2:408, budget:14280, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'R6019-A', road_name:'Langshaw Road', scheme_extent:'Quarry Gardens to Munro Place', scheme_type:'Carriageway', project_number:'R6019', carriageway_area_m2:1780, budget:62300, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'R6020', road_name:'Mid Craigie Road', scheme_extent:'A90 Kingsway to Nr 2', scheme_type:'Carriageway', project_number:'R6020', carriageway_area_m2:3276, budget:121660, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-MURRAY', road_name:'Murray Street', scheme_extent:'Dalgleish Road to Nr 33', scheme_type:'Carriageway', carriageway_area_m2:1952, budget:48800, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'R6019-B', road_name:'Napier Drive', scheme_extent:'Quarry Gardens to Langshaw Road', scheme_type:'Carriageway', project_number:'R6019', carriageway_area_m2:1403, budget:49105, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-RENNELL', road_name:'Rennell Road', scheme_extent:'Rodd Road to East Dennison Road', scheme_type:'Carriageway', carriageway_area_m2:1223, budget:30575, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-RICHMOND', road_name:'Richmond Terrace', scheme_extent:'Windsor Street to Fort Street', scheme_type:'Carriageway', carriageway_area_m2:1376, budget:39550, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
+  baseScheme({ id:'R6019-A', road_name:'Langshaw Road', scheme_extent:'Quarry Gardens to Munro Place', scheme_type:'Carriageway', project_number:'R6019', carriageway_area_m2:1780, budget:62300, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'01/06/2026', date_finish:'12/06/2026', ..._XX }),
+  baseScheme({ id:'R6020', road_name:'Mid Craigie Road', scheme_extent:'A90 Kingsway to Nr 2', scheme_type:'Carriageway', project_number:'R6020', carriageway_area_m2:3276, budget:121660, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'21/06/2026', date_finish:'02/07/2026', ..._XX }),
+  baseScheme({ id:'CW-MURRAY', road_name:'Murray Street', scheme_extent:'Dalgleish Road to Nr 33', scheme_type:'Carriageway', carriageway_area_m2:1952, budget:48800, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'31/08/2026', date_finish:'04/09/2026', ..._XX }),
+  baseScheme({ id:'R6019-B', road_name:'Napier Drive', scheme_extent:'Quarry Gardens to Langshaw Road', scheme_type:'Carriageway', project_number:'R6019', carriageway_area_m2:1403, budget:49105, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'01/06/2026', date_finish:'12/06/2026', ..._XX }),
+  baseScheme({ id:'CW-RENNELL', road_name:'Rennell Road', scheme_extent:'Rodd Road to East Dennison Road', scheme_type:'Carriageway', carriageway_area_m2:1223, budget:30575, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'07/09/2026', date_finish:'11/09/2026', ..._XX }),
+  baseScheme({ id:'CW-RICHMOND', road_name:'Richmond Terrace', scheme_extent:'Windsor Street to Fort Street', scheme_type:'Carriageway', carriageway_area_m2:1376, budget:39550, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'30/11/2026', date_finish:'04/12/2026', ..._XX }),
   baseScheme({ id:'CW-SHERBRK-G', road_name:'Sherbrook Gardens', scheme_extent:'Nr 8 to 18', scheme_type:'Carriageway', carriageway_area_m2:392, budget:13720, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
   baseScheme({ id:'CW-SHERBRK-S', road_name:'Sherbrook Street', scheme_extent:'Clive Road to Sherbrook Gardens', scheme_type:'Carriageway', carriageway_area_m2:1736, budget:60760, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'CW-TORRIDON', road_name:'Torridon Road', scheme_extent:'Fyne Road to Striven Place', scheme_type:'Carriageway', carriageway_area_m2:408, budget:48160, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
+  baseScheme({ id:'CW-TORRIDON', road_name:'Torridon Road', scheme_extent:'Fyne Road to Striven Place', scheme_type:'Carriageway', carriageway_area_m2:408, budget:48160, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'23/11/2026', date_finish:'27/11/2026', ..._XX }),
   baseScheme({ id:'CW-WETHERBY', road_name:'Wetherby Place', scheme_extent:'Whole Road', scheme_type:'Carriageway', carriageway_area_m2:1130, budget:12495, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
 
   // FOOTWAY — CARRY OVER
   baseScheme({ id:'R5015', road_name:'Lochee Road', scheme_type:'Footway', project_number:'R5015', footway_area_m2:750, budget:93555, financial_year:'2026/27', status:'works', lastUpdated:'today', ..._JM }),
-  baseScheme({ id:'R5016', road_name:'Perth Road', scheme_extent:'Westfield Place to Greenfield Place', scheme_type:'Footway', project_number:'R5016', footway_area_m2:250, budget:27886, financial_year:'2026/27', status:'works', lastUpdated:'today', ..._BC }),
+  baseScheme({ id:'R5016', road_name:'Perth Road', scheme_extent:'Westfield Place to Greenfield Place', scheme_type:'Footway', project_number:'R5016', footway_area_m2:250, budget:27886, financial_year:'2026/27', status:'works', lastUpdated:'today', date_start:'17/08/2026', date_finish:'11/09/2026', ..._BC }),
   baseScheme({ id:'R5029', road_name:'Hedge Road', scheme_extent:'Top two thirds', scheme_type:'Footway', project_number:'R5029', footway_area_m2:200, budget:20000, financial_year:'2026/27', status:'works', lastUpdated:'today', ..._KD }),
   baseScheme({ id:'R5018', road_name:'Tay Square', scheme_type:'Footway', project_number:'R5018', footway_area_m2:100, budget:10000, financial_year:'2026/27', status:'works', lastUpdated:'today', ..._JM }),
   baseScheme({ id:'R6023', road_name:'Deepdale Place', scheme_type:'Footway', project_number:'R6023', footway_area_m2:48, budget:11767, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._SL }),
 
   // FOOTWAY — NEW SCHEMES (Byron Crescent→PR015, Duholm Road→PR022 already exist)
-  baseScheme({ id:'FW-ARBROATH', road_name:'Arbroath Road', scheme_extent:'North Side — Nr 140 to 148', scheme_type:'Footway', footway_area_m2:403, budget:48360, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'FW-FINTRY-A', road_name:'Fintry Drive', scheme_extent:'North Side — Nr 18 to 24', scheme_type:'Footway', footway_area_m2:83, budget:9960, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'FW-FINTRY-B', road_name:'Fintry Drive', scheme_extent:'North Side — Nr 50 to 54', scheme_type:'Footway', footway_area_m2:178, budget:21360, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
+  baseScheme({ id:'FW-ARBROATH', road_name:'Arbroath Road', scheme_extent:'North Side — Nr 140 to 148', scheme_type:'Footway', footway_area_m2:403, budget:48360, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'29/06/2026', date_finish:'17/07/2026', ..._XX }),
+  baseScheme({ id:'FW-FINTRY-A', road_name:'Fintry Drive', scheme_extent:'North Side — Nr 18 to 24', scheme_type:'Footway', footway_area_m2:83, budget:9960, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'14/09/2026', date_finish:'25/09/2026', ..._XX }),
+  baseScheme({ id:'FW-FINTRY-B', road_name:'Fintry Drive', scheme_extent:'North Side — Nr 50 to 54', scheme_type:'Footway', footway_area_m2:178, budget:21360, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'14/09/2026', date_finish:'25/09/2026', ..._XX }),
   baseScheme({ id:'FW-PERTH-RD', road_name:'Perth Road', scheme_extent:'South Side — Nr 2 to 42', scheme_type:'Footway', budget:32500, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
-  baseScheme({ id:'FW-WEDDERBURN', road_name:'Wedderburn Street', scheme_extent:'South Side — Strathmartine Road to Nr 7', scheme_type:'Footway', footway_area_m2:314, budget:23550, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
+  baseScheme({ id:'FW-WEDDERBURN', road_name:'Wedderburn Street', scheme_extent:'South Side — Strathmartine Road to Nr 7', scheme_type:'Footway', footway_area_m2:314, budget:23550, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'08/06/2026', date_finish:'26/06/2026', ..._XX }),
 ];
 
 window.PACK_DOCS = [
@@ -601,6 +601,25 @@ window.PORTAL_LINKS = [
   { name: "Openreach",          desc: "Maps on Demand",                      url: "https://www.openreach.co.uk/mapsondemand/index.html",                domain: "openreach.co.uk" },
   { name: "Grid Ref Finder",    desc: "OS Grid Reference lookup",            url: "https://gridreferencefinder.com/",                                   domain: "gridreferencefinder.com" },
 ];
+
+// Animated counter hook — counts from 0 → target using ease-out cubic over dur ms.
+// Exported to window so Dashboard and Analytics can share the same implementation.
+window.useCounter = (target, dur = 900) => {
+  const [val, setVal] = React.useState(0);
+  React.useEffect(() => {
+    if (!target) { setVal(0); return; }
+    let start = null, raf;
+    const step = (ts) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / dur, 1);
+      setVal(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return val;
+};
 
 window.UTILITIES = [
   { name: "LSBUD (multi-utility)", portal: "linesearchbeforeudig.co.uk" },

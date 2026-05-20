@@ -5,7 +5,7 @@
 //
 // Exports (via window): Analytics
 // Depends on: window.SchemeContext, window.BOQ_ENGINE, window.schemeArea,
-//             window.schemeTreatment, window.Icon
+//             window.schemeTreatment, window.Icon, window.Chart, window.useCounter
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _AE = window.BOQ_ENGINE;
@@ -22,28 +22,28 @@ const tColour = (t) => { if (!_tColourMap[t]) _tColourMap[t] = TREATMENT_PALETTE
 
 // ── Per-scheme metric derivation ─────────────────────────────────────────────
 const deriveMetrics = (scheme) => {
-  const boq      = scheme.boq || window.defaultBoq();
+  const boq       = scheme.boq || window.defaultBoq();
   const effective = _AE.effectiveQuickInputs(scheme, boq);
   const autoLines = _AE.regenAutoLines(effective);
   const userLines = (boq.custom_lines || []).filter(l => !l.auto);
   const computed  = _AE.buildBoQLines({ ...boq, custom_lines: [...autoLines, ...userLines], quick_inputs: effective }, scheme);
   const area      = window.schemeArea(scheme) || 0;
   const treatment = window.schemeTreatment(scheme) || 'Not set';
-  tColour(treatment); // seed palette so colours are stable
+  tColour(treatment);
   const docsGenerated = scheme.docs_generated || {};
   return {
-    id:           scheme.id,
-    ref:          scheme.project_number || scheme.id,
-    name:         scheme.road_name || 'Untitled',
-    status:       scheme.status || 'design',
-    ward:         scheme.ward_selected || 'Unassigned',
+    id:          scheme.id,
+    ref:         scheme.project_number || scheme.id,
+    name:        scheme.road_name || 'Untitled',
+    status:      scheme.status || 'design',
+    ward:        scheme.ward_selected || 'Unassigned',
     treatment,
     area,
-    subtotal:     computed.subtotal,
-    totalIncVat:  computed.totalIncVat,
-    costPerM2:    area > 0 && computed.subtotal > 0 ? computed.subtotal / area : null,
-    packDone:     Object.values(docsGenerated).filter(Boolean).length,
-    packKeys:     Object.keys(docsGenerated).length,
+    subtotal:    computed.subtotal,
+    totalIncVat: computed.totalIncVat,
+    costPerM2:   area > 0 && computed.subtotal > 0 ? computed.subtotal / area : null,
+    packDone:    Object.values(docsGenerated).filter(Boolean).length,
+    packKeys:    Object.keys(docsGenerated).length,
     docsGenerated,
   };
 };
@@ -80,25 +80,193 @@ const Panel = ({ title, children }) => (
   </div>
 );
 
-// ── Tab: Programme overview (interview narrative) ─────────────────────────────
-// Friendly labels for known doc-generation keys.
-const DOC_TYPE_LABELS = {
-  boq:       'Bill of Quantities',
-  rsr:       'Road Space Request',
-  pci:       'PCI Condition Survey',
-  letter:    'Covering Letter',
-  pack:      'Handover Pack',
-  tc_boq:    'TC BoQ Export',
-  workbook:  'Master Workbook',
+// ── Date helpers ──────────────────────────────────────────────────────────────
+const parseDMY = (s) => {
+  if (!s) return null;
+  const [d, m, y] = s.split('/').map(Number);
+  if (!y) return null;
+  return new Date(y, m - 1, d).getTime();
 };
 
-// Estimated minutes per document in-app vs the manual-equivalent effort.
-// The team currently produces docs quickly but at lower quality; the app
-// delivers the same time investment at ~4× the thoroughness.
+const parseMonth = (dmy) => {
+  if (!dmy) return -1;
+  const p = dmy.split('/');
+  if (p.length !== 3) return -1;
+  return ((+p[1] - 1) - 3 + 12) % 12; // Apr=0 … Mar=11
+};
+
+// ── Chart.js: Status doughnut ─────────────────────────────────────────────────
+const StatusDonut = ({ schemes }) => {
+  const canvasRef = React.useRef();
+  const chartRef  = React.useRef();
+  React.useEffect(() => {
+    if (!window.Chart || !canvasRef.current) return;
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+    const counts = STATUS_ORDER.map(s => schemes.filter(x => x.status === s).length);
+    chartRef.current = new window.Chart(canvasRef.current, {
+      type: 'doughnut',
+      data: {
+        labels: STATUS_ORDER.map(s => STATUS_LABEL[s] || s),
+        datasets: [{ data: counts, backgroundColor: STATUS_ORDER.map(s => STATUS_COLOUR[s]), borderWidth: 2, borderColor: '#ffffff' }],
+      },
+      options: {
+        cutout: '68%',
+        animation: { animateRotate: true, duration: 900 },
+        plugins: {
+          legend: { position: 'right', labels: { font: { family: 'Inter', size: 12 }, padding: 14, color: '#444' } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} scheme${ctx.raw !== 1 ? 's' : ''}` } },
+        },
+      },
+    });
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [schemes]);
+  return <canvas ref={canvasRef} style={{ maxHeight: 220 }} />;
+};
+
+// ── Chart.js: Monthly workload bar ────────────────────────────────────────────
+const WorkloadChart = ({ schemes }) => {
+  const canvasRef = React.useRef();
+  const chartRef  = React.useRef();
+  React.useEffect(() => {
+    if (!window.Chart || !canvasRef.current) return;
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+    const months   = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+    const starts   = Array(12).fill(0);
+    const finishes = Array(12).fill(0);
+    schemes.forEach(s => {
+      const sm = parseMonth(s.date_start);
+      const fm = parseMonth(s.date_finish);
+      if (sm >= 0) starts[sm]++;
+      if (fm >= 0) finishes[fm]++;
+    });
+    chartRef.current = new window.Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [
+          { label: 'Starting', data: starts,   backgroundColor: '#3b82f6cc', borderRadius: 4, borderSkipped: false },
+          { label: 'Finishing', data: finishes, backgroundColor: '#10b981cc', borderRadius: 4, borderSkipped: false },
+        ],
+      },
+      options: {
+        animation: { duration: 800 },
+        plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 11 }, padding: 12, color: '#444' } } },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 10 }, color: '#888' }, grid: { color: '#e4e4e4' } },
+          x: { ticks: { font: { family: 'Inter', size: 10 }, color: '#888' }, grid: { display: false } },
+        },
+      },
+    });
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [schemes]);
+  return <canvas ref={canvasRef} style={{ maxHeight: 220 }} />;
+};
+
+// ── Chart.js: Horizontal bar (replaces BarRow in ward/treatment/cost tabs) ────
+const HorizBarChart = ({ labels, values, colours, formatTooltip }) => {
+  const canvasRef = React.useRef();
+  const chartRef  = React.useRef();
+  React.useEffect(() => {
+    if (!window.Chart || !canvasRef.current || !labels.length) return;
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+    chartRef.current = new window.Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ data: values, backgroundColor: colours || '#c46a2c', borderRadius: 4, borderSkipped: false }],
+      },
+      options: {
+        indexAxis: 'y',
+        animation: { duration: 700 },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: formatTooltip || (ctx => ` ${ctx.raw}`) } },
+        },
+        scales: {
+          x: { beginAtZero: true, ticks: { font: { family: 'JetBrains Mono', size: 10 }, color: '#888' }, grid: { color: '#e4e4e4' } },
+          y: { ticks: { font: { family: 'Inter', size: 11 }, color: '#444' }, grid: { display: false } },
+        },
+      },
+    });
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [labels, values]);
+  const h = Math.max(180, labels.length * 34);
+  return <canvas ref={canvasRef} style={{ height: h, maxHeight: h }} />;
+};
+
+// ── CSS Gantt timeline ────────────────────────────────────────────────────────
+const GANTT_START  = new Date(2026, 3, 1).getTime();
+const GANTT_END    = new Date(2027, 3, 1).getTime();
+const GANTT_SPAN   = GANTT_END - GANTT_START;
+const GANTT_MONTHS = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+const TYPE_COLOUR  = { 'Carriageway':'#3b82f6', 'Footway':'#10b981', 'Surface Dressing':'#f59e0b' };
+const ganttColour  = (s) => TYPE_COLOUR[s.scheme_type] || tColour(window.schemeTreatment(s) || 'other');
+
+const ProgrammeGantt = ({ schemes }) => {
+  const dated   = [...schemes].filter(s => s.date_start).sort((a, b) => parseDMY(a.date_start) - parseDMY(b.date_start));
+  const undated = schemes.filter(s => !s.date_start);
+  const todayPct = ((Date.now() - GANTT_START) / GANTT_SPAN) * 100;
+  const showToday = todayPct >= 0 && todayPct <= 100;
+
+  return (
+    <div className="gantt-section">
+      <div className="gantt-section-title">Programme timeline · Apr 2026 → Mar 2027</div>
+      <div className="gantt-outer">
+        <div className="gantt-header" style={{ height: 18, minWidth: 600, position: 'relative' }}>
+          {GANTT_MONTHS.map((m, i) => (
+            <div key={m} className="gantt-month-label" style={{ left: `${(i / 12) * 100}%` }}>{m}</div>
+          ))}
+        </div>
+        {dated.map((s, idx) => {
+          const startMs  = parseDMY(s.date_start);
+          const finishMs = parseDMY(s.date_finish);
+          const leftPct  = ((startMs - GANTT_START) / GANTT_SPAN) * 100;
+          const rightPct = finishMs ? ((finishMs - GANTT_START) / GANTT_SPAN) * 100 : leftPct + 1;
+          const widthPct = Math.max(0.5, rightPct - leftPct);
+          const clampL   = Math.max(0, Math.min(99, leftPct));
+          const colour   = ganttColour(s);
+          const inRange  = startMs >= GANTT_START - 86400000 * 90 && startMs <= GANTT_END + 86400000 * 90;
+          const delay    = `${Math.min(idx * 12, 400)}ms`;
+          return (
+            <div key={s.id} className="gantt-row">
+              <div className="gantt-label" title={s.road_name}>{s.road_name || s.project_number}</div>
+              <div className="gantt-track">
+                <div className="gantt-track-bg" />
+                {showToday && <div className="gantt-today-line" style={{ left: `${todayPct}%` }} />}
+                {inRange ? (
+                  <div
+                    className="gantt-bar"
+                    style={{ left: `${clampL}%`, width: `${Math.min(widthPct, 100 - clampL)}%`, background: colour, animationDelay: delay }}
+                    title={`${s.road_name} · ${s.date_start}${s.date_finish ? ' → ' + s.date_finish : ''}`}
+                  >
+                    {widthPct > 5 ? (s.project_number || '') : ''}
+                  </div>
+                ) : (
+                  <div className="gantt-dot" style={{ left: '1%', background: colour, animationDelay: delay }}
+                    title={`${s.road_name} (${s.date_start})`} />
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {undated.length > 0 && (
+          <div className="gantt-undated-label">{undated.length} scheme{undated.length !== 1 ? 's' : ''} without a start date</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── Tab: Programme overview ───────────────────────────────────────────────────
+const DOC_TYPE_LABELS = {
+  boq:'Bill of Quantities', rsr:'Road Space Request', pci:'PCI Condition Survey',
+  letter:'Covering Letter', pack:'Handover Pack', tc_boq:'TC BoQ Export', workbook:'Master Workbook',
+};
+
 const APP_MINS_PER_DOC    = 12;
 const MANUAL_MINS_PER_DOC = 45;
 
-const Tick = () => <span style={{ color:'#10b981', flexShrink:0, marginTop:1, fontWeight:700 }}>✓</span>;
+const Tick  = () => <span style={{ color:'#10b981', flexShrink:0, marginTop:1, fontWeight:700 }}>✓</span>;
 const Cross = () => <span style={{ color:'#ef4444', flexShrink:0, marginTop:1, fontWeight:700 }}>✕</span>;
 
 const CompareRow = ({ icon, text }) => (
@@ -107,57 +275,75 @@ const CompareRow = ({ icon, text }) => (
   </div>
 );
 
-const OverviewTab = ({ metrics }) => {
+const OverviewTab = ({ metrics, schemes }) => {
+  const useCounter = window.useCounter || ((v) => v);
+
   const totalDocs       = metrics.reduce((s, m) => s + m.packDone, 0);
   const schemesWithDocs = metrics.filter(m => m.packDone > 0).length;
   const fullyDoc        = metrics.filter(m => m.packDone >= 4).length;
   const completePct     = metrics.length > 0 ? Math.round((fullyDoc / metrics.length) * 100) : 0;
+  const appHoursRaw     = totalDocs * APP_MINS_PER_DOC / 60;
+  const manualHoursRaw  = totalDocs * MANUAL_MINS_PER_DOC / 60;
 
-  // Aggregate per doc-type counts
+  const animDocs      = useCounter(totalDocs);
+  const animComplete  = useCounter(completePct);
+  const animAppX10    = useCounter(Math.round(appHoursRaw * 10));
+  const animManualX10 = useCounter(Math.round(manualHoursRaw * 10));
+
   const docTypeCounts = {};
-  metrics.forEach(m => {
-    Object.entries(m.docsGenerated).forEach(([k, v]) => {
-      if (v) docTypeCounts[k] = (docTypeCounts[k] || 0) + 1;
-    });
-  });
-
-  const appHours    = totalDocs > 0 ? (totalDocs * APP_MINS_PER_DOC    / 60).toFixed(1) : '0';
-  const manualHours = totalDocs > 0 ? (totalDocs * MANUAL_MINS_PER_DOC / 60).toFixed(1) : '0';
-
-  // Per-scheme documentation completeness sorted high→low
-  const docSchemes = metrics.filter(m => m.packDone > 0).sort((a, b) => b.packDone - a.packDone);
-  const maxDocs    = docSchemes[0]?.packDone || 1;
+  metrics.forEach(m => { Object.entries(m.docsGenerated).forEach(([k, v]) => { if (v) docTypeCounts[k] = (docTypeCounts[k] || 0) + 1; }); });
 
   return (
     <div style={{ display:'grid', gap:16 }}>
-      {/* Hero KPIs */}
+      {/* Hero KPIs with animated counters */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12 }}>
-        <KPICard label="Documents generated" value={totalDocs}
-          sub={`across ${schemesWithDocs} scheme${schemesWithDocs !== 1 ? 's' : ''}`} accent="#10b981" />
-        <KPICard label="Comprehensively documented"
-          value={`${completePct}%`}
-          sub={`${fullyDoc} of ${metrics.length} schemes have 4+ docs`} />
-        <KPICard label="Estimated time in app"
-          value={`${appHours}h`}
-          sub="~12 min per document" accent="var(--accent)" />
-        <KPICard label="Traditional manual equivalent"
-          value={`${manualHours}h`}
-          sub="same output, ad-hoc method" />
+        <div className="stat" style={{ borderTop:'3px solid #10b981' }}>
+          <div className="stat-label">Documents generated</div>
+          <div className="stat-value">{animDocs}</div>
+          <div className="stat-meta">across {schemesWithDocs} scheme{schemesWithDocs !== 1 ? 's' : ''}</div>
+        </div>
+        <div className="stat">
+          <div className="stat-label">Comprehensively documented</div>
+          <div className="stat-value">{animComplete}<span className="unit">%</span></div>
+          <div className="stat-meta">{fullyDoc} of {metrics.length} schemes, 4+ docs</div>
+        </div>
+        <div className="stat" style={{ borderTop:'3px solid var(--accent)' }}>
+          <div className="stat-label">Time in app</div>
+          <div className="stat-value">{(animAppX10 / 10).toFixed(1)}<span className="unit">h</span></div>
+          <div className="stat-meta">~12 min per document</div>
+        </div>
+        <div className="stat">
+          <div className="stat-label">Manual equivalent</div>
+          <div className="stat-value">{(animManualX10 / 10).toFixed(1)}<span className="unit">h</span></div>
+          <div className="stat-meta">ad-hoc, inconsistent approach</div>
+        </div>
       </div>
 
+      {/* Two-column chart row: status donut + monthly workload */}
+      <div className="overview-charts-row">
+        <Panel title="Scheme status breakdown">
+          <StatusDonut schemes={schemes} />
+        </Panel>
+        <Panel title="Monthly programme workload">
+          <WorkloadChart schemes={schemes} />
+        </Panel>
+      </div>
+
+      {/* Programme Gantt timeline */}
+      <Panel>
+        <ProgrammeGantt schemes={schemes} />
+      </Panel>
+
       {/* Quality narrative callout */}
-      <div style={{
-        background:'var(--bg)', border:'2px solid var(--accent)',
-        borderRadius:'var(--radius)', padding:'16px 20px',
-      }}>
+      <div style={{ background:'var(--bg)', border:'2px solid var(--accent)', borderRadius:'var(--radius)', padding:'16px 20px' }}>
         <div style={{ fontSize:12, fontWeight:700, marginBottom:8, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.06em' }}>
           Quality improvement case
         </div>
         <div style={{ fontSize:13, lineHeight:1.7, color:'var(--ink-1)' }}>
           Documentation across this programme that traditionally required approximately{' '}
-          <strong>{manualHours} hours</strong> of ad-hoc individual effort — with variable quality and missing
-          details — has been completed systematically in approximately{' '}
-          <strong>{appHours} hours</strong> using RMP Design Studio. Every scheme now follows the
+          <strong>{manualHoursRaw.toFixed(1)} hours</strong> of ad-hoc individual effort — with variable quality
+          and missing details — has been completed systematically in approximately{' '}
+          <strong>{appHoursRaw.toFixed(1)} hours</strong> using RMP Design Studio. Every scheme now follows the
           same standardised template, ensuring consistent, auditable, publication-ready outputs
           regardless of workload pressure or the individual producing them.
           That represents a <strong>4× improvement in documentation thoroughness</strong> for the same time investment.
@@ -190,21 +376,17 @@ const OverviewTab = ({ metrics }) => {
         </Panel>
       </div>
 
-      {/* What's standardised */}
+      {/* Standardised processes */}
       <Panel title="Processes now systematically completed on every scheme">
         <div style={{ display:'grid', gap:0 }}>
           {[
-            { label:'Bill of Quantities',    desc:'Automated pricing from treatment type and area data — consistent rates, no manual spreadsheet errors or omissions.' },
-            { label:'Road Space Request',    desc:'Structured site details, traffic management and plant requirements — ready to submit to the Traffic Management team.' },
-            { label:'PCI Condition Survey',  desc:'Standardised condition reporting with photographic evidence and defect scoring — consistent evidence base for all schemes.' },
-            { label:'Covering Letter',       desc:'Professional correspondence generated directly from scheme data — no drafting from scratch for every scheme.' },
-            { label:'Handover Pack',         desc:'Complete project documentation compiled into a single PDF — BoQ, RSR, condition survey and correspondence in one place.' },
+            { label:'Bill of Quantities',   desc:'Automated pricing from treatment type and area data — consistent rates, no manual spreadsheet errors or omissions.' },
+            { label:'Road Space Request',   desc:'Structured site details, traffic management and plant requirements — ready to submit to the Traffic Management team.' },
+            { label:'PCI Condition Survey', desc:'Standardised condition reporting with photographic evidence and defect scoring — consistent evidence base for all schemes.' },
+            { label:'Covering Letter',      desc:'Professional correspondence generated directly from scheme data — no drafting from scratch for every scheme.' },
+            { label:'Handover Pack',        desc:'Complete project documentation compiled into a single PDF — BoQ, RSR, condition survey and correspondence in one place.' },
           ].map((item, i) => (
-            <div key={item.label} style={{
-              display:'grid', gridTemplateColumns:'195px 1fr', gap:14,
-              padding:'10px 0', borderBottom: i < 4 ? '1px solid var(--line)' : 'none',
-              alignItems:'start',
-            }}>
+            <div key={item.label} style={{ display:'grid', gridTemplateColumns:'195px 1fr', gap:14, padding:'10px 0', borderBottom: i < 4 ? '1px solid var(--line)' : 'none', alignItems:'start' }}>
               <div style={{ fontSize:12, fontWeight:600, display:'flex', alignItems:'flex-start', gap:6, color:'var(--ink-1)' }}>
                 <Tick />{item.label}
               </div>
@@ -213,35 +395,6 @@ const OverviewTab = ({ metrics }) => {
           ))}
         </div>
       </Panel>
-
-      {/* Per-scheme documentation bar chart */}
-      {docSchemes.length > 0 && (
-        <Panel title="Documents generated per scheme">
-          {docSchemes.map(m => (
-            <BarRow key={m.id} label={m.name} value={m.packDone} max={maxDocs}
-              formatted={`${m.packDone} doc${m.packDone === 1 ? '' : 's'}`}
-              colour="#10b981"
-              sub={m.ref} />
-          ))}
-        </Panel>
-      )}
-
-      {/* Per doc-type breakdown */}
-      {Object.keys(docTypeCounts).length > 0 && (
-        <Panel title="Output by document type">
-          {Object.entries(docTypeCounts)
-            .sort((a, b) => b[1] - a[1])
-            .map(([k, count]) => (
-              <BarRow key={k}
-                label={DOC_TYPE_LABELS[k] || k}
-                value={count}
-                max={Object.values(docTypeCounts).reduce((a, b) => Math.max(a, b), 1)}
-                formatted={`${count} generated`}
-                colour="var(--accent)" />
-            ))
-          }
-        </Panel>
-      )}
     </div>
   );
 };
@@ -252,31 +405,27 @@ const StatusTab = ({ metrics }) => {
   metrics.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1; });
 
   const packSchemes = metrics.filter(m => m.packDone > 0).sort((a, b) => b.packDone - a.packDone);
-  const maxPack = packSchemes[0]?.packDone || 1;
+  const maxPack     = packSchemes[0]?.packDone || 1;
 
   return (
     <div style={{ display:'grid', gap:16 }}>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))', gap:10 }}>
         {STATUS_ORDER.map(s => (
-          <div key={s} style={{
-            textAlign:'center', padding:'18px 10px',
-            background:'var(--bg)', border:'1px solid var(--line)', borderRadius:'var(--radius)',
-            borderTop: `3px solid ${STATUS_COLOUR[s]}`,
-          }}>
-            <div style={{ fontSize:32, fontWeight:700, color: STATUS_COLOUR[s], lineHeight:1 }}>{counts[s]}</div>
+          <div key={s} style={{ textAlign:'center', padding:'18px 10px', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:'var(--radius)', borderTop:`3px solid ${STATUS_COLOUR[s]}` }}>
+            <div style={{ fontSize:32, fontWeight:700, color:STATUS_COLOUR[s], lineHeight:1 }}>{counts[s]}</div>
             <div style={{ fontSize:11, color:'var(--ink-3)', marginTop:4 }}>{STATUS_LABEL[s]}</div>
           </div>
         ))}
       </div>
       <Panel title="Documents generated per scheme">
-        {packSchemes.length === 0 ? (
-          <div style={{ color:'var(--ink-3)', fontSize:12 }}>No documents generated yet.</div>
-        ) : packSchemes.map(m => (
-          <BarRow key={m.id} label={m.name} value={m.packDone} max={maxPack}
-            formatted={`${m.packDone} doc${m.packDone === 1 ? '' : 's'}`}
-            colour={STATUS_COLOUR[m.status]}
-            sub={m.ref} />
-        ))}
+        {packSchemes.length === 0
+          ? <div style={{ color:'var(--ink-3)', fontSize:12 }}>No documents generated yet.</div>
+          : packSchemes.map(m => (
+            <BarRow key={m.id} label={m.name} value={m.packDone} max={maxPack}
+              formatted={`${m.packDone} doc${m.packDone === 1 ? '' : 's'}`}
+              colour={STATUS_COLOUR[m.status]} sub={m.ref} />
+          ))
+        }
       </Panel>
     </div>
   );
@@ -292,19 +441,17 @@ const WardTab = ({ metrics }) => {
     wardMap[m.ward].count += 1;
   });
   const wards = Object.values(wardMap).sort((a, b) => b.spend - a.spend);
-  const max   = wards[0]?.spend || 0;
-
+  if (wards.length === 0) {
+    return <Panel title="Committed spend by ward (ex VAT)"><div style={{ color:'var(--ink-3)', fontSize:12 }}>No ward data yet.</div></Panel>;
+  }
   return (
     <Panel title="Committed spend by ward (ex VAT)">
-      {wards.length === 0
-        ? <div style={{ color:'var(--ink-3)', fontSize:12 }}>No ward data yet.</div>
-        : wards.map(w => (
-          <BarRow key={w.label} label={w.label} value={w.spend} max={max}
-            formatted={_AE.fmtGBP(w.spend)}
-            colour="var(--accent)"
-            sub={`${w.count} scheme${w.count === 1 ? '' : 's'} · ${w.area.toLocaleString()} m²`} />
-        ))
-      }
+      <HorizBarChart
+        labels={wards.map(w => `${w.label} (${w.count})`)}
+        values={wards.map(w => Math.round(w.spend))}
+        colours={wards.map(() => '#c46a2c')}
+        formatTooltip={ctx => ` ${_AE.fmtGBP(ctx.raw)}`}
+      />
     </Panel>
   );
 };
@@ -318,28 +465,32 @@ const TreatmentTab = ({ metrics }) => {
     tMap[m.treatment].area  += m.area;
     tMap[m.treatment].spend += m.subtotal;
   });
-  const treatments = Object.values(tMap).sort((a, b) => b.count - a.count);
-  const maxCount   = treatments[0]?.count || 1;
-  const maxSpend   = Math.max(...treatments.map(t => t.spend)) || 1;
+  const treatments     = Object.values(tMap).sort((a, b) => b.count - a.count);
+  const spendTreats    = [...treatments].filter(t => t.spend > 0).sort((a, b) => b.spend - a.spend);
 
   return (
     <div style={{ display:'grid', gap:16 }}>
       <Panel title="Schemes by treatment type">
-        {treatments.map(t => (
-          <BarRow key={t.label} label={t.label} value={t.count} max={maxCount}
-            formatted={`${t.count} scheme${t.count === 1 ? '' : 's'}`}
-            colour={tColour(t.label)}
-            sub={`${t.area.toLocaleString()} m²`} />
-        ))}
+        <HorizBarChart
+          labels={treatments.map(t => t.label)}
+          values={treatments.map(t => t.count)}
+          colours={treatments.map(t => tColour(t.label))}
+          formatTooltip={ctx => {
+            const t = treatments[ctx.dataIndex];
+            return t ? ` ${ctx.raw} scheme${ctx.raw !== 1 ? 's' : ''} · ${t.area.toLocaleString()} m²` : ` ${ctx.raw}`;
+          }}
+        />
       </Panel>
-      <Panel title="Committed spend by treatment (ex VAT)">
-        {treatments.filter(t => t.spend > 0).sort((a,b) => b.spend-a.spend).map(t => (
-          <BarRow key={t.label} label={t.label} value={t.spend} max={maxSpend}
-            formatted={_AE.fmtGBP(t.spend)}
-            colour={tColour(t.label)}
-            sub={`avg £${t.area > 0 ? Math.round(t.spend / t.area) : '—'}/m²`} />
-        ))}
-      </Panel>
+      {spendTreats.length > 0 && (
+        <Panel title="Committed spend by treatment (ex VAT)">
+          <HorizBarChart
+            labels={spendTreats.map(t => t.label)}
+            values={spendTreats.map(t => Math.round(t.spend))}
+            colours={spendTreats.map(t => tColour(t.label))}
+            formatTooltip={ctx => ` ${_AE.fmtGBP(ctx.raw)}`}
+          />
+        </Panel>
+      )}
     </div>
   );
 };
@@ -347,19 +498,20 @@ const TreatmentTab = ({ metrics }) => {
 // ── Tab: Cost / m² ────────────────────────────────────────────────────────────
 const CostPerM2Tab = ({ metrics }) => {
   const priced = metrics.filter(m => m.costPerM2 !== null).sort((a, b) => b.costPerM2 - a.costPerM2);
-  const max    = priced[0]?.costPerM2 || 1;
-
+  if (priced.length === 0) {
+    return <Panel title="Cost / m² by scheme"><div style={{ color:'var(--ink-3)', fontSize:12 }}>No priced schemes with area data yet.</div></Panel>;
+  }
   return (
     <Panel title="Cost / m² by scheme (ex VAT, sorted high → low)">
-      {priced.length === 0
-        ? <div style={{ color:'var(--ink-3)', fontSize:12 }}>No priced schemes with area data yet.</div>
-        : priced.map(m => (
-          <BarRow key={m.id} label={m.name} value={m.costPerM2} max={max}
-            formatted={`£${Math.round(m.costPerM2)}/m²`}
-            colour={tColour(m.treatment)}
-            sub={`${m.ref} · ${m.treatment}`} />
-        ))
-      }
+      <HorizBarChart
+        labels={priced.map(m => m.name)}
+        values={priced.map(m => Math.round(m.costPerM2))}
+        colours={priced.map(m => tColour(m.treatment))}
+        formatTooltip={ctx => {
+          const m = priced[ctx.dataIndex];
+          return m ? ` £${ctx.raw}/m² · ${m.ref} · ${m.treatment}` : ` £${ctx.raw}/m²`;
+        }}
+      />
     </Panel>
   );
 };
@@ -433,6 +585,7 @@ const SchemeTable = ({ metrics }) => {
 const Analytics = () => {
   const { schemes } = React.useContext(window.SchemeContext);
   const [activeTab, setActiveTab] = React.useState('overview');
+  const useCounter = window.useCounter || ((v) => v);
 
   const metrics = React.useMemo(() => schemes.map(deriveMetrics), [schemes]);
 
@@ -448,6 +601,12 @@ const Analytics = () => {
       total:        metrics.length,
     };
   }, [metrics]);
+
+  const animSpend   = useCounter(Math.round(totals.totalSpend));
+  const animSpendEx = useCounter(Math.round(totals.totalSpendEx));
+  const animArea    = useCounter(Math.round(totals.totalArea));
+  const animCostM2  = useCounter(Math.round(totals.avgCostPerM2));
+  const animTotal   = useCounter(totals.total);
 
   const TABS = [
     { key:'overview',   label:'Programme overview' },
@@ -467,16 +626,16 @@ const Analytics = () => {
       </div>
 
       <div className="stats" style={{ marginBottom:24 }}>
-        <KPICard label="Total programme cost" value={_AE.fmtGBP(totals.totalSpend)}
-          sub={`inc. VAT · ex VAT ${_AE.fmtGBP(totals.totalSpendEx)}`} accent="var(--accent)" />
+        <KPICard label="Total programme cost" value={_AE.fmtGBP(animSpend)}
+          sub={`inc. VAT · ex VAT ${_AE.fmtGBP(animSpendEx)}`} accent="var(--accent)" />
         <KPICard label="Avg cost / m²"
-          value={totals.avgCostPerM2 > 0 ? `£${Math.round(totals.avgCostPerM2)}/m²` : '—'}
+          value={totals.avgCostPerM2 > 0 ? `£${animCostM2}/m²` : '—'}
           sub={totals.pricedCount > 0 ? `${totals.pricedCount} priced scheme${totals.pricedCount === 1 ? '' : 's'}` : 'No priced schemes yet'} />
         <KPICard label="Total area"
-          value={`${totals.totalArea.toLocaleString()} m²`}
+          value={`${animArea.toLocaleString()} m²`}
           sub="carriageway + footway" />
         <KPICard label="Schemes"
-          value={totals.total}
+          value={animTotal}
           sub={`${totals.pricedCount} priced · ${totals.total - totals.pricedCount} unpriced`} />
       </div>
 
@@ -488,11 +647,11 @@ const Analytics = () => {
         ))}
       </div>
 
-      {activeTab === 'overview'   && <OverviewTab   metrics={metrics} />}
-      {activeTab === 'status'    && <StatusTab    metrics={metrics} />}
-      {activeTab === 'ward'      && <WardTab       metrics={metrics} />}
-      {activeTab === 'treatment' && <TreatmentTab  metrics={metrics} />}
-      {activeTab === 'cost_m2'   && <CostPerM2Tab  metrics={metrics} />}
+      {activeTab === 'overview'   && <OverviewTab   metrics={metrics} schemes={schemes} />}
+      {activeTab === 'status'     && <StatusTab     metrics={metrics} />}
+      {activeTab === 'ward'       && <WardTab        metrics={metrics} />}
+      {activeTab === 'treatment'  && <TreatmentTab   metrics={metrics} />}
+      {activeTab === 'cost_m2'    && <CostPerM2Tab   metrics={metrics} />}
 
       <SchemeTable metrics={metrics} />
     </div>
