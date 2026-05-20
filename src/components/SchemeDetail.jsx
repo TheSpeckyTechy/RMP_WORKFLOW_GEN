@@ -301,6 +301,131 @@ const WardTab = ({ schemeId }) => {
 const DUNDEE_CENTRE = [56.462, -2.971];
 const LEAFLET_VERSION = "1.9.4";
 
+// Parse an OSGB grid reference into (easting, northing) in metres.
+// Accepts: "NO 40708 30644", "NO4070830644", "N04070830644" (0 typed for O),
+// and raw "340708 730644" easting-northing pairs.
+const parseGridRef = (raw) => {
+  if (!raw || typeof raw !== "string") return null;
+  const s = raw.toUpperCase().replace(/\s+/g, "");
+
+  // Raw easting+northing: 10–14 digits, split in half. Accept 5+5 or 6+6.
+  if (/^\d{10,14}$/.test(s) && s.length % 2 === 0) {
+    const half = s.length / 2;
+    const E = parseInt(s.slice(0, half), 10);
+    const N = parseInt(s.slice(half), 10);
+    if (E >= 0 && E <= 700000 && N >= 0 && N <= 1300000) return { E, N };
+    return null;
+  }
+
+  // Letter-prefixed: 2 letters then even number of digits. Treat a leading
+  // "letter+0" as "letter+O" since users frequently type 0 for the O in NO/SO.
+  let m = s.match(/^([A-HJ-Z])([A-HJ-Z]|0)(\d+)$/);
+  if (!m) return null;
+  const l1ch = m[1];
+  const l2ch = m[2] === "0" ? "O" : m[2];
+  const digits = m[3];
+  if (digits.length % 2 !== 0 || digits.length < 2 || digits.length > 10) return null;
+
+  let l1 = l1ch.charCodeAt(0) - 65;
+  let l2 = l2ch.charCodeAt(0) - 65;
+  if (l1 > 7) l1--;
+  if (l2 > 7) l2--;
+  const e100km = ((l1 - 2) % 5 + 5) % 5 * 5 + (l2 % 5);
+  const n100km = (19 - Math.floor(l1 / 5) * 5) - Math.floor(l2 / 5);
+  if (e100km < 0 || e100km > 6 || n100km < 0 || n100km > 12) return null;
+
+  const half = digits.length / 2;
+  const ePart = digits.slice(0, half).padEnd(5, "0").slice(0, 5);
+  const nPart = digits.slice(half).padEnd(5, "0").slice(0, 5);
+  const E = e100km * 100000 + parseInt(ePart, 10);
+  const N = n100km * 100000 + parseInt(nPart, 10);
+  return { E, N };
+};
+
+// OSGB36 easting/northing → WGS84 lat/lng. Inverse Transverse Mercator on the
+// Airy 1830 ellipsoid, then a Helmert transformation onto WGS84. Accurate to
+// ~5 m, which is well below the resolution of a 10-figure grid reference.
+const osgbToWgs84 = (E, N) => {
+  const a = 6377563.396, b = 6356256.909;
+  const F0 = 0.9996012717;
+  const lat0 = 49 * Math.PI / 180;
+  const lon0 = -2 * Math.PI / 180;
+  const N0 = -100000, E0 = 400000;
+  const e2 = 1 - (b * b) / (a * a);
+  const nP = (a - b) / (a + b), n2 = nP * nP, n3 = nP * nP * nP;
+
+  let lat = lat0, M = 0;
+  for (let i = 0; i < 20; i++) {
+    lat = (N - N0 - M) / (a * F0) + lat;
+    const Ma = (1 + nP + 5 / 4 * n2 + 5 / 4 * n3) * (lat - lat0);
+    const Mb = (3 * nP + 3 * nP * nP + 21 / 8 * n3) * Math.sin(lat - lat0) * Math.cos(lat + lat0);
+    const Mc = (15 / 8 * n2 + 15 / 8 * n3) * Math.sin(2 * (lat - lat0)) * Math.cos(2 * (lat + lat0));
+    const Md = 35 / 24 * n3 * Math.sin(3 * (lat - lat0)) * Math.cos(3 * (lat + lat0));
+    M = b * F0 * (Ma - Mb + Mc - Md);
+    if (Math.abs(N - N0 - M) < 1e-5) break;
+  }
+
+  const sinLat = Math.sin(lat), cosLat = Math.cos(lat);
+  const nu = a * F0 / Math.sqrt(1 - e2 * sinLat * sinLat);
+  const rho = a * F0 * (1 - e2) / Math.pow(1 - e2 * sinLat * sinLat, 1.5);
+  const eta2 = nu / rho - 1;
+  const tanLat = Math.tan(lat);
+  const t2 = tanLat * tanLat, t4 = t2 * t2, t6 = t4 * t2;
+  const secLat = 1 / cosLat;
+  const nu3 = nu * nu * nu, nu5 = nu3 * nu * nu, nu7 = nu5 * nu * nu;
+  const VII = tanLat / (2 * rho * nu);
+  const VIII = tanLat / (24 * rho * nu3) * (5 + 3 * t2 + eta2 - 9 * t2 * eta2);
+  const IX = tanLat / (720 * rho * nu5) * (61 + 90 * t2 + 45 * t4);
+  const X = secLat / nu;
+  const XI = secLat / (6 * nu3) * (nu / rho + 2 * t2);
+  const XII = secLat / (120 * nu5) * (5 + 28 * t2 + 24 * t4);
+  const XIIA = secLat / (5040 * nu7) * (61 + 662 * t2 + 1320 * t4 + 720 * t6);
+
+  const dE = E - E0;
+  const phi = lat - VII * dE * dE + VIII * Math.pow(dE, 4) - IX * Math.pow(dE, 6);
+  const lam = lon0 + X * dE - XI * Math.pow(dE, 3) + XII * Math.pow(dE, 5) - XIIA * Math.pow(dE, 7);
+
+  // Cartesian on Airy 1830
+  const sp = Math.sin(phi), cp = Math.cos(phi);
+  const sl = Math.sin(lam), cl = Math.cos(lam);
+  const nuA = a / Math.sqrt(1 - e2 * sp * sp);
+  const x = nuA * cp * cl;
+  const y = nuA * cp * sl;
+  const z = (1 - e2) * nuA * sp;
+
+  // Helmert OSGB36 → WGS84 (OS published parameters, signs per Chris Veness)
+  const tx = 446.448, ty = -125.157, tz = 542.060;
+  const s1 = 20.4894e-6 + 1;
+  const rx = (0.1502 / 3600) * Math.PI / 180;
+  const ry = (0.2470 / 3600) * Math.PI / 180;
+  const rz = (0.8421 / 3600) * Math.PI / 180;
+  const x2 = tx + s1 * x - rz * y + ry * z;
+  const y2 = ty + rz * x + s1 * y - rx * z;
+  const z2 = tz - ry * x + rx * y + s1 * z;
+
+  // Cartesian → lat/lng on WGS84
+  const aW = 6378137, bW = 6356752.314245;
+  const e2W = 1 - (bW * bW) / (aW * aW);
+  const p = Math.sqrt(x2 * x2 + y2 * y2);
+  let phi2 = Math.atan2(z2, p * (1 - e2W));
+  for (let i = 0; i < 10; i++) {
+    const sp2 = Math.sin(phi2);
+    const nuW = aW / Math.sqrt(1 - e2W * sp2 * sp2);
+    const newPhi = Math.atan2(z2 + e2W * nuW * sp2, p);
+    if (Math.abs(newPhi - phi2) < 1e-12) { phi2 = newPhi; break; }
+    phi2 = newPhi;
+  }
+  const lam2 = Math.atan2(y2, x2);
+  return { lat: phi2 * 180 / Math.PI, lng: lam2 * 180 / Math.PI };
+};
+
+const gridRefToLatLng = (raw) => {
+  const en = parseGridRef(raw);
+  if (!en) return null;
+  const { lat, lng } = osgbToWgs84(en.E, en.N);
+  return { lat: +lat.toFixed(6), lng: +lng.toFixed(6) };
+};
+
 let leafletPromise = null;
 const loadLeaflet = () => {
   if (window.L) return Promise.resolve(window.L);
@@ -328,14 +453,16 @@ const LocationTab = ({ schemeId }) => {
   const [status, setStatus] = React.useState("loading");
 
   const hasPin = scheme.lat != null && scheme.lng != null;
+  const gridLatLng = React.useMemo(() => gridRefToLatLng(scheme.grid_ref), [scheme.grid_ref]);
 
   React.useEffect(() => {
     let cancelled = false;
     loadLeaflet().then((L) => {
       if (cancelled || !containerRef.current) return;
 
-      const start = hasPin ? [scheme.lat, scheme.lng] : DUNDEE_CENTRE;
-      const map = L.map(containerRef.current, { zoomControl: true }).setView(start, hasPin ? 16 : 13);
+      const initialPin = hasPin ? { lat: scheme.lat, lng: scheme.lng } : gridLatLng;
+      const start = initialPin ? [initialPin.lat, initialPin.lng] : DUNDEE_CENTRE;
+      const map = L.map(containerRef.current, { zoomControl: true }).setView(start, initialPin ? 17 : 13);
       mapRef.current = map;
 
       L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
@@ -367,7 +494,13 @@ const LocationTab = ({ schemeId }) => {
         }
       };
 
-      if (hasPin) placeMarker([scheme.lat, scheme.lng]);
+      const pinNeverSet = scheme.lat === undefined && scheme.lng === undefined;
+      if (hasPin) {
+        placeMarker([scheme.lat, scheme.lng]);
+      } else if (gridLatLng && pinNeverSet) {
+        placeMarker([gridLatLng.lat, gridLatLng.lng]);
+        updateScheme(schemeId, { lat: gridLatLng.lat, lng: gridLatLng.lng });
+      }
 
       map.on("click", (e) => {
         placeMarker(e.latlng);
@@ -418,8 +551,40 @@ const LocationTab = ({ schemeId }) => {
           </div>
         )}
       </div>
-      <div style={{display:"flex",gap:8,marginTop:12}}>
+      <div style={{display:"flex",gap:8,marginTop:12,alignItems:"center",flexWrap:"wrap"}}>
+        {gridLatLng && (
+          <button
+            className="btn ghost sm"
+            title={`Plot pin from grid reference ${scheme.grid_ref}`}
+            onClick={() => {
+              if (!mapRef.current || !window.L) return;
+              const L = window.L;
+              const ll = [gridLatLng.lat, gridLatLng.lng];
+              if (markerRef.current) {
+                markerRef.current.setLatLng(ll);
+              } else {
+                const icon = L.icon({
+                  iconUrl:       `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/images/marker-icon.png`,
+                  iconRetinaUrl: `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/images/marker-icon-2x.png`,
+                  shadowUrl:     `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/images/marker-shadow.png`,
+                  iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34], shadowSize:[41,41],
+                });
+                const m = L.marker(ll, { icon, draggable: true }).addTo(mapRef.current);
+                m.on("dragend", () => {
+                  const p = m.getLatLng();
+                  updateScheme(schemeId, { lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6) });
+                });
+                markerRef.current = m;
+              }
+              mapRef.current.setView(ll, 17);
+              updateScheme(schemeId, { lat: gridLatLng.lat, lng: gridLatLng.lng });
+            }}
+          >Use grid reference</button>
+        )}
         <button className="btn ghost sm" onClick={clearPin} disabled={!hasPin}>Clear pin</button>
+        {scheme.grid_ref && !gridLatLng && (
+          <span style={{fontSize:11,color:"var(--ink-3)"}}>Grid reference "{scheme.grid_ref}" couldn't be parsed.</span>
+        )}
       </div>
     </div>
   );
