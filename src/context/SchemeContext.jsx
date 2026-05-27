@@ -237,6 +237,29 @@ const fsProvisionSchemeFolder = async (scheme) => {
   return schemeDir;
 };
 
+// Saves any file directly into a scheme's project subfolder via the FS API.
+// subfolderParts: e.g. ['Contract'] or ['Drawings', 'Draft'].
+// data: ArrayBuffer | Uint8Array | Blob.
+// Returns true on success, false if folder not connected or write fails.
+const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data) => {
+  try {
+    const root = await fsResolveFolder();
+    const folderName = schemeFolderName(scheme);
+    let dir = await root.getDirectoryHandle(folderName, { create: true });
+    for (const part of subfolderParts) {
+      dir = await dir.getDirectoryHandle(part, { create: true });
+    }
+    const fh = await dir.getFileHandle(filename, { create: true });
+    const w  = await fh.createWritable();
+    await w.write(data);
+    await w.close();
+    return true;
+  } catch {
+    return false;
+  }
+};
+window.fsSaveToProjectFolder = fsSaveToProjectFolder;
+
 // ── localStorage helpers ─────────────────────────────────────────────────────
 const LS_PREFIX = 'rmp_scheme_';
 const LS_IDS    = 'rmp_scheme_ids';

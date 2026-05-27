@@ -595,7 +595,13 @@ async function downloadPCIPdf(scheme) {
     if (window.docx && window.docx.renderAsync) {
       await window.docx.renderAsync(buffer, container, null, { className: 'docx-preview', inWrapper: false, useBase64URL: true });
     }
-    await window.htmlToPdf(container, `PCI_CPP_${scheme.project_number}.pdf`);
+    const pdfFilename = `PCI_CPP_${scheme.project_number}.pdf`;
+    const pdfSaved = window.fsSaveToProjectFolder
+      ? await window.htmlToPdfBuffer(container).then(buf =>
+          window.fsSaveToProjectFolder(scheme, ['CDM'], pdfFilename, buf))
+      : false;
+    if (!pdfSaved) await window.htmlToPdf(container, pdfFilename);
+    else if (window.Toast) window.Toast.show({ kind: 'success', msg: `PCI/CPP PDF saved to ${window.schemeFolderName(scheme)}/CDM/`, duration: 4000 });
   } finally {
     document.body.removeChild(container);
   }
@@ -618,13 +624,21 @@ const PCIModal = ({ schemeId, onClose }) => {
       } else {
         let buffer = await loadDocxBuffer(PCI_TEMPLATE);
         buffer = await injectValues(buffer, scheme);
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href     = url;
-        a.download = `PCI_CPP_${scheme.project_number}.docx`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const docxFilename = `PCI_CPP_${scheme.project_number}.docx`;
+        const docxSaved = window.fsSaveToProjectFolder
+          ? await window.fsSaveToProjectFolder(scheme, ['CDM'], docxFilename, buffer)
+          : false;
+        if (!docxSaved) {
+          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+          const url  = URL.createObjectURL(blob);
+          const a    = document.createElement('a');
+          a.href     = url;
+          a.download = docxFilename;
+          a.click();
+          URL.revokeObjectURL(url);
+        } else {
+          if (window.Toast) window.Toast.show({ kind: 'success', msg: `PCI/CPP saved to ${window.schemeFolderName(scheme)}/CDM/`, duration: 4000 });
+        }
         updateScheme(schemeId, { docs_generated: { ...(scheme.docs_generated||{}), pci: true } });
         window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number } }));
       }
@@ -756,13 +770,19 @@ window.__downloadPCI = async (scheme) => {
   try {
     let buffer = await loadDocxBuffer(PCI_TEMPLATE);
     buffer = await injectValues(buffer, scheme);
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `PCI_CPP_${scheme.project_number}.docx`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const docxFilename = `PCI_CPP_${scheme.project_number}.docx`;
+    const saved = window.fsSaveToProjectFolder
+      ? await window.fsSaveToProjectFolder(scheme, ['CDM'], docxFilename, buffer)
+      : false;
+    if (!saved) {
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = docxFilename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
     window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number, fn: '__downloadPCI', schemeId: scheme.id } }));
   } catch (e) { console.warn('PCI download failed', e); }
 };

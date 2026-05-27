@@ -193,10 +193,18 @@ async function mailMergeLetter(scheme, recipients) {
 
   if (recipients.length === 1) {
     const buf = await injectLetterXml(templateBuffer, scheme, recipients[0]);
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([buf], { type: docType }));
-    a.download = `Letter_${slug}_${(recipients[0].address1||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30)}.docx`;
-    a.click(); URL.revokeObjectURL(a.href);
+    const docxFilename = `Letter_${slug}_${(recipients[0].address1||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30)}.docx`;
+    const saved = window.fsSaveToProjectFolder
+      ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], docxFilename, buf)
+      : false;
+    if (!saved) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([buf], { type: docType }));
+      a.download = docxFilename;
+      a.click(); URL.revokeObjectURL(a.href);
+    } else {
+      if (window.Toast) window.Toast.show({ kind: 'success', msg: `Letter saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
+    }
     return;
   }
 
@@ -207,10 +215,18 @@ async function mailMergeLetter(scheme, recipients) {
     outZip.file(`Letter_${String(i+1).padStart(3,'0')}_${label}.docx`, buf);
   }
   const zipBuf = await outZip.generateAsync({ type: 'arraybuffer' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([zipBuf], { type: 'application/zip' }));
-  a.download = `MailMerge_${slug}_${recipients.length}letters.zip`;
-  a.click(); URL.revokeObjectURL(a.href);
+  const zipFilename = `MailMerge_${slug}_${recipients.length}letters.zip`;
+  const zipSaved = window.fsSaveToProjectFolder
+    ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], zipFilename, zipBuf)
+    : false;
+  if (!zipSaved) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([zipBuf], { type: 'application/zip' }));
+    a.download = zipFilename;
+    a.click(); URL.revokeObjectURL(a.href);
+  } else {
+    if (window.Toast) window.Toast.show({ kind: 'success', msg: `Letters saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
+  }
 }
 
 // Render every letter into one multi-page PDF by rendering each recipient's
@@ -275,7 +291,11 @@ async function mailMergeLetterPdf(scheme, recipients, onProgress) {
   const name = recipients.length === 1
     ? `Letter_${slug}_${(recipients[0].address1||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30)}.pdf`
     : `MailMerge_${slug}_${recipients.length}letters.pdf`;
-  pdf.save(name);
+  const pdfSaved = window.fsSaveToProjectFolder
+    ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], name, pdf.output('arraybuffer'))
+    : false;
+  if (!pdfSaved) pdf.save(name);
+  else if (window.Toast) window.Toast.show({ kind: 'success', msg: `Letter PDF saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
 }
 
 const applyLetter = (root, scheme, recipient) => {

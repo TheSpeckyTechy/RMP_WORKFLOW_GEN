@@ -139,7 +139,7 @@ const MasterWorkbook = ({ schemeId }) => {
   const scheme = getScheme(schemeId);
   const update = (key, val) => updateScheme(schemeId, { [key]: val });
 
-  const exportXlsx = () => {
+  const exportXlsx = async () => {
     const XLSX = window.XLSX;
     const sheetName = "Project Info";
     const rows = [], meta = [], namedRanges = [];
@@ -259,7 +259,15 @@ const MasterWorkbook = ({ schemeId }) => {
     wb.Workbook = { Names: namedRanges };
 
     const filename = `${scheme.project_number}_${(scheme.road_name||"").replace(/\s+/g,"_")}_Master.xlsx`;
-    XLSX.writeFile(wb, filename);
+    const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const saved = window.fsSaveToProjectFolder
+      ? await window.fsSaveToProjectFolder(scheme, ['Contract'], filename, bytes)
+      : false;
+    if (!saved) {
+      XLSX.writeFile(wb, filename);
+    } else {
+      if (window.Toast) window.Toast.show({ kind: 'success', msg: `Master Workbook saved to ${window.schemeFolderName(scheme)}/Contract/`, duration: 4000 });
+    }
     window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `Workbook — ${scheme.road_name}`, ref: scheme.project_number } }));
   };
 
