@@ -37,6 +37,9 @@ const Sidebar = ({ view, onView, open, onClose }) => {
         <button className={"nav-item " + (view === "analytics" ? "active" : "")} onClick={() => onView("analytics")}>
           <Icon.BarChart /><span>Analysis</span>
         </button>
+        <button className={"nav-item " + (view === "tracker" ? "active" : "")} onClick={() => onView("tracker")}>
+          <Icon.Calendar /><span>Programme</span>
+        </button>
         <button className={"nav-item " + (view === "settings" ? "active" : "")} onClick={() => onView("settings")}>
           <Icon.Cog /><span>Settings</span>
         </button>
