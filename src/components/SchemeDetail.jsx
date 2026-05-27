@@ -1133,6 +1133,13 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
     });
   };
 
+  // Maps pack docKey → OneDrive subfolder path for direct FS saves on upload.
+  const UPLOAD_FOLDER_MAP = {
+    drawings:  ['Drawings', 'Draft'],
+    tm:        ['Project Admin'],
+    utilities: ['Site Investigations'],
+  };
+
   // Multi-file helpers (drawings, utilities)
   const handleMultiFileUpload = async (docKey, files) => {
     const existing = scheme[`pack_files_${docKey}`] || [];
@@ -1142,6 +1149,16 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
       try {
         const data = await readPDFasDataUrl(file);
         added.push({ id: `${Date.now()}-${Math.random()}`, data, name: file.name });
+        // Save directly to the project subfolder while the File object is still available.
+        const folderPath = UPLOAD_FOLDER_MAP[docKey];
+        if (folderPath && window.fsSaveToProjectFolder) {
+          const buf = await file.arrayBuffer();
+          window.fsSaveToProjectFolder(scheme, folderPath, file.name, buf).then(saved => {
+            if (saved && window.Toast) {
+              window.Toast.show({ kind: 'success', msg: `${file.name} saved to ${window.schemeFolderName(scheme)}/${folderPath.join('/')}/`, duration: 4000 });
+            }
+          });
+        }
       } catch (e) { alert(`Failed to read ${file.name}: ${e.message}`); }
     }
     if (!added.length) return;
