@@ -252,6 +252,11 @@ const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data, { v
       dir = await dir.getDirectoryHandle(part, { create: true });
     }
 
+    // Normalise to Blob — the FS writable accepts Blob universally whereas
+    // plain Array (xlsx-js-style type:'array'), Uint8Array (pdf-lib) and
+    // other typed views can behave inconsistently across browser versions.
+    const blob = data instanceof Blob ? data : new Blob([data]);
+
     if (versioned) {
       try {
         const existingHandle = await dir.getFileHandle(filename);
@@ -268,17 +273,19 @@ const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data, { v
         }
         const revFh = await revDir.getFileHandle(`${base}_R${rev}${ext}`, { create: true });
         const revW  = await revFh.createWritable();
-        await revW.write(existingBuf);
+        await revW.write(new Blob([existingBuf]));
         await revW.close();
       } catch { /* file doesn't exist yet — no archiving needed */ }
     }
 
     const fh = await dir.getFileHandle(filename, { create: true });
     const w  = await fh.createWritable();
-    await w.write(data);
+    await w.write(blob);
     await w.close();
     return true;
-  } catch {
+  } catch (e) {
+    // Surface the real error in the console so failures are diagnosable.
+    console.warn('[fsSaveToProjectFolder] failed:', filename, e?.message || e);
     return false;
   }
 };
