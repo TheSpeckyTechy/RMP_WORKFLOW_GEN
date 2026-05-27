@@ -294,7 +294,12 @@ const dataUrlToArrayBuffer = (dataUrl) => {
 };
 
 // Upload-folder map: pack docKey → OneDrive subfolder path.
+// Covers every pack document — used for both new uploads and the sync function.
 const PACK_FOLDER_MAP = {
+  front:     ['Project Admin'],
+  pci:       ['CDM'],
+  rsr:       ['Project Admin'],
+  boq:       ['Contract'],
   drawings:  ['Drawings', 'Draft'],
   tm:        ['Drawings', 'Received'],
   utilities: ['CDM'],
@@ -302,17 +307,28 @@ const PACK_FOLDER_MAP = {
 window.PACK_FOLDER_MAP = PACK_FOLDER_MAP;
 
 // Syncs all uploaded pack files stored in the scheme to their OneDrive subfolders.
+// Covers both multi-file uploads (pack_files_*) and single-file overrides (pack_file_*).
 // Uses versioned saves so existing files are archived as _R1, _R2… before overwriting.
 // Returns { saved, failed, total }.
 const syncProjectFilesToFolder = async (scheme) => {
   let saved = 0, failed = 0;
   for (const [key, folder] of Object.entries(PACK_FOLDER_MAP)) {
-    const files = scheme[`pack_files_${key}`] || [];
-    for (const f of files) {
+    // Multi-file uploads: drawings, TM plans, utility searches
+    const multiFiles = scheme[`pack_files_${key}`] || [];
+    for (const f of multiFiles) {
       if (!f.data) { failed++; continue; }
       try {
         const buf = dataUrlToArrayBuffer(f.data);
         const ok  = await fsSaveToProjectFolder(scheme, folder, f.name, buf, { versioned: true });
+        ok ? saved++ : failed++;
+      } catch { failed++; }
+    }
+    // Single-file override upload: PCI, RSR, BoQ, Front Sheet, etc.
+    const single = scheme[`pack_file_${key}`];
+    if (single?.data) {
+      try {
+        const buf = dataUrlToArrayBuffer(single.data);
+        const ok  = await fsSaveToProjectFolder(scheme, folder, single.name, buf, { versioned: true });
         ok ? saved++ : failed++;
       } catch { failed++; }
     }
