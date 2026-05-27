@@ -241,7 +241,7 @@ const fsProvisionSchemeFolder = async (scheme) => {
 // subfolderParts: e.g. ['Contract'] or ['Drawings', 'Draft'].
 // data: ArrayBuffer | Uint8Array | Blob.
 // versioned: if true and the file already exists, the existing copy is archived
-//   as {base}_R{n}.{ext} in a _Revisions/ subfolder before the new file is written.
+//   as {base}_R{n}.{ext} in a Superseded/ subfolder before the new file is written.
 // Returns true on success, false if folder not connected or write fails.
 const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data, { versioned = false } = {}) => {
   try {
@@ -261,7 +261,7 @@ const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data, { v
       try {
         const existingHandle = await dir.getFileHandle(filename);
         const existingBuf    = await (await existingHandle.getFile()).arrayBuffer();
-        const revDir = await dir.getDirectoryHandle('_Revisions', { create: true });
+        const revDir = await dir.getDirectoryHandle('Superseded', { create: true });
         const dot  = filename.lastIndexOf('.');
         const base = dot >= 0 ? filename.slice(0, dot) : filename;
         const ext  = dot >= 0 ? filename.slice(dot)    : '';
