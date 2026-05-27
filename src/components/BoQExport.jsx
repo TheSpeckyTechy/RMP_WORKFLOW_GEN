@@ -426,7 +426,7 @@
     const xlsxFilename = makeFilename(scheme);
     const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const saved = window.fsSaveToProjectFolder
-      ? await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, bytes)
+      ? await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, bytes, { versioned: true })
       : false;
 
     if (!saved) {
@@ -434,7 +434,7 @@
     } else {
       try {
         const pdfBuf = await window.__getBoQPdfBuffer(scheme);
-        await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename.replace('.xlsx', '.pdf'), pdfBuf);
+        await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename.replace('.xlsx', '.pdf'), pdfBuf, { versioned: true });
       } catch { /* PDF generation is best-effort */ }
       if (window.Toast) window.Toast.show({ kind: 'success', msg: `BoQ saved to ${window.schemeFolderName(scheme)}/Contract/`, duration: 4000 });
     }

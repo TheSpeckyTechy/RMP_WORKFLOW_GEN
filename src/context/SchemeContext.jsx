@@ -240,8 +240,10 @@ const fsProvisionSchemeFolder = async (scheme) => {
 // Saves any file directly into a scheme's project subfolder via the FS API.
 // subfolderParts: e.g. ['Contract'] or ['Drawings', 'Draft'].
 // data: ArrayBuffer | Uint8Array | Blob.
+// versioned: if true and the file already exists, the existing copy is archived
+//   as {base}_R{n}.{ext} in a _Revisions/ subfolder before the new file is written.
 // Returns true on success, false if folder not connected or write fails.
-const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data) => {
+const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data, { versioned = false } = {}) => {
   try {
     const root = await fsResolveFolder();
     const folderName = schemeFolderName(scheme);
@@ -249,6 +251,28 @@ const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data) => 
     for (const part of subfolderParts) {
       dir = await dir.getDirectoryHandle(part, { create: true });
     }
+
+    if (versioned) {
+      try {
+        const existingHandle = await dir.getFileHandle(filename);
+        const existingBuf    = await (await existingHandle.getFile()).arrayBuffer();
+        const revDir = await dir.getDirectoryHandle('_Revisions', { create: true });
+        const dot  = filename.lastIndexOf('.');
+        const base = dot >= 0 ? filename.slice(0, dot) : filename;
+        const ext  = dot >= 0 ? filename.slice(dot)    : '';
+        let rev = 1;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          try { await revDir.getFileHandle(`${base}_R${rev}${ext}`); rev++; }
+          catch { break; }
+        }
+        const revFh = await revDir.getFileHandle(`${base}_R${rev}${ext}`, { create: true });
+        const revW  = await revFh.createWritable();
+        await revW.write(existingBuf);
+        await revW.close();
+      } catch { /* file doesn't exist yet — no archiving needed */ }
+    }
+
     const fh = await dir.getFileHandle(filename, { create: true });
     const w  = await fh.createWritable();
     await w.write(data);
@@ -259,6 +283,43 @@ const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data) => 
   }
 };
 window.fsSaveToProjectFolder = fsSaveToProjectFolder;
+
+// Converts a base64 data URL to an ArrayBuffer for FS writes.
+const dataUrlToArrayBuffer = (dataUrl) => {
+  const base64 = dataUrl.split(',')[1];
+  const binary = atob(base64);
+  const bytes  = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+};
+
+// Upload-folder map: pack docKey → OneDrive subfolder path.
+const PACK_FOLDER_MAP = {
+  drawings:  ['Drawings', 'Draft'],
+  tm:        ['Project Admin'],
+  utilities: ['Site Investigations'],
+};
+window.PACK_FOLDER_MAP = PACK_FOLDER_MAP;
+
+// Syncs all uploaded pack files stored in the scheme to their OneDrive subfolders.
+// Uses versioned saves so existing files are archived as _R1, _R2… before overwriting.
+// Returns { saved, failed, total }.
+const syncProjectFilesToFolder = async (scheme) => {
+  let saved = 0, failed = 0;
+  for (const [key, folder] of Object.entries(PACK_FOLDER_MAP)) {
+    const files = scheme[`pack_files_${key}`] || [];
+    for (const f of files) {
+      if (!f.data) { failed++; continue; }
+      try {
+        const buf = dataUrlToArrayBuffer(f.data);
+        const ok  = await fsSaveToProjectFolder(scheme, folder, f.name, buf, { versioned: true });
+        ok ? saved++ : failed++;
+      } catch { failed++; }
+    }
+  }
+  return { saved, failed, total: saved + failed };
+};
+window.syncProjectFilesToFolder = syncProjectFilesToFolder;
 
 // ── localStorage helpers ─────────────────────────────────────────────────────
 const LS_PREFIX = 'rmp_scheme_';

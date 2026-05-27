@@ -124,7 +124,7 @@ async function downloadTCBoQXlsx(scheme, computed) {
   const xlsxFilename = `TC_BoQ_${scheme.project_number}_${(scheme.road_name || '').replace(/\s+/g, '_')}.xlsx`;
   const out = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
   const saved = window.fsSaveToProjectFolder
-    ? await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, out)
+    ? await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, out, { versioned: true })
     : false;
 
   if (!saved) {

@@ -598,7 +598,7 @@ async function downloadPCIPdf(scheme) {
     const pdfFilename = `PCI_CPP_${scheme.project_number}.pdf`;
     const pdfSaved = window.fsSaveToProjectFolder
       ? await window.htmlToPdfBuffer(container).then(buf =>
-          window.fsSaveToProjectFolder(scheme, ['CDM'], pdfFilename, buf))
+          window.fsSaveToProjectFolder(scheme, ['CDM'], pdfFilename, buf, { versioned: true }))
       : false;
     if (!pdfSaved) await window.htmlToPdf(container, pdfFilename);
     else if (window.Toast) window.Toast.show({ kind: 'success', msg: `PCI/CPP PDF saved to ${window.schemeFolderName(scheme)}/CDM/`, duration: 4000 });
@@ -626,7 +626,7 @@ const PCIModal = ({ schemeId, onClose }) => {
         buffer = await injectValues(buffer, scheme);
         const docxFilename = `PCI_CPP_${scheme.project_number}.docx`;
         const docxSaved = window.fsSaveToProjectFolder
-          ? await window.fsSaveToProjectFolder(scheme, ['CDM'], docxFilename, buffer)
+          ? await window.fsSaveToProjectFolder(scheme, ['CDM'], docxFilename, buffer, { versioned: true })
           : false;
         if (!docxSaved) {
           const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
@@ -772,7 +772,7 @@ window.__downloadPCI = async (scheme) => {
     buffer = await injectValues(buffer, scheme);
     const docxFilename = `PCI_CPP_${scheme.project_number}.docx`;
     const saved = window.fsSaveToProjectFolder
-      ? await window.fsSaveToProjectFolder(scheme, ['CDM'], docxFilename, buffer)
+      ? await window.fsSaveToProjectFolder(scheme, ['CDM'], docxFilename, buffer, { versioned: true })
       : false;
     if (!saved) {
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });

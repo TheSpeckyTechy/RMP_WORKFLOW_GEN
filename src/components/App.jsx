@@ -294,7 +294,7 @@ const GenerateModal = ({ scheme, onClose }) => {
         const bytes = await merged.save();
         const packFilename = `Pack_${scheme.project_number}_${(scheme.road_name || '').replace(/\s+/g, '_')}.pdf`;
         const packSaved = window.fsSaveToProjectFolder
-          ? await window.fsSaveToProjectFolder(scheme, ['Design & Reports'], packFilename, bytes)
+          ? await window.fsSaveToProjectFolder(scheme, ['Design & Reports'], packFilename, bytes, { versioned: true })
           : false;
         if (!packSaved) {
           const blob  = new Blob([bytes], { type: 'application/pdf' });

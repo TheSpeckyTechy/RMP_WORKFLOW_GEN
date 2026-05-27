@@ -195,7 +195,7 @@ async function mailMergeLetter(scheme, recipients) {
     const buf = await injectLetterXml(templateBuffer, scheme, recipients[0]);
     const docxFilename = `Letter_${slug}_${(recipients[0].address1||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30)}.docx`;
     const saved = window.fsSaveToProjectFolder
-      ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], docxFilename, buf)
+      ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], docxFilename, buf, { versioned: true })
       : false;
     if (!saved) {
       const a = document.createElement('a');
@@ -217,7 +217,7 @@ async function mailMergeLetter(scheme, recipients) {
   const zipBuf = await outZip.generateAsync({ type: 'arraybuffer' });
   const zipFilename = `MailMerge_${slug}_${recipients.length}letters.zip`;
   const zipSaved = window.fsSaveToProjectFolder
-    ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], zipFilename, zipBuf)
+    ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], zipFilename, zipBuf, { versioned: true })
     : false;
   if (!zipSaved) {
     const a = document.createElement('a');
@@ -292,7 +292,7 @@ async function mailMergeLetterPdf(scheme, recipients, onProgress) {
     ? `Letter_${slug}_${(recipients[0].address1||'').replace(/[^a-zA-Z0-9]/g,'_').slice(0,30)}.pdf`
     : `MailMerge_${slug}_${recipients.length}letters.pdf`;
   const pdfSaved = window.fsSaveToProjectFolder
-    ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], name, pdf.output('arraybuffer'))
+    ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], name, pdf.output('arraybuffer'), { versioned: true })
     : false;
   if (!pdfSaved) pdf.save(name);
   else if (window.Toast) window.Toast.show({ kind: 'success', msg: `Letter PDF saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
