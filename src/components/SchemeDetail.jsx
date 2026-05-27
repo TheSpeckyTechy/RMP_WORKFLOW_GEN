@@ -926,7 +926,12 @@ async function downloadFrontPdf(scheme) {
     root.render(React.createElement(FrontSheetDoc, { scheme }));
     await new Promise(r => setTimeout(r, 500));
     const filename = `Front_Sheet_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.pdf`;
-    await window.htmlToPdf(container.firstChild || container, filename);
+    const saved = window.fsSaveToProjectFolder
+      ? await window.htmlToPdfBuffer(container.firstChild || container).then(buf =>
+          window.fsSaveToProjectFolder(scheme, ['Project Admin'], filename, buf, { versioned: true }))
+      : false;
+    if (!saved) await window.htmlToPdf(container.firstChild || container, filename);
+    else if (window.Toast) window.Toast.show({ kind: 'success', msg: `Front Sheet saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
     root.unmount();
     window.dispatchEvent(new CustomEvent('rmp-download', {
       detail: { label: 'Front Sheet — ' + (scheme.road_name || 'scheme'), ref: scheme.project_number || '', fn: '__downloadFrontPdf', schemeId: scheme.id },
@@ -1160,8 +1165,8 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
   // Maps pack docKey → OneDrive subfolder path for direct FS saves on upload.
   const UPLOAD_FOLDER_MAP = {
     drawings:  ['Drawings', 'Draft'],
-    tm:        ['Project Admin'],
-    utilities: ['Site Investigations'],
+    tm:        ['Drawings', 'Received'],
+    utilities: ['CDM'],
   };
 
   // Multi-file helpers (drawings, utilities)

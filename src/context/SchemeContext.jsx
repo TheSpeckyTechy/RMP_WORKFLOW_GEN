@@ -296,8 +296,8 @@ const dataUrlToArrayBuffer = (dataUrl) => {
 // Upload-folder map: pack docKey → OneDrive subfolder path.
 const PACK_FOLDER_MAP = {
   drawings:  ['Drawings', 'Draft'],
-  tm:        ['Project Admin'],
-  utilities: ['Site Investigations'],
+  tm:        ['Drawings', 'Received'],
+  utilities: ['CDM'],
 };
 window.PACK_FOLDER_MAP = PACK_FOLDER_MAP;
 
