@@ -897,6 +897,7 @@ const AppInner = () => {
     const actions = [
       { id: 'new-scheme', label: 'New scheme', sub: 'Create a new road maintenance scheme', group: 'Schemes', icon: <Icon.Plus />, run: () => setNewSchemeOpen(true) },
       { id: 'go-dashboard', label: 'Go to dashboard', group: 'Navigation', icon: <Icon.Folder />, run: () => { setOpenScheme(null); setView('dashboard'); } },
+      { id: 'go-tracker', label: 'Go to programme tracker', group: 'Navigation', icon: <Icon.Calendar />, run: () => { setOpenScheme(null); setView('tracker'); } },
       { id: 'go-settings', label: 'Open settings', group: 'Navigation', icon: <Icon.Cog />, run: () => { setOpenScheme(null); setView('settings'); } },
       { id: 'shortcuts-help', label: 'Show keyboard shortcuts', group: 'Help', run: () => window.Shortcuts && window.Shortcuts.openHelp() },
     ];
@@ -914,13 +915,15 @@ const AppInner = () => {
           <div className="crumbs">
             <span>Workspace</span><span className="sep">/</span>
             {openScheme ? (
-              <><span style={{ cursor:"pointer" }} onClick={() => setOpenScheme(null)}>Schemes</span><span className="sep">/</span><span className="current mono">{openScheme}</span></>
+              <><span style={{ cursor:"pointer" }} onClick={() => setOpenScheme(null)}>{view === "tracker" ? "Programme" : "Schemes"}</span><span className="sep">/</span><span className="current mono">{openScheme}</span></>
+            ) : view === "tracker" ? (
+              <span className="current">Programme</span>
             ) : (
               <span className="current">Schemes</span>
             )}
           </div>
           <div className="mobile-title">
-            {view === "settings" ? "Settings" : openScheme ? <span className="mono">{openScheme}</span> : "Schemes"}
+            {view === "settings" ? "Settings" : view === "tracker" && !openScheme ? "Programme" : openScheme ? <span className="mono">{openScheme}</span> : "Schemes"}
           </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
           {designerView && (() => {
@@ -998,6 +1001,8 @@ const AppInner = () => {
               <SettingsView tweaks={tweaks} setTweaks={setTweaks} darkMode={darkMode} setDarkMode={setDarkMode} />
             ) : view === "analytics" ? (
               <window.Analytics designerView={designerView} setDesignerView={setDesignerView} />
+            ) : view === "tracker" ? (
+              <window.ProgrammeTracker onOpen={id=>{ setOpenScheme(id); setSearch(''); }} designerView={designerView} setDesignerView={setDesignerView} />
             ) : (
               <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} onNew={()=>setNewSchemeOpen(true)} filter={filter} setFilter={setFilter} search={search} designerView={designerView} setDesignerView={setDesignerView} />
             )}
@@ -1016,6 +1021,12 @@ const AppInner = () => {
           onClick={() => { setView("analytics"); setOpenScheme(null); setMenuOpen(false); }}>
           <Icon.BarChart />
           <span>Analysis</span>
+        </button>
+        <button className={"bottom-nav-tab" + (view === "tracker" ? " active" : "")}
+          aria-current={view === "tracker" ? "page" : undefined}
+          onClick={() => { setView("tracker"); setOpenScheme(null); setMenuOpen(false); }}>
+          <Icon.Calendar />
+          <span>Programme</span>
         </button>
         <button className={"bottom-nav-tab" + (view === "settings" ? " active" : "")}
           aria-current={view === "settings" ? "page" : undefined}
