@@ -737,6 +737,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
   }
   .bottom-nav-tab svg{width:22px;height:22px}
   .bottom-nav-tab.active{color:var(--accent)}
+  /* 4 tabs: shrink label on very narrow screens to prevent clip */
+  @media(max-width:360px){ .bottom-nav-tab span{font-size:9px} }
 
   /* Reserve room above the bottom-nav so the last row of content isn't
      covered, plus extra for the FAB. */
