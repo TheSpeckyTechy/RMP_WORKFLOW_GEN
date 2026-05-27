@@ -439,6 +439,47 @@ const withBoq = (s) => {
 // composed left-to-right.
 const migrate = (s) => withBoq(withDesign(s));
 
+// ─── One-shot date sync from DRMP Prog 2627 (wc 01/06/26) ────────────────
+// Source: DRMP_Prog_2627_wc_010626_WIP.pdf. Each entry is { id: {start,
+// finish} } for every scheme whose dates appeared in that program. The
+// effect inside SchemeProvider runs once per browser, calls updateScheme()
+// only for schemes whose live dates differ from these, and stamps a flag
+// in localStorage so it never runs again. Idempotent — bump the flag key
+// the next time a new program PDF lands.
+const PROG_DATE_FIX_FLAG = 'rmp_prog_2627_wc010626_applied_v1';
+const PROG_DATE_FIXES = {
+  'PR010':         { date_start: '22/06/2026', date_finish: '26/06/2026' },
+  'PR011':         { date_start: '15/06/2026', date_finish: '19/06/2026' },
+  'PR013':         { date_start: '28/06/2026', date_finish: '02/07/2026' },
+  'PR015':         { date_start: '21/09/2026', date_finish: '09/10/2026' },
+  'PR017':         { date_start: '20/07/2026', date_finish: '24/07/2026' },
+  'PR022':         { date_start: '10/08/2026', date_finish: '21/08/2026' },
+  'PR025':         { date_start: '24/08/2026', date_finish: '28/08/2026' },
+  'PR032':         { date_start: '05/10/2026', date_finish: '09/10/2026' },
+  'PR034':         { date_start: '26/10/2026', date_finish: '30/10/2026' },
+  'PR038':         { date_start: '16/11/2026', date_finish: '20/11/2026' },
+  'PR049':         { date_start: '22/02/2027', date_finish: '26/02/2027' },
+  'PR053':         { date_start: '29/03/2027', date_finish: '02/04/2027' },
+  'R6012':         { date_start: '08/03/2027', date_finish: '12/03/2027' },
+  'CW-BALLANTRAE': { date_start: '01/03/2027', date_finish: '05/03/2027' },
+  'R6014-A':       { date_start: '06/07/2026', date_finish: '17/07/2026' },
+  'R6014-B':       { date_start: '06/07/2026', date_finish: '17/07/2026' },
+  'CW-BROOMHILL':  { date_start: '18/01/2027', date_finish: '22/01/2027' },
+  'CW-CASTLE-TER': { date_start: '22/03/2027', date_finish: '26/03/2027' },
+  'CW-CRAIGOWL':   { date_start: '25/01/2027', date_finish: '29/01/2027' },
+  'CW-DUNCRAIG':   { date_start: '01/02/2027', date_finish: '05/02/2027' },
+  'CW-DUNHOLM':    { date_start: '08/02/2027', date_finish: '12/02/2027' },
+  'CW-ELGIN':      { date_start: '23/11/2026', date_finish: '27/11/2026' },
+  'CW-FINELLA':    { date_start: '11/01/2027', date_finish: '14/01/2027' },
+  'R6019-A':       { date_start: '01/06/2026', date_finish: '09/06/2026' },
+  'R6020':         { date_start: '21/06/2026', date_finish: '25/06/2026' },
+  'R6019-B':       { date_start: '01/06/2026', date_finish: '09/06/2026' },
+  'CW-RICHMOND':   { date_start: '14/12/2026', date_finish: '24/12/2026' },
+  'CW-TORRIDON':   { date_start: '30/11/2026', date_finish: '04/12/2026' },
+  'FW-ARBROATH':   { date_start: '31/08/2026', date_finish: '18/09/2026' },
+  'FW-WEDDERBURN': { date_start: '19/10/2026', date_finish: '06/11/2026' },
+};
+
 const initSchemes = () => {
   const base = window.SCHEMES.map(s => { const saved = lsGet(s.id); return migrate(saved ? { ...s, ...saved } : s); });
   const defaultIds = new Set(window.SCHEMES.map(s => s.id));
@@ -584,6 +625,35 @@ const SchemeProvider = ({ children }) => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getScheme = (id) => schemes.find(s => s.id === id);
+
+  // One-shot date sync from the latest program PDF. Runs once schemes
+  // are populated, only updates schemes whose live dates differ from
+  // PROG_DATE_FIXES, then sets a flag so it never re-runs. Each update
+  // flows through normal updateScheme → lsSet + backendUpsertOnce, so
+  // FS folder + Supabase get the new dates automatically.
+  React.useEffect(() => {
+    if (!schemes || schemes.length === 0) return;
+    if (localStorage.getItem(PROG_DATE_FIX_FLAG)) return;
+    let n = 0;
+    for (const [id, fix] of Object.entries(PROG_DATE_FIXES)) {
+      const s = schemes.find(x => x.id === id);
+      if (!s) continue;
+      if (s.date_start === fix.date_start && s.date_finish === fix.date_finish) continue;
+      updateScheme(id, fix);
+      n++;
+    }
+    localStorage.setItem(PROG_DATE_FIX_FLAG, new Date().toISOString());
+    if (n > 0 && window.Toast) {
+      window.Toast.show({
+        kind: 'info',
+        msg: `Updated dates on ${n} scheme${n === 1 ? '' : 's'} from the latest program PDF.`,
+        duration: 8000,
+      });
+    }
+    // schemes is intentionally the only dep; updateScheme has a stable
+    // identity per render but the flag check guards against re-runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schemes]);
 
   const updateScheme = (id, updates) => {
     const current = latestSchemes.current.find(s => s.id === id);
