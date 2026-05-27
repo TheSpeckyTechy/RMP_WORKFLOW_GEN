@@ -1103,12 +1103,36 @@ const LettersTab = ({ scheme, onPreview }) => {
 // ─── Pack Tab ─────────────────────────────────────────────────────────────────
 
 const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
-  const { updateScheme } = React.useContext(window.SchemeContext);
+  const { updateScheme, backendMode } = React.useContext(window.SchemeContext);
   const docsGen = scheme.docs_generated || {};
   const packReady = window.PACK_DOCS.filter(d => docsGen[d.key]).length;
   const packTotal = window.PACK_DOCS.length;
   const [generatingFront, setGeneratingFront] = React.useState(false);
   const [viewingPackFile, setViewingPackFile] = React.useState(null);
+  const [syncing, setSyncing] = React.useState(false);
+  const [syncResult, setSyncResult] = React.useState(null);
+
+  const handleSyncToFolder = async () => {
+    if (!window.syncProjectFilesToFolder) return;
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const result = await window.syncProjectFilesToFolder(scheme);
+      setSyncResult(result);
+      if (window.Toast) {
+        const msg = result.total === 0
+          ? 'No uploaded files to sync — upload drawings, TM plans, or utility searches first.'
+          : result.failed > 0
+            ? `Synced ${result.saved} file${result.saved !== 1 ? 's' : ''} · ${result.failed} failed`
+            : `Synced ${result.saved} file${result.saved !== 1 ? 's' : ''} to ${window.schemeFolderName(scheme)}/`;
+        window.Toast.show({ kind: result.failed > 0 ? 'error' : 'success', msg, duration: 6000 });
+      }
+    } catch (e) {
+      if (window.Toast) window.Toast.show({ kind: 'error', msg: 'Sync failed: ' + e.message, duration: 6000 });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handlePackFileUpload = async (docKey, file) => {
     if (file.size > 20 * 1024 * 1024) {
@@ -1153,7 +1177,7 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
         const folderPath = UPLOAD_FOLDER_MAP[docKey];
         if (folderPath && window.fsSaveToProjectFolder) {
           const buf = await file.arrayBuffer();
-          window.fsSaveToProjectFolder(scheme, folderPath, file.name, buf).then(saved => {
+          window.fsSaveToProjectFolder(scheme, folderPath, file.name, buf, { versioned: true }).then(saved => {
             if (saved && window.Toast) {
               window.Toast.show({ kind: 'success', msg: `${file.name} saved to ${window.schemeFolderName(scheme)}/${folderPath.join('/')}/`, duration: 4000 });
             }
@@ -1227,7 +1251,15 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
           <div style={{fontSize:15,fontWeight:600}}>Handover pack · {scheme.project_number} · {scheme.road_name}</div>
           <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)"}}>{packReady} of {packTotal} items ready</div>
         </div>
-        <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
+        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+          {backendMode === 'fs' && (
+            <button className="btn ghost sm" onClick={handleSyncToFolder} disabled={syncing}
+              title="Save all uploaded drawings, TM plans and utility searches to the project folder in OneDrive. Existing files are archived as _R1, _R2… revisions.">
+              {syncing ? <><div className="spinner" style={{width:10,height:10}}/> Syncing…</> : <><Icon.Upload /> Sync to folder</>}
+            </button>
+          )}
+          <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
+        </div>
       </div>
       <div className="pack-grid">
         {window.PACK_DOCS.map((d) => {

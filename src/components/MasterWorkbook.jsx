@@ -261,7 +261,7 @@ const MasterWorkbook = ({ schemeId }) => {
     const filename = `${scheme.project_number}_${(scheme.road_name||"").replace(/\s+/g,"_")}_Master.xlsx`;
     const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const saved = window.fsSaveToProjectFolder
-      ? await window.fsSaveToProjectFolder(scheme, ['Contract'], filename, bytes)
+      ? await window.fsSaveToProjectFolder(scheme, ['Contract'], filename, bytes, { versioned: true })
       : false;
     if (!saved) {
       XLSX.writeFile(wb, filename);

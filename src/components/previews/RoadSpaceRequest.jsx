@@ -141,7 +141,7 @@ async function downloadRSR(scheme) {
   const out = await injectRSRValues(buffer, scheme);
   const docxFilename = `RSR_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.docx`;
   const saved = window.fsSaveToProjectFolder
-    ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], docxFilename, out)
+    ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], docxFilename, out, { versioned: true })
     : false;
   if (!saved) {
     const a = document.createElement('a');
@@ -216,7 +216,7 @@ async function downloadRSRPdf(scheme) {
     const pdfFilename = `RSR_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.pdf`;
     const pdfSaved = window.fsSaveToProjectFolder
       ? await window.htmlToPdfBuffer(container.firstChild || container).then(buf =>
-          window.fsSaveToProjectFolder(scheme, ['Project Admin'], pdfFilename, buf))
+          window.fsSaveToProjectFolder(scheme, ['Project Admin'], pdfFilename, buf, { versioned: true }))
       : false;
     if (!pdfSaved) await window.htmlToPdf(container.firstChild || container, pdfFilename);
     else if (window.Toast) window.Toast.show({ kind: 'success', msg: `RSR PDF saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
