@@ -55,6 +55,13 @@ const TrackerRow = ({ scheme, onOpen, idx, showDesigner }) => {
   }
   const delay = `${Math.min(idx * 8, 320)}ms`;
 
+  // Derive "On Site" from dates — only show it if today actually falls within
+  // the construction window; otherwise fall back to the stored status.
+  const now = Date.now();
+  const displayStatus = (startMs && finishMs && now >= startMs && now <= finishMs)
+    ? 'works'
+    : scheme.status;
+
   return (
     <div className="tracker-row" onClick={() => onOpen(scheme.id)}>
       <div className="tracker-row-label">
@@ -72,8 +79,8 @@ const TrackerRow = ({ scheme, onOpen, idx, showDesigner }) => {
         </div>
       </div>
       <div className="tracker-row-status">
-        <span className={`pill ${scheme.status}`} style={{ fontSize:10, padding:'1px 6px', lineHeight:1.6 }}>
-          {window.STATUS_LABELS?.[scheme.status] || scheme.status}
+        <span className={`pill ${displayStatus}`} style={{ fontSize:10, padding:'1px 6px', lineHeight:1.6 }}>
+          {window.STATUS_LABELS?.[displayStatus] || displayStatus}
         </span>
       </div>
       <div className="gantt-track">
