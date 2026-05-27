@@ -120,14 +120,23 @@ async function downloadTCBoQXlsx(scheme, computed) {
   zip.file('xl/workbook.xml', wbXmlUpdated);
   zip.remove('xl/calcChain.xml');
 
-  // 6. Generate and download
+  // 6. Generate and save
+  const xlsxFilename = `TC_BoQ_${scheme.project_number}_${(scheme.road_name || '').replace(/\s+/g, '_')}.xlsx`;
   const out = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
-  const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `TC_BoQ_${scheme.project_number}_${(scheme.road_name || '').replace(/\s+/g, '_')}.xlsx`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  const saved = window.fsSaveToProjectFolder
+    ? await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, out)
+    : false;
+
+  if (!saved) {
+    const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = xlsxFilename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } else {
+    if (window.Toast) window.Toast.show({ kind: 'success', msg: `TC BoQ saved to ${window.schemeFolderName(scheme)}/Contract/`, duration: 4000 });
+  }
 
   window.dispatchEvent(new CustomEvent('rmp-download', {
     detail: { label: `TC BoQ — ${scheme.road_name}`, ref: scheme.project_number,

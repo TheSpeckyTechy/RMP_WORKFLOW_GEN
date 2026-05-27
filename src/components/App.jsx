@@ -292,12 +292,18 @@ const GenerateModal = ({ scheme, onClose }) => {
         });
 
         const bytes = await merged.save();
-        const blob  = new Blob([bytes], { type: 'application/pdf' });
-        const a     = document.createElement('a');
-        a.href      = URL.createObjectURL(blob);
-        a.download  = `Pack_${scheme.project_number}_${(scheme.road_name || '').replace(/\s+/g, '_')}.pdf`;
-        a.click();
-        URL.revokeObjectURL(a.href);
+        const packFilename = `Pack_${scheme.project_number}_${(scheme.road_name || '').replace(/\s+/g, '_')}.pdf`;
+        const packSaved = window.fsSaveToProjectFolder
+          ? await window.fsSaveToProjectFolder(scheme, ['Design & Reports'], packFilename, bytes)
+          : false;
+        if (!packSaved) {
+          const blob  = new Blob([bytes], { type: 'application/pdf' });
+          const a     = document.createElement('a');
+          a.href      = URL.createObjectURL(blob);
+          a.download  = packFilename;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
         window.dispatchEvent(new CustomEvent('rmp-download', {
           detail: { label: `Compiled Pack — ${scheme.road_name}`, ref: scheme.project_number },
         }));

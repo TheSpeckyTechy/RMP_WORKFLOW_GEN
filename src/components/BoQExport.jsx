@@ -413,7 +413,7 @@
   }
 
   // ── Public entry point ─────────────────────────────────────────────────────
-  window.exportBoQXlsx = function (scheme, boq, computed) {
+  window.exportBoQXlsx = async function (scheme, boq, computed) {
     if (!window.XLSX) throw new Error('xlsx-js-style not loaded');
     // If caller didn't precompute, do it now so the helper can be called standalone.
     if (!computed) computed = E.buildBoQLines(boq, scheme);
@@ -423,7 +423,21 @@
     XLSX.utils.book_append_sheet(wb, buildSummarySheet(scheme, computed),      'Summary');
     XLSX.utils.book_append_sheet(wb, buildRateScheduleSheet(computed),         'Rate Schedule');
 
-    XLSX.writeFile(wb, makeFilename(scheme));
+    const xlsxFilename = makeFilename(scheme);
+    const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const saved = window.fsSaveToProjectFolder
+      ? await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, bytes)
+      : false;
+
+    if (!saved) {
+      XLSX.writeFile(wb, xlsxFilename);
+    } else {
+      try {
+        const pdfBuf = await window.__getBoQPdfBuffer(scheme);
+        await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename.replace('.xlsx', '.pdf'), pdfBuf);
+      } catch { /* PDF generation is best-effort */ }
+      if (window.Toast) window.Toast.show({ kind: 'success', msg: `BoQ saved to ${window.schemeFolderName(scheme)}/Contract/`, duration: 4000 });
+    }
 
     // Notify the app's download log (existing convention from legacy BoQTab)
     window.dispatchEvent(new CustomEvent('rmp-download', {

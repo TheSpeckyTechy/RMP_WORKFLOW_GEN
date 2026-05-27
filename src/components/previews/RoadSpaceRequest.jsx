@@ -139,10 +139,18 @@ async function injectRSRValues(buffer, scheme) {
 async function downloadRSR(scheme) {
   const buffer = await loadRSRDocxBuffer();
   const out = await injectRSRValues(buffer, scheme);
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([out], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}));
-  a.download = `RSR_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.docx`;
-  a.click(); URL.revokeObjectURL(a.href);
+  const docxFilename = `RSR_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.docx`;
+  const saved = window.fsSaveToProjectFolder
+    ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], docxFilename, out)
+    : false;
+  if (!saved) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([out], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}));
+    a.download = docxFilename;
+    a.click(); URL.revokeObjectURL(a.href);
+  } else {
+    if (window.Toast) window.Toast.show({ kind: 'success', msg: `RSR saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
+  }
 }
 
 // Renders the actual DOCX template via docx-preview — preview = download
@@ -205,10 +213,13 @@ async function downloadRSRPdf(scheme) {
     const displayScheme = { ...scheme, treatment_type: window.schemeTreatment(scheme) || '' };
     root.render(React.createElement(RoadSpaceRequestDoc, { scheme: displayScheme }));
     await new Promise(r => setTimeout(r, 400));
-    await window.htmlToPdf(
-      container.firstChild || container,
-      `RSR_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.pdf`
-    );
+    const pdfFilename = `RSR_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.pdf`;
+    const pdfSaved = window.fsSaveToProjectFolder
+      ? await window.htmlToPdfBuffer(container.firstChild || container).then(buf =>
+          window.fsSaveToProjectFolder(scheme, ['Project Admin'], pdfFilename, buf))
+      : false;
+    if (!pdfSaved) await window.htmlToPdf(container.firstChild || container, pdfFilename);
+    else if (window.Toast) window.Toast.show({ kind: 'success', msg: `RSR PDF saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
     root.unmount();
   } finally {
     document.body.removeChild(container);
