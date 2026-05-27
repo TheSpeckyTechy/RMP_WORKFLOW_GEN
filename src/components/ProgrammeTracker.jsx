@@ -3,17 +3,20 @@
 // designer. Colour-coded by designer. Click any row to open that scheme.
 //
 // Props:
-//   onOpen        (fn)     — called with schemeId when a row is clicked
-//   designerView  (string) — active designer filter id (null = everyone)
-//   setDesignerView (fn)   — updates the active designer filter
+//   onOpen          (fn)     — called with schemeId when a row is clicked
+//   designerView    (string) — active designer filter id (null = everyone)
+//   setDesignerView (fn)     — updates the active designer filter
+//   statusFilter    (string) — active status filter key (lifted to AppInner)
+//   setStatusFilter (fn)     — updates the status filter
 //
 // Exports (via window): ProgrammeTracker
 // Depends on: React, window.SchemeContext, window.DESIGNERS,
 //             window.STATUS_LABELS, window.Icon
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PT_START  = new Date('2026-04-01').getTime();
-const PT_END    = new Date('2027-03-31').getTime();
+// Local-time constructors match ptParseDMY (also local time) — avoids UTC/BST drift
+const PT_START  = new Date(2026, 3, 1).getTime();            // 1 Apr 2026 00:00 local
+const PT_END    = new Date(2027, 2, 31, 23, 59, 59).getTime(); // 31 Mar 2027 end-of-day local
 const PT_SPAN   = PT_END - PT_START;
 const PT_MONTHS = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
 const URGENT_MS = 42 * 24 * 60 * 60 * 1000;
@@ -40,15 +43,17 @@ const TrackerRow = ({ scheme, onOpen, idx, showDesigner }) => {
   const todayPct = ((Date.now() - PT_START) / PT_SPAN) * 100;
   const urgent   = ptIsUrgent(scheme);
 
-  let leftPct = 0, widthPct = 1, inRange = false;
+  // Clamp both edges before computing width so bars never overflow the grid
+  let clampL = 0, widthPct = 0.6, inRange = false;
   if (startMs) {
-    leftPct  = ((startMs - PT_START) / PT_SPAN) * 100;
-    const rp = finishMs ? ((finishMs - PT_START) / PT_SPAN) * 100 : leftPct + 1.5;
-    widthPct = Math.max(0.6, rp - leftPct);
-    inRange  = startMs >= PT_START - 86400000*90 && startMs <= PT_END + 86400000*90;
+    const rawL  = ((startMs - PT_START) / PT_SPAN) * 100;
+    clampL      = Math.max(0, Math.min(99, rawL));
+    const rawR  = finishMs ? ((finishMs - PT_START) / PT_SPAN) * 100 : rawL + 1.5;
+    const clampR = Math.min(100, Math.max(clampL, rawR));
+    widthPct    = Math.max(0.6, clampR - clampL);
+    inRange     = startMs >= PT_START - 86400000 * 90 && startMs <= PT_END + 86400000 * 90;
   }
-  const clampL = Math.max(0, Math.min(99, leftPct));
-  const delay  = `${Math.min(idx * 8, 320)}ms`;
+  const delay = `${Math.min(idx * 8, 320)}ms`;
 
   return (
     <div className="tracker-row" onClick={() => onOpen(scheme.id)}>
@@ -61,13 +66,13 @@ const TrackerRow = ({ scheme, onOpen, idx, showDesigner }) => {
         <div className="tracker-row-info">
           <div className="tracker-row-name">
             {scheme.road_name}
-            {urgent && <span className="urgent-chip" style={{ marginLeft:4, fontSize:8, padding:'1px 5px' }}>⚡</span>}
+            {urgent && <span className="urgent-chip" style={{ marginLeft:4, fontSize:10, padding:'1px 6px' }}>⚡</span>}
           </div>
           <div className="tracker-row-ref mono">{scheme.project_number || '—'}</div>
         </div>
       </div>
       <div className="tracker-row-status">
-        <span className={`pill ${scheme.status}`} style={{ fontSize:9, padding:'1px 6px', lineHeight:1.6 }}>
+        <span className={`pill ${scheme.status}`} style={{ fontSize:10, padding:'1px 6px', lineHeight:1.6 }}>
           {window.STATUS_LABELS?.[scheme.status] || scheme.status}
         </span>
       </div>
@@ -80,7 +85,7 @@ const TrackerRow = ({ scheme, onOpen, idx, showDesigner }) => {
           inRange ? (
             <div
               className="gantt-bar"
-              style={{ left:`${clampL}%`, width:`${Math.min(widthPct, 100-clampL)}%`, background:colour, animationDelay:delay }}
+              style={{ left:`${clampL}%`, width:`${widthPct}%`, background:colour, animationDelay:delay }}
               title={`${scheme.road_name} · ${scheme.date_start}${scheme.date_finish ? ' → '+scheme.date_finish : ''}`}
             >
               {widthPct > 6 ? (scheme.project_number || '') : ''}
@@ -96,14 +101,12 @@ const TrackerRow = ({ scheme, onOpen, idx, showDesigner }) => {
 };
 
 // ── Designer summary card (top strip) ────────────────────────────────────────
-const DesignerCard = ({ designer, schemes, isActive, onSelect }) => {
-  const active  = schemes.filter(s => s.status !== 'archived' && s.status !== 'constructed');
-  const urgent  = active.filter(ptIsUrgent).length;
-  const dated   = active.filter(s => s.date_start).length;
+const DesignerCard = ({ designer, schemes, onSelect }) => {
+  const active = schemes.filter(s => s.status !== 'archived' && s.status !== 'constructed');
+  const urgent = active.filter(ptIsUrgent).length;
+  const dated  = active.filter(s => s.date_start).length;
   return (
-    <div className={`tracker-designer-card${isActive ? ' active' : ''}`}
-      style={isActive ? { borderColor: designer.colour, background: 'var(--bg-sunken)' } : {}}
-      onClick={() => onSelect(designer.id)}>
+    <div className="tracker-designer-card" onClick={() => onSelect(designer.id)}>
       <div className="tracker-card-avatar" style={{ background: designer.colour }}>{designer.initials}</div>
       <div>
         <div className="tracker-card-name">{designer.name.split(' ')[0]}</div>
@@ -115,16 +118,15 @@ const DesignerCard = ({ designer, schemes, isActive, onSelect }) => {
 };
 
 // ── Main component ────────────────────────────────────────────────────────────
-const ProgrammeTracker = ({ onOpen, designerView, setDesignerView }) => {
+const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter, setStatusFilter }) => {
   const { schemes } = React.useContext(window.SchemeContext);
-  const [statusFilter, setStatusFilter] = React.useState('active');
 
-  const designers     = (window.DESIGNERS||[]).filter(d => d.id !== 'new');
+  const designers      = (window.DESIGNERS||[]).filter(d => d.id !== 'new');
   const activeDesigner = designerView ? designers.find(d => d.id === designerView) : null;
 
   const byStatus = (s) => {
-    if (statusFilter === 'active')     return s.status !== 'archived' && s.status !== 'constructed';
-    if (statusFilter === 'all')        return true;
+    if (statusFilter === 'active') return s.status !== 'archived' && s.status !== 'constructed';
+    if (statusFilter === 'all')    return true;
     return s.status === statusFilter;
   };
 
@@ -135,7 +137,6 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView }) => {
   const dated   = [...viewSchemes].filter(s => s.date_start).sort((a,b) => ptParseDMY(a.date_start) - ptParseDMY(b.date_start));
   const undated = viewSchemes.filter(s => !s.date_start);
 
-  // Build groups: one per designer when "everyone", single group when filtered
   const groups = designerView
     ? [{ designer: activeDesigner, rows: dated }]
     : [
@@ -147,9 +148,8 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView }) => {
 
   return (
     <>
-      {/* Designer selector */}
       <div className="designer-selector">
-        <button className={`designer-chip all${!designerView ? ' active' : ''}`}
+        <button className={`designer-chip${!designerView ? ' active' : ''}`}
           onClick={() => setDesignerView && setDesignerView(null)}>Everyone</button>
         {designers.map(d => (
           <button key={d.id} className={`designer-chip${designerView === d.id ? ' active' : ''}`}
@@ -161,7 +161,6 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView }) => {
         ))}
       </div>
 
-      {/* Page header */}
       <div className="page-head">
         <div>
           <h1 className="page-title">
@@ -175,21 +174,18 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView }) => {
         </div>
       </div>
 
-      {/* Designer summary strip (Everyone view only) */}
       {!designerView && (
         <div className="tracker-designer-strip">
           {designers.map(d => (
             <DesignerCard key={d.id}
               designer={d}
               schemes={schemes.filter(s => s.assigned_designer_id === d.id)}
-              isActive={designerView === d.id}
               onSelect={(id) => setDesignerView && setDesignerView(id)}
             />
           ))}
         </div>
       )}
 
-      {/* Status filter */}
       <div className="filters" style={{ marginBottom:4 }}>
         {[
           { k:'active', l:'Active' },
@@ -207,20 +203,18 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView }) => {
         </div>
       </div>
 
-      {/* Gantt */}
       <div className="tracker-gantt-wrap">
-        {/* Month header */}
+        {/* Month header — minWidth 600 matches gantt-track to keep columns aligned */}
         <div className="tracker-gantt-header">
           <div className="tracker-label-col" />
           <div className="tracker-status-col" />
-          <div style={{ flex:1, position:'relative', minWidth:500, height:18 }}>
+          <div style={{ flex:1, position:'relative', minWidth:600, height:18 }}>
             {PT_MONTHS.map((m,i) => (
-              <div key={m} className="gantt-month-label" style={{ left:`${(i/12)*100}%` }}>{m}</div>
+              <div key={i} className="gantt-month-label" style={{ left:`${(i/12)*100}%` }}>{m}</div>
             ))}
           </div>
         </div>
 
-        {/* Grouped rows */}
         {groups.map(({ designer, rows }) => (
           <div key={designer?.id || 'unassigned'}>
             {!designerView && (
@@ -243,7 +237,6 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView }) => {
           </div>
         ))}
 
-        {/* Undated */}
         {undated.length > 0 && (
           <div>
             <div className="tracker-group-header" style={{ opacity:0.55 }}>

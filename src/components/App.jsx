@@ -845,6 +845,7 @@ const AppInner = () => {
   const [view, setView] = React.useState("dashboard");
   const [openScheme, setOpenScheme] = React.useState(null);
   const [filter, setFilter] = React.useState("all");
+  const [trackerFilter, setTrackerFilter] = React.useState("active");
   const [search, setSearch] = React.useState("");
   const [newSchemeOpen, setNewSchemeOpen] = React.useState(false);
   const [duplicateSource, setDuplicateSource] = React.useState(null);
@@ -896,9 +897,10 @@ const AppInner = () => {
     if (!window.CommandPalette) return;
     const actions = [
       { id: 'new-scheme', label: 'New scheme', sub: 'Create a new road maintenance scheme', group: 'Schemes', icon: <Icon.Plus />, run: () => setNewSchemeOpen(true) },
-      { id: 'go-dashboard', label: 'Go to dashboard', group: 'Navigation', icon: <Icon.Folder />, run: () => { setOpenScheme(null); setView('dashboard'); } },
-      { id: 'go-tracker', label: 'Go to programme tracker', group: 'Navigation', icon: <Icon.Calendar />, run: () => { setOpenScheme(null); setView('tracker'); } },
-      { id: 'go-settings', label: 'Open settings', group: 'Navigation', icon: <Icon.Cog />, run: () => { setOpenScheme(null); setView('settings'); } },
+      { id: 'go-dashboard',  label: 'Go to dashboard',         group: 'Navigation', icon: <Icon.Folder />,   run: () => { setOpenScheme(null); setView('dashboard');  } },
+      { id: 'go-analytics',  label: 'Go to analysis',           group: 'Navigation', icon: <Icon.BarChart />, run: () => { setOpenScheme(null); setView('analytics');  } },
+      { id: 'go-tracker',    label: 'Go to programme tracker',  group: 'Navigation', icon: <Icon.Calendar />, run: () => { setOpenScheme(null); setView('tracker');    } },
+      { id: 'go-settings',   label: 'Open settings',            group: 'Navigation', icon: <Icon.Cog />,      run: () => { setOpenScheme(null); setView('settings');   } },
       { id: 'shortcuts-help', label: 'Show keyboard shortcuts', group: 'Help', run: () => window.Shortcuts && window.Shortcuts.openHelp() },
     ];
     actions.forEach(a => window.CommandPalette.register(a));
@@ -923,7 +925,7 @@ const AppInner = () => {
             )}
           </div>
           <div className="mobile-title">
-            {view === "settings" ? "Settings" : view === "tracker" && !openScheme ? "Programme" : openScheme ? <span className="mono">{openScheme}</span> : "Schemes"}
+            {view === "settings" ? "Settings" : view === "analytics" && !openScheme ? "Analysis" : view === "tracker" && !openScheme ? "Programme" : openScheme ? <span className="mono">{openScheme}</span> : "Schemes"}
           </div>
           <div className="searchbar"><Icon.Search /><input placeholder="Jump to scheme, ward, address…" value={search} onChange={e=>{ setSearch(e.target.value); if(e.target.value){ setView("dashboard"); setOpenScheme(null); } }} /></div>
           {designerView && (() => {
@@ -1002,7 +1004,7 @@ const AppInner = () => {
             ) : view === "analytics" ? (
               <window.Analytics designerView={designerView} setDesignerView={setDesignerView} />
             ) : view === "tracker" ? (
-              <window.ProgrammeTracker onOpen={id=>{ setOpenScheme(id); setSearch(''); }} designerView={designerView} setDesignerView={setDesignerView} />
+              <window.ProgrammeTracker onOpen={id=>{ setOpenScheme(id); setSearch(''); }} designerView={designerView} setDesignerView={setDesignerView} statusFilter={trackerFilter} setStatusFilter={setTrackerFilter} />
             ) : (
               <Dashboard onOpen={id=>{ setOpenScheme(id); setSearch(""); }} onNew={()=>setNewSchemeOpen(true)} filter={filter} setFilter={setFilter} search={search} designerView={designerView} setDesignerView={setDesignerView} />
             )}
@@ -1042,7 +1044,7 @@ const AppInner = () => {
       {newSchemeOpen && <NewSchemeModal onClose={()=>{ setNewSchemeOpen(false); setDuplicateSource(null); }} initialValues={duplicateSource} onCreate={s=>{ addScheme(s); setNewSchemeOpen(false); setDuplicateSource(null); setView("dashboard"); setFilter("all"); setSearch(""); setOpenScheme(s.id); }} />}
       {tweaksOn && <Tweaks tweaks={tweaks} setTweaks={setTweaks} />}
       <CommandPaletteHost
-        onOpenScheme={(id) => { setOpenScheme(id); setSearch(''); setView('dashboard'); }}
+        onOpenScheme={(id) => { setOpenScheme(id); setSearch(''); }}
       />
     </div>
   );
