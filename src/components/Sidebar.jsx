@@ -1,4 +1,4 @@
-// ─── Sidebar.jsx ─────────────────────────────────────────────────────────────
+// ─── Sidebar.jsx ─────────────────────────────────────────────────────────────────────────────
 // Left-hand navigation sidebar: RMP branding, main nav links, user chip.
 //
 // Props:
@@ -52,6 +52,7 @@ const Sidebar = ({ view, onView, open, onClose }) => {
             <div className="user-role">Designer · RMP</div>
           </div>
         </div>
+        <div className="sidebar-version">{window.APP_VERSION}</div>
       </div>
     </aside>
   );

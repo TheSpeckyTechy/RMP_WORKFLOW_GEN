@@ -78,6 +78,9 @@
 <script type="text/babel" src="src/components/ProgrammeTracker.jsx"></script>
 <script type="text/babel" src="src/components/App.jsx?v=rsr-no-images"></script>
 <script>
+window.APP_VERSION = 'v26.05.28';
+</script>
+<script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () =>
     navigator.serviceWorker.register('./sw.js')
