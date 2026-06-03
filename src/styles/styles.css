@@ -477,7 +477,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
   /* Float it to the top-left of the page */
   .programme-print-root {
     display: block !important;
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
