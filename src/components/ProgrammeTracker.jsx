@@ -132,7 +132,7 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter,
   const activeDesigner = designerView ? designers.find(d => d.id === designerView) : null;
 
   const byStatus = (s) => {
-    if (statusFilter === 'active') return s.status !== 'archived' && s.status !== 'constructed';
+    if (statusFilter === 'active') return s.status !== 'archived' && s.status !== 'constructed' && s.status !== 'shelved';
     if (statusFilter === 'all')    return true;
     return s.status === statusFilter;
   };
@@ -195,12 +195,13 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter,
 
       <div className="filters" style={{ marginBottom:4 }}>
         {[
-          { k:'active', l:'Active' },
-          { k:'all',    l:'All' },
-          { k:'design', l:'In design' },
-          { k:'review', l:'In review' },
-          { k:'ready',  l:'Ready' },
-          { k:'works',  l:'On site' },
+          { k:'active',  l:'Active' },
+          { k:'all',     l:'All' },
+          { k:'design',  l:'In design' },
+          { k:'review',  l:'In review' },
+          { k:'ready',   l:'Ready' },
+          { k:'works',   l:'On site' },
+          { k:'shelved', l:'Shelved' },
         ].map(f => (
           <button key={f.k} className={`chip${statusFilter === f.k ? ' active' : ''}`}
             onClick={() => setStatusFilter(f.k)}>{f.l}</button>

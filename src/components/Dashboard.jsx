@@ -59,7 +59,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, set
   const activeDesigner = designerView ? designers.find(d => d.id === designerView) : null;
   const byDesigner = designerView ? (s => s.assigned_designer_id === designerView) : (() => true);
 
-  const statusFiltered = (filter === "all" ? schemes.filter(s => s.status !== 'constructed') : schemes.filter(s => s.status === filter)).filter(byDesigner);
+  const statusFiltered = (filter === "all" ? schemes.filter(s => s.status !== 'constructed' && s.status !== 'shelved') : schemes.filter(s => s.status === filter)).filter(byDesigner);
   const list = (search
     ? statusFiltered.filter(s => {
         const q = search.toLowerCase();
@@ -74,7 +74,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, set
       if (ua !== ub) return ua ? -1 : 1;
       return parseStartDate(a.date_start) - parseStartDate(b.date_start);
     });
-  const activeSchemes = schemes.filter(s => s.status !== "archived" && s.status !== "constructed" && byDesigner(s));
+  const activeSchemes = schemes.filter(s => s.status !== "archived" && s.status !== "constructed" && s.status !== "shelved" && byDesigner(s));
   const totals = {
     live: activeSchemes.length,
     urgent: activeSchemes.filter(s => isUrgentScheme(s)).length,
@@ -90,7 +90,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, set
   const fmtGBP0 = window.BOQ_ENGINE?.fmtGBP0 || (n => '£' + Math.round(n).toLocaleString());
   const filters = [
     { k: "all", l: "All" },{ k: "design", l: "In design" },{ k: "review", l: "In review" },
-    { k: "ready", l: "Ready" },{ k: "works", l: "On site" },{ k: "constructed", l: "Constructed" },{ k: "archived", l: "Archived" },
+    { k: "ready", l: "Ready" },{ k: "works", l: "On site" },{ k: "constructed", l: "Constructed" },{ k: "archived", l: "Archived" },{ k: "shelved", l: "Shelved" },
   ];
   return (
     <>
