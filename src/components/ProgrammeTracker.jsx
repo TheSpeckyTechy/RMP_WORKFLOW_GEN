@@ -179,7 +179,8 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter,
               : 'Full design programme · FY 2026/27 · colour-coded by designer · click any row to open'}
           </p>
         </div>
-        <button className="btn" style={{ flexShrink:0 }} onClick={() => window.print()}
+        <button className="btn" style={{ flexShrink:0 }}
+          onClick={() => window.printProgramme && window.printProgramme(schemes, designerView, designers)}
           title="Print this programme as A4 landscape — one page per designer">
           ⎙ Print Programme
         </button>
@@ -271,13 +272,6 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter,
         )}
       </div>
 
-      {window.ProgrammePrint && (
-        <window.ProgrammePrint
-          allSchemes={schemes}
-          designerView={designerView}
-          designers={designers}
-        />
-      )}
     </>
   );
 };
