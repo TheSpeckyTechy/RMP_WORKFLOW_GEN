@@ -464,6 +464,29 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:va
 .rsr-field-input:focus{outline:none;border-color:var(--accent)}
 .rsr-bind.missing .rsr-field-input{border-color:var(--amber)}
 
+/* ── Programme Print ──────────────────────────────────────────────────────── */
+/* Hidden on screen; revealed only during window.print() */
+.programme-print-root { display: none; }
+@media print {
+  /* Hide all app UI */
+  #root { visibility: hidden !important; }
+  /* Reveal the print overlay and all its children */
+  .programme-print-root,
+  .programme-print-root * { visibility: visible !important; }
+  /* Float it to the top-left of the page */
+  .programme-print-root {
+    display: block !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    background: white;
+    color: #111;
+  }
+}
+
 /* RSR image upload slots */
 .rsr-image-upload{cursor:pointer;transition:border-color 0.15s,background 0.15s;border:1px dashed #aaa;position:relative}
 .rsr-image-upload:hover{border-color:var(--accent);background:#f0f7ff}
