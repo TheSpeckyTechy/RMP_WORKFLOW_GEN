@@ -288,8 +288,8 @@ window.printProgramme = function(allSchemes, designerView, designers) {
     .gantt-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 4px; }
     .gantt-table thead { display: table-header-group; }
     .gantt-table tr { break-inside: avoid; page-break-inside: avoid; }
-    .gantt-label { font-size: 8.5pt; color: #333; padding: 0 6px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 22px; vertical-align: middle; }
-    .gantt-track { position: relative; height: 22px; vertical-align: middle; overflow: hidden; }
+    .gantt-label { font-size: 8.5pt; color: #333; padding: 3px 6px 3px 2px; white-space: normal; word-break: break-word; min-height: 22px; vertical-align: middle; line-height: 1.3; }
+    .gantt-track { position: relative; min-height: 22px; vertical-align: middle; overflow: hidden; }
     .gantt-urgent .gantt-label { font-weight: 700; color: #92400e; }
 
     /* Summary table */
