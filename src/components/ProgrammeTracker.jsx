@@ -84,9 +84,11 @@ const TrackerRow = ({ scheme, onOpen, idx, showDesigner }) => {
         </div>
       </div>
       <div className="tracker-row-status">
-        <span className={`pill ${displayStatus}`} style={{ fontSize:10, padding:'1px 6px', lineHeight:1.6 }}>
-          {window.STATUS_LABELS?.[displayStatus] || displayStatus}
-        </span>
+        {displayStatus !== 'design' && (
+          <span className={`pill ${displayStatus}`} style={{ fontSize:10, padding:'1px 6px', lineHeight:1.6 }}>
+            {window.STATUS_LABELS?.[displayStatus] || displayStatus}
+          </span>
+        )}
       </div>
       <div className="gantt-track">
         <div className="gantt-track-bg" />
@@ -236,16 +238,10 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter,
         {groups.map(({ designer, rows }) => (
           <div key={designer?.id || 'unassigned'}>
             {!designerView && (
-              <div className="tracker-group-header">
-                {designer ? (
-                  <>
-                    <span className="tracker-dot" style={{ background:designer.colour, flexShrink:0 }}>{designer.initials}</span>
-                    <span>{designer.name}</span>
-                  </>
-                ) : <span>Unassigned</span>}
-                <span style={{ marginLeft:8, fontWeight:400, color:'var(--ink-3)' }}>
-                  {rows.length} scheme{rows.length !== 1 ? 's' : ''}
-                </span>
+              <div className="tracker-group-header"
+                style={{ borderLeft:`3px solid ${designer?.colour || 'var(--line)'}`, paddingLeft:10 }}>
+                <span className="tracker-group-name">{designer ? designer.name.toUpperCase() : 'UNASSIGNED'}</span>
+                <span className="tracker-group-count">{rows.length} scheme{rows.length !== 1 ? 's' : ''}</span>
               </div>
             )}
             {rows.map(s => {
@@ -257,11 +253,9 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter,
 
         {undated.length > 0 && (
           <div>
-            <div className="tracker-group-header" style={{ opacity:0.55 }}>
-              <span>No start date</span>
-              <span style={{ marginLeft:8, fontWeight:400, color:'var(--ink-3)' }}>
-                {undated.length} scheme{undated.length !== 1 ? 's' : ''}
-              </span>
+            <div className="tracker-group-header" style={{ borderLeft:'3px solid var(--line)', paddingLeft:10, opacity:0.6 }}>
+              <span className="tracker-group-name">NO START DATE</span>
+              <span className="tracker-group-count">{undated.length} scheme{undated.length !== 1 ? 's' : ''}</span>
             </div>
             {undated.map(s => {
               const i = rowIdx++;

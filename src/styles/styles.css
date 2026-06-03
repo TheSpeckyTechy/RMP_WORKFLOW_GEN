@@ -1281,32 +1281,38 @@ input[type=radio]:focus-visible{
   display: flex; align-items: center; margin-bottom: 2px;
   border-bottom: 1px solid var(--line); padding-bottom: 4px;
 }
-.tracker-label-col  { width: 220px; min-width: 220px; flex-shrink: 0; }
-.tracker-status-col { width: 96px;  min-width: 96px;  flex-shrink: 0; }
+.tracker-label-col  { width: 260px; min-width: 260px; flex-shrink: 0; }
+.tracker-status-col { width: 116px; min-width: 116px; flex-shrink: 0; }
 
 .tracker-group-header {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 11px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.07em; color: var(--ink-2);
-  padding: 10px 0 4px; border-bottom: 1px solid var(--line);
-  margin-bottom: 2px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0 6px; margin-top: 6px; margin-bottom: 2px;
+  border-bottom: 1px solid var(--line);
+}
+.tracker-group-name {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  color: var(--ink); font-family: var(--font-mono);
+}
+.tracker-group-count {
+  font-size: 11px; font-weight: 400; color: var(--ink-3);
+  font-family: var(--font-mono);
 }
 
 .tracker-row {
-  display: flex; align-items: center; height: 28px; margin: 1px 0;
+  display: flex; align-items: center; height: 26px; margin: 0;
   cursor: pointer; border-radius: 3px;
   transition: background 0.1s;
 }
 .tracker-row:hover { background: var(--bg-sunken); }
 
 .tracker-row-label {
-  width: 220px; min-width: 220px; flex-shrink: 0;
+  width: 260px; min-width: 260px; flex-shrink: 0;
   display: flex; align-items: center; gap: 7px;
   padding-right: 8px; overflow: hidden;
 }
-.tracker-row-info { overflow: hidden; }
+.tracker-row-info { overflow: hidden; min-width: 0; }
 .tracker-row-name {
-  font-size: 11px; font-weight: 500; color: var(--ink-2);
+  font-size: 12px; font-weight: 500; color: var(--ink-2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   display: flex; align-items: center;
   transition: color 0.12s;
@@ -1317,7 +1323,7 @@ input[type=radio]:focus-visible{
 }
 
 .tracker-row-status {
-  width: 96px; min-width: 96px; flex-shrink: 0;
+  width: 116px; min-width: 116px; flex-shrink: 0;
   display: flex; align-items: center;
 }
 
