@@ -4,9 +4,11 @@
 
 `window.APP_VERSION` is defined in `index.html` (near the bottom, just before the service worker registration script).
 
-**Before every merge to main, update it to today's date** using the format `vYY.MM.DD` — e.g. `v26.05.28` for 28 May 2026.
+**Update it to today's date before EVERY commit/push**, using the format `vYY.MM.DD` — e.g. `v26.06.03` for 3 June 2026.
 
-This lets the user confirm which version of the app is running from the version label in the sidebar.
+**Always include the version in the commit message** so the user can confirm which version is live — e.g. `[v26.06.03] Add print feature`.
+
+The version appears in bright copper lettering at the bottom-left of the sidebar so the user can instantly confirm the deployed version matches what they expect.
 
 ## Git workflow
 
