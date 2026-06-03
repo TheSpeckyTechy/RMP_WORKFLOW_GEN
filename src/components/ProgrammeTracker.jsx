@@ -55,14 +55,14 @@ const TrackerRow = ({ scheme, onOpen, idx, showDesigner }) => {
   }
   const delay = `${Math.min(idx * 8, 320)}ms`;
 
-  // Show "On Site" only when today actually falls inside the construction window.
-  // If stored status is 'works' but the start date is still in the future, the
-  // scheme hasn't started yet — show 'ready' so the pill isn't misleading.
+  // "On Site" must be confirmed by dates — today must fall within start→finish.
+  // Any scheme stored as 'works' without that date confirmation shows 'ready'
+  // instead (covers: no dates at all, future start date, past finish date).
   const now = Date.now();
   const datesConfirmOnSite = startMs && finishMs && now >= startMs && now <= finishMs;
   const displayStatus = datesConfirmOnSite
     ? 'works'
-    : (scheme.status === 'works' && startMs && now < startMs)
+    : scheme.status === 'works'
       ? 'ready'
       : scheme.status;
 
