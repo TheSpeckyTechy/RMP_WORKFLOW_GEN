@@ -55,16 +55,17 @@ const TrackerRow = ({ scheme, onOpen, idx, showDesigner }) => {
   }
   const delay = `${Math.min(idx * 8, 320)}ms`;
 
-  // "On Site" must be confirmed by dates — today must fall within start→finish.
-  // Any scheme stored as 'works' without that date confirmation shows 'ready'
-  // instead (covers: no dates at all, future start date, past finish date).
+  // Simplified three-state pill for the programme view:
+  //   On Site        — only when today is genuinely within start→finish
+  //   Ready to TC    — scheme is at ready status (pack complete, awaiting issue)
+  //   In Design      — everything else (design, review, works-not-yet-started, etc.)
   const now = Date.now();
   const datesConfirmOnSite = startMs && finishMs && now >= startMs && now <= finishMs;
   const displayStatus = datesConfirmOnSite
     ? 'works'
-    : scheme.status === 'works'
+    : scheme.status === 'ready'
       ? 'ready'
-      : scheme.status;
+      : 'design';
 
   return (
     <div className="tracker-row" onClick={() => onOpen(scheme.id)}>
