@@ -4,9 +4,14 @@
 
 `window.APP_VERSION` is defined in `index.html` (near the bottom, just before the service worker registration script).
 
-**Update it to today's date before EVERY commit/push**, using the format `vYY.MM.DD` — e.g. `v26.06.03` for 3 June 2026.
+**Update BOTH of the following before EVERY commit/push:**
 
-**Always include the version in the commit message** so the user can confirm which version is live — e.g. `[v26.06.03] Add print feature`.
+1. `window.APP_VERSION` in `index.html` → set to today's date, format `vYY.MM.DD` (e.g. `v26.06.03`)
+2. `CACHE_NAME` in `sw.js` → set to `rmp-studio-YY.MM.DD` (e.g. `rmp-studio-26.06.03`)
+
+Keeping them in sync ensures the service worker cache is busted on every deploy, so users always get the latest files immediately.
+
+**Always include the version in the commit message** — e.g. `[v26.06.03] Add print feature`.
 
 The version appears in bright copper lettering at the bottom-left of the sidebar so the user can instantly confirm the deployed version matches what they expect.
 
