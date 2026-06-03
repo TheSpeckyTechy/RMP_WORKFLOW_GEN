@@ -582,6 +582,15 @@ window.SCHEMES = [
   baseScheme({ id:'FW-FINTRY-B', road_name:'Fintry Drive', scheme_extent:'North Side — Nr 50 to 54', scheme_type:'Footway', footway_area_m2:178, budget:21360, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'14/09/2026', date_finish:'25/09/2026', ..._XX }),
   baseScheme({ id:'FW-PERTH-RD', road_name:'Perth Road', scheme_extent:'South Side — Nr 2 to 42', scheme_type:'Footway', budget:32500, financial_year:'2026/27', status:'design', lastUpdated:'today', ..._XX }),
   baseScheme({ id:'FW-WEDDERBURN', road_name:'Wedderburn Street', scheme_extent:'South Side — Strathmartine Road to Nr 7', scheme_type:'Footway', footway_area_m2:314, budget:23550, financial_year:'2026/27', status:'design', lastUpdated:'today', date_start:'19/10/2026', date_finish:'06/11/2026', ..._BC }),
+
+  // SHELVED — Reservoir/pre-design sketches (KD, 15/12/25 R0); dates TBD
+  baseScheme({ id:'RTBC1', road_name:'Ballantrae Road', project_number:'RTBC1', scheme_type:'Carriageway', carriageway_area_m2:754,  status:'shelved', lastUpdated:'today', ..._JM }),
+  baseScheme({ id:'RTBC2', road_name:'Castle Terrace',  project_number:'RTBC2', scheme_type:'Carriageway', carriageway_area_m2:1266, status:'shelved', lastUpdated:'today', ..._SL }),
+  baseScheme({ id:'RTBC3', road_name:'Hillside Road',   project_number:'RTBC3', scheme_type:'Carriageway', carriageway_area_m2:408,  status:'shelved', lastUpdated:'today', ..._JM }),
+  baseScheme({ id:'RTBC4', road_name:'Wetherby Place',  project_number:'RTBC4', scheme_type:'Carriageway', carriageway_area_m2:357,  status:'shelved', lastUpdated:'today', ..._SL }),
+  baseScheme({ id:'RTBC5', road_name:'Carlune Street',  project_number:'RTBC5', scheme_type:'Carriageway',                          status:'shelved', lastUpdated:'today', ..._JM }),
+  baseScheme({ id:'RTBC6', road_name:'Balgarthno Street', project_number:'RTBC6', scheme_type:'Carriageway', carriageway_area_m2:652, status:'shelved', lastUpdated:'today', ..._SL }),
+  baseScheme({ id:'RTBC7', road_name:'Sherbrook Street & Sherbrook Gardens', project_number:'RTBC7', scheme_type:'Carriageway', carriageway_area_m2:2129, status:'shelved', lastUpdated:'today', ..._JM }),
 ];
 
 window.PACK_DOCS = [

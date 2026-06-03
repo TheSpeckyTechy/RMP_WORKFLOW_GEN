@@ -41,7 +41,7 @@ const Icon = {
 // dashboard, BoQ tab, print doc, and front sheet all format money
 // consistently.
 const fmtDate = (iso) => { const d = new Date(iso); return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }); };
-const STATUS_LABELS = { design: "In Design", review: "In Review", ready: "Ready to Issue", works: "On Site", archived: "Archived", constructed: "Constructed" };
+const STATUS_LABELS = { design: "In Design", review: "In Review", ready: "Ready to Issue", works: "On Site", archived: "Archived", constructed: "Constructed", shelved: "Shelved" };
 
 // Render an offscreen DOM element into one or more A4 pages.
 //
