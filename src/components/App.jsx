@@ -1,5 +1,3 @@
-const APP_VERSION = '2.0.0';
-
 // ─── App.jsx ───────────────────────────────────────────────────────────────────
 // Root of the React application. Loaded last — all other scripts must be
 // defined before this one (see load order in RMP Design Studio.html).
@@ -661,7 +659,7 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
           <div className="settings-card">
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Application</span><span className="mono">RMP Design Studio</span></div>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Version</span><span className="mono">{APP_VERSION}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Version</span><span className="mono">{window.APP_VERSION}</span></div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Client</span><span className="mono">Dundee City Council</span></div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"var(--ink-3)"}}>Templates</span><span className="mono">RSR · PCI/CPP · Letter · Workbook</span></div>
             </div>
