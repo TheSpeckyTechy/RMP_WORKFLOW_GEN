@@ -8,10 +8,11 @@
 window.printProgramme = function(allSchemes, designerView, designers) {
 
   // ── Constants ──────────────────────────────────────────────────────────────
-  const PP_START = new Date(2026, 3, 1).getTime();
-  const PP_END   = new Date(2027, 2, 31, 23, 59, 59).getTime();
-  const PP_SPAN  = PP_END - PP_START;
-  const MONTHS   = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+  const PP_START   = new Date(2026, 3, 1).getTime();
+  const PP_END     = new Date(2027, 2, 31, 23, 59, 59).getTime();
+  const PP_SPAN    = PP_END - PP_START;
+  const MONTHS     = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+  const URGENT_MS  = 42 * 24 * 60 * 60 * 1000; // 6 weeks
   const STATUS_LABELS = window.STATUS_LABELS || {};
 
   const today = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' });
@@ -37,6 +38,13 @@ window.printProgramme = function(allSchemes, designerView, designers) {
     return a ? (+a).toLocaleString() : '&mdash;';
   };
 
+  const ppIsUrgent = (s) => {
+    const ms = ppParse(s.date_start);
+    if (!ms) return false;
+    const now = Date.now();
+    return ms > now && ms - now <= URGENT_MS;
+  };
+
   const getSchemes = (did) => allSchemes.filter(s =>
     (did ? s.assigned_designer_id === did : true) &&
     s.status !== 'archived' && s.status !== 'constructed' && s.status !== 'shelved'
@@ -50,8 +58,9 @@ window.printProgramme = function(allSchemes, designerView, designers) {
     const all     = [...dated, ...undated];
     const totalM2 = schemes.reduce((a,s) => a + (+(s.scheme_type==='Footway'
                       ? s.footway_area_m2 : s.carriageway_area_m2) || 0), 0);
-    const colour  = designer?.colour || '#9ca3af';
-    const todayPct = ((Date.now() - PP_START) / PP_SPAN) * 100;
+    const colour    = designer?.colour || '#9ca3af';
+    const todayPct  = ((Date.now() - PP_START) / PP_SPAN) * 100;
+    const urgentCount = all.filter(ppIsUrgent).length;
 
     // Month grid lines (shared by gantt header + each bar row)
     const gridLines = MONTHS.map((_, i) => i > 0
@@ -66,6 +75,7 @@ window.printProgramme = function(allSchemes, designerView, designers) {
     const ganttRows = dated.map(s => {
       const startMs  = ppParse(s.date_start);
       const finishMs = ppParse(s.date_finish);
+      const urgent   = ppIsUrgent(s);
       let left = 0, width = 1, hasBar = false;
       if (startMs) {
         const rawL   = ((startMs - PP_START) / PP_SPAN) * 100;
@@ -82,9 +92,12 @@ window.printProgramme = function(allSchemes, designerView, designers) {
           overflow:hidden;font-size:6pt;color:white;font-family:'JetBrains Mono',monospace;">
           ${width > 7 ? esc(s.project_number || '') : ''}
         </span>` : '';
+      const urgentBadge = urgent
+        ? `<span style="font-size:8pt;margin-left:3px;" title="Start within 6 weeks">⚡</span>`
+        : '';
       return `
-        <tr>
-          <td class="gantt-label">${esc(s.road_name)}</td>
+        <tr${urgent ? ' class="gantt-urgent"' : ''}>
+          <td class="gantt-label">${esc(s.road_name)}${urgentBadge}</td>
           <td class="gantt-track">${gridLines}${todayLine}${bar}</td>
         </tr>`;
     }).join('');
@@ -117,13 +130,17 @@ window.printProgramme = function(allSchemes, designerView, designers) {
     // ── Summary table ──────────────────────────────────────────────────────
     const tableRows = all.map((s, i) => {
       const noDate = !s.date_start;
-      const bg     = noDate ? '#fffbf0' : i % 2 === 0 ? '#fff' : '#f5f5f5';
+      const urgent = ppIsUrgent(s);
+      const bg     = urgent ? '#fff8e6' : noDate ? '#fffbf0' : i % 2 === 0 ? '#fff' : '#f5f5f5';
       const status = STATUS_LABELS[s.status] || esc(s.status || '');
+      const urgentBadge = urgent
+        ? `<span style="font-size:9pt;margin-left:4px;" title="Start within 6 weeks">⚡</span>`
+        : '';
       return `
         <tr style="background:${bg};">
           <td style="text-align:center;color:#bbb;font-family:'JetBrains Mono',monospace;">${i+1}</td>
           <td>
-            <div class="road-name">${esc(s.road_name)}</div>
+            <div class="road-name">${esc(s.road_name)}${urgentBadge}</div>
             ${s.scheme_extent ? `<div class="road-sub">${esc(s.scheme_extent)}</div>` : ''}
           </td>
           <td style="font-family:'JetBrains Mono',monospace;font-size:8pt;color:#555;">${esc(s.project_number||'—')}</td>
@@ -135,6 +152,30 @@ window.printProgramme = function(allSchemes, designerView, designers) {
           <td style="color:#666;">${esc(s.ward_selected||'—')}</td>
         </tr>`;
     }).join('');
+
+    // ── Legend / key ───────────────────────────────────────────────────────
+    const legend = `
+      <div class="legend">
+        <span class="legend-item">
+          <span style="font-size:10pt;">⚡</span>
+          <span>Construction start within <strong>6 weeks</strong> — action required${urgentCount > 0 ? ` (${urgentCount} on this programme)` : ''}</span>
+        </span>
+        <span class="legend-sep">·</span>
+        <span class="legend-item">
+          <span style="display:inline-block;width:8px;height:11px;background:#dc2626;opacity:0.6;border-radius:1px;flex-shrink:0;"></span>
+          <span>Today's date</span>
+        </span>
+        <span class="legend-sep">·</span>
+        <span class="legend-item">
+          <span style="display:inline-block;width:12px;height:11px;background:#fffbf0;border:1px solid #d4a800;border-radius:2px;flex-shrink:0;"></span>
+          <span>No start date assigned</span>
+        </span>
+        <span class="legend-sep">·</span>
+        <span class="legend-item">
+          <span style="display:inline-block;width:12px;height:11px;background:#fff8e6;border:1px solid #f59e0b;border-radius:2px;flex-shrink:0;"></span>
+          <span>Urgent — start within 6 weeks</span>
+        </span>
+      </div>`;
 
     // ── Designer badge ─────────────────────────────────────────────────────
     const badge = designer ? `
@@ -158,6 +199,7 @@ window.printProgramme = function(allSchemes, designerView, designers) {
                 ${all.length} scheme${all.length!==1?'s':''}
                 ${totalM2>0 ? ` &middot; ${totalM2.toLocaleString()} m&sup2; total area` : ''}
                 ${undated.length>0 ? ` &middot; ${undated.length} undated` : ''}
+                ${urgentCount>0 ? ` &middot; <strong style="color:#b45309;">${urgentCount} urgent ⚡</strong>` : ''}
               </span>
             </div>
           </div>
@@ -167,6 +209,8 @@ window.printProgramme = function(allSchemes, designerView, designers) {
             <div>Dates are indicative &mdash; verify before use</div>
           </div>
         </div>
+
+        ${legend}
 
         ${ganttSection}
 
@@ -225,12 +269,17 @@ window.printProgramme = function(allSchemes, designerView, designers) {
     .page:last-child { break-after: auto; page-break-after: avoid; }
 
     /* Header — never orphaned */
-    .pg-hd { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1a1d23; padding-bottom: 10px; margin-bottom: 12px; break-after: avoid; page-break-after: avoid; }
+    .pg-hd { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1a1d23; padding-bottom: 10px; margin-bottom: 8px; break-after: avoid; page-break-after: avoid; }
     .org-line { font-size: 7.5pt; color: #777; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 3px; }
     .doc-title { font-size: 16pt; font-weight: 700; color: #1a1d23; line-height: 1.1; }
     .designer-name { font-size: 12pt; font-weight: 600; color: #1a1d23; }
     .designer-meta { font-size: 9.5pt; color: #666; margin-left: 10px; }
     .print-meta { text-align: right; font-size: 7.5pt; color: #888; font-family: 'JetBrains Mono', monospace; line-height: 1.8; flex-shrink: 0; margin-left: 20px; }
+
+    /* Legend / key strip */
+    .legend { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; font-size: 7.5pt; color: #555; font-family: 'JetBrains Mono', monospace; padding: 5px 10px; background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 3px; margin-bottom: 10px; break-after: avoid; page-break-after: avoid; }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-sep { color: #ccc; }
 
     /* Section heading — never orphaned at bottom of page */
     .sec-hd { font-size: 7.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #555; margin-bottom: 6px; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-top: 12px; break-after: avoid; page-break-after: avoid; }
@@ -241,6 +290,7 @@ window.printProgramme = function(allSchemes, designerView, designers) {
     .gantt-table tr { break-inside: avoid; page-break-inside: avoid; }
     .gantt-label { font-size: 8.5pt; color: #333; padding: 0 6px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 22px; vertical-align: middle; }
     .gantt-track { position: relative; height: 22px; vertical-align: middle; overflow: hidden; }
+    .gantt-urgent .gantt-label { font-weight: 700; color: #92400e; }
 
     /* Summary table */
     .summary-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 9pt; line-height: 1.5; }
