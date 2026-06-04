@@ -962,6 +962,26 @@ window.__getFrontPdfBuffer = async (scheme, opts) => {
 
 window.FrontSheetDoc = FrontSheetDoc;
 
+// ─── Drawing Processor integration ────────────────────────────────────────────
+const sketchKey = (scheme) =>
+  (scheme.road_name || '').split(/\s[—–-]\s/)[0].trim()
+    .replace(/[^a-zA-Z0-9 ]/g, '').replace(/ +/g, '_');
+
+const openDrawingProcessor = (scheme) => {
+  const designer = (window.DESIGNERS || []).find(d => d.id === scheme.assigned_designer_id);
+  const today = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const dateStr = pad(today.getDate()) + '/' + pad(today.getMonth() + 1) + '/' + String(today.getFullYear()).slice(2);
+  const params = new URLSearchParams({
+    sketch: sketchKey(scheme),
+    title: (scheme.road_name || '') + ' Resurfacing',
+    ref:   scheme.project_number || '',
+    drawn: designer?.initials || 'JMCA',
+    date:  dateStr,
+  });
+  window.open('./drawing-processor/?' + params, '_blank');
+};
+
 // ─── Pack file upload helpers ─────────────────────────────────────────────────
 
 const readPDFasDataUrl = (file) => new Promise((resolve, reject) => {
@@ -1263,6 +1283,10 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
               {syncing ? <><div className="spinner" style={{width:10,height:10}}/> Syncing…</> : <><Icon.Upload /> Sync to folder</>}
             </button>
           )}
+          <button className="btn ghost sm" onClick={()=>openDrawingProcessor(scheme)}
+            title="Open the Drawing Processor to produce 001 Treatment and 002 Ironwork drawings for this scheme">
+            ✏ Drawing Processor
+          </button>
           <button className="btn accent" onClick={()=>onGenerate(scheme)}><Icon.Wand /> Generate pack</button>
         </div>
       </div>
