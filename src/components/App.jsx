@@ -406,7 +406,7 @@ const SyncDot = ({ status }) => {
     synced:  { color: 'var(--green)',       label: 'Synced' },
     error:   { color: 'var(--red,#c0392b)', label: 'Sync error' },
   };
-  const { color, label } = cfg[status] || cfg.off;
+  const { color, label } = cfg[status] || cfg.loading;
   return (
     <span
       title={label}
@@ -693,6 +693,7 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
 };
 
 const FINANCIAL_YEARS = ["2025/26","2026/27","2027/28","2028/29"];
+const STATUS_FILTER_KEYS = ["design","review","ready","works","archived"];
 const SCHEME_TYPES = ["Carriageway","Footway","Junction","Cycleway","Surface Dressing"];
 const SCHEME_STATUSES = [
   { k:"design", l:"In design" },{ k:"review", l:"In review" },
@@ -735,7 +736,7 @@ const NewSchemeModal = ({ onClose, onCreate, initialValues }) => {
       scheme_type: form.scheme_type,
       financial_year: form.financial_year,
       ward_num: form.ward_num,
-      ward_selected: ward ? `Ward ${ward.num} — ${ward.name}` : "",
+      ward_selected: ward?.name ?? "",
       status: form.status,
     });
     onCreate(newScheme);
@@ -827,6 +828,8 @@ const AppInner = () => {
   const [notifOpen, setNotifOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState([]);
   const notifRef = React.useRef(null);
+  const getSchemeRef = React.useRef(getScheme);
+  React.useEffect(() => { getSchemeRef.current = getScheme; }, [getScheme]);
 
   React.useEffect(() => {
     const handler = (e) => {
@@ -834,14 +837,14 @@ const AppInner = () => {
       const det = e.detail || {};
       if (window.Toast) {
         const action = (det.fn && window[det.fn] && det.schemeId)
-          ? { label: 'Re-download', onClick: () => { const s = getScheme && getScheme(det.schemeId); if (s) window[det.fn](s); } }
+          ? { label: 'Re-download', onClick: () => { const s = getSchemeRef.current?.(det.schemeId); if (s) window[det.fn](s); } }
           : null;
         window.Toast.show({ kind: 'success', msg: det.label ? `Downloaded · ${det.label}` : 'Download complete', action });
       }
     };
     window.addEventListener('rmp-download', handler);
     return () => window.removeEventListener('rmp-download', handler);
-  }, [getScheme]);
+  }, []);
 
   React.useEffect(() => {
     if (!notifOpen) return;
@@ -890,7 +893,6 @@ const AppInner = () => {
     return () => window.removeEventListener("message", handler);
   }, []);
 
-  const STATUS_FILTER_KEYS = ["design","review","ready","works","archived"];
   React.useEffect(() => { if (STATUS_FILTER_KEYS.includes(view)) setFilter(view); }, [view]);
 
   React.useEffect(() => {
