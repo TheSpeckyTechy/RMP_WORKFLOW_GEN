@@ -979,7 +979,7 @@ const openDrawingProcessor = (scheme) => {
     drawn: designer?.initials || 'JMCA',
     date:  dateStr,
   });
-  window.open('./drawing-processor/?' + params, '_blank');
+  window.open('https://thespeckytechy.github.io/Quick-Designer-CW-FWs/?' + params, '_blank');
 };
 
 // ─── Pack file upload helpers ─────────────────────────────────────────────────

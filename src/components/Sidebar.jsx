@@ -40,7 +40,7 @@ const Sidebar = ({ view, onView, open, onClose }) => {
         <button className={"nav-item " + (view === "tracker" ? "active" : "")} onClick={() => onView("tracker")}>
           <Icon.Calendar /><span>Programme</span>
         </button>
-        <button className="nav-item" onClick={() => window.open('./drawing-processor/', '_blank')} title="Open Drawing Processor in a new tab">
+        <button className="nav-item" onClick={() => window.open('https://thespeckytechy.github.io/Quick-Designer-CW-FWs/', '_blank')} title="Open Drawing Processor in a new tab">
           <Icon.Pencil /><span>Drawings</span>
         </button>
         <button className={"nav-item " + (view === "settings" ? "active" : "")} onClick={() => onView("settings")}>
