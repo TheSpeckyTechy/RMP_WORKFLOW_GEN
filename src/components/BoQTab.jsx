@@ -420,21 +420,22 @@ const BoQTab = ({ schemeId, onOpenDesigner }) => {
   }, [boq, effective, userLines, scheme]);
 
   const editLine = (uid, patch) => {
-    commit({ custom_lines: boq.custom_lines.map(l => l.uid === uid ? { ...l, ...patch } : l) });
+    commit({ custom_lines: (boq.custom_lines || []).map(l => l.uid === uid ? { ...l, ...patch } : l) });
   };
   const deleteLine = (uid) => {
-    commit({ custom_lines: boq.custom_lines.filter(l => l.uid !== uid) });
+    commit({ custom_lines: (boq.custom_lines || []).filter(l => l.uid !== uid) });
   };
   const duplicateLine = (uid) => {
-    const idx = boq.custom_lines.findIndex(l => l.uid === uid);
+    const lines = boq.custom_lines || [];
+    const idx = lines.findIndex(l => l.uid === uid);
     if (idx < 0) return;
-    const clone = { ...boq.custom_lines[idx], uid: E.uid(), auto: false };
-    const next  = [...boq.custom_lines];
+    const clone = { ...lines[idx], uid: E.uid(), auto: false };
+    const next  = [...lines];
     next.splice(idx + 1, 0, clone);
     commit({ custom_lines: next });
   };
   const moveLine = (uid, dir) => {
-    const lines = [...boq.custom_lines];
+    const lines = [...(boq.custom_lines || [])];
     const idx = lines.findIndex(l => l.uid === uid);
     if (idx < 0) return;
     const j = idx + dir;
@@ -562,6 +563,8 @@ window.__exportBoQForScheme = async function(scheme) {
   const E = window.BOQ_ENGINE;
   const boq = scheme.boq || (window.defaultBoq ? window.defaultBoq() : {});
   const effective = E.effectiveQuickInputs(scheme, boq);
-  const computed  = E.buildBoQLines({ ...boq, quick_inputs: effective }, scheme);
+  const autoLines = E.regenAutoLines(effective);
+  const userLines = (boq.custom_lines || []).filter(l => !l.auto);
+  const computed  = E.buildBoQLines({ ...boq, custom_lines: [...autoLines, ...userLines], quick_inputs: effective }, scheme);
   await window.exportBoQXlsx(scheme, { ...boq, quick_inputs: effective }, computed);
 };
