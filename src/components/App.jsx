@@ -299,8 +299,10 @@ const GenerateModal = ({ scheme, onClose }) => {
           const a     = document.createElement('a');
           a.href      = URL.createObjectURL(blob);
           a.download  = packFilename;
+          document.body.appendChild(a);
           a.click();
-          URL.revokeObjectURL(a.href);
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(a.href), 100);
         }
         window.dispatchEvent(new CustomEvent('rmp-download', {
           detail: { label: `Compiled Pack — ${scheme.road_name}`, ref: scheme.project_number },
