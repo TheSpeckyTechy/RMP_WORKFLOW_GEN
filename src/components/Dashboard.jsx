@@ -49,6 +49,10 @@ const isUrgentScheme = (s) => {
   return ms > now && ms - now <= 42 * 24 * 60 * 60 * 1000;
 };
 
+// Count how many pack documents are marked ready via docs_generated — matches
+// SchemeDetail's source of truth, replacing the stale scheme.packProgress/packTotal fields.
+const packDoneFor = (s) => window.PACK_DOCS.filter(d => (s.docs_generated || {})[d.key]).length;
+
 const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, setDesignerView }) => {
   const { schemes, updateScheme, provisionAllFolders, backendMode, folderName } = React.useContext(window.SchemeContext);
   const [provisioning, setProvisioning] = React.useState(false);
@@ -80,7 +84,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, set
     urgent: activeSchemes.filter(s => isUrgentScheme(s)).length,
     tender: activeSchemes.reduce((a,s) => a + (+s.tender_total||0), 0),
     m2: activeSchemes.reduce((a,s) => a + (window.schemeArea(s)), 0),
-    ready: activeSchemes.filter(s => s.packProgress === s.packTotal).length,
+    ready: activeSchemes.filter(s => packDoneFor(s) >= window.PACK_DOCS.length).length,
   };
   const animLive   = useCounter(totals.live);
   const animUrgent = useCounter(totals.urgent);
@@ -162,7 +166,8 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, set
           <tbody key={filter + '|' + (search || '')}>
             {list.map((s, rowIdx) => {
               const ward = window.WARDS.find(w => w.num === s.ward_num);
-              const pct = (s.packProgress / s.packTotal) * 100;
+              const packDone = packDoneFor(s);
+              const pct = (packDone / window.PACK_DOCS.length) * 100;
               const score = schemeScore(s);
               const scoreColor = score === 100 ? 'var(--green)' : score >= 60 ? 'var(--amber)' : 'var(--red,#c0392b)';
               const urgent = isUrgentScheme(s);
@@ -189,7 +194,7 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, set
                   })()}{s.scheme_type}</div></td>
                   <td className="mono" style={{fontSize:12}}>{window.schemeArea(s).toLocaleString()} m²</td>
                   <td className="mono" style={{fontSize:12}}>{(window.BOQ_ENGINE?.fmtGBP0 || (n=>'£'+n))(+s.tender_total||0)}</td>
-                  <td><div className="pack-bar"><div className="pack-bar-track"><div className={"pack-bar-fill "+(pct===100?"full":"")} style={{width:pct+"%"}}></div></div><div className="pack-bar-count">{s.packProgress}/{s.packTotal}</div></div></td>
+                  <td><div className="pack-bar"><div className="pack-bar-track"><div className={"pack-bar-fill "+(pct===100?"full":"")} style={{width:pct+"%"}}></div></div><div className="pack-bar-count">{packDone}/{window.PACK_DOCS.length}</div></div></td>
                   <td><span className="mono" style={{fontSize:12,fontWeight:600,color:scoreColor}}>{score}%</span></td>
                   <td><span className={"pill "+s.status}>{STATUS_LABELS[s.status]}</span></td>
                   <td style={{color:"var(--ink-3)",display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end"}}>
@@ -216,7 +221,8 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, set
 
 const SchemeListCard = ({ scheme: s, onOpen, updateScheme }) => {
   const ward = window.WARDS.find(w => w.num === s.ward_num);
-  const pct = s.packTotal > 0 ? (s.packProgress / s.packTotal) * 100 : 0;
+  const packDone = packDoneFor(s);
+  const pct = (packDone / window.PACK_DOCS.length) * 100;
   const urgent = isUrgentScheme(s);
   return (
     <div className={"scheme-list-card" + (urgent ? " urgent" : "")} onClick={() => onOpen(s.id)}>
@@ -239,9 +245,9 @@ const SchemeListCard = ({ scheme: s, onOpen, updateScheme }) => {
       )}
       <div className="slc-progress">
         <div className="pack-bar-track" style={{height:6,borderRadius:3}}>
-          <div className={"pack-bar-fill"+(s.packProgress===s.packTotal&&s.packTotal>0?" full":"")} style={{width:pct+"%"}} />
+          <div className={"pack-bar-fill"+(packDone>=window.PACK_DOCS.length&&window.PACK_DOCS.length>0?" full":"")} style={{width:pct+"%"}} />
         </div>
-        <span className="slc-progress-meta mono">{s.packProgress}/{s.packTotal} ready</span>
+        <span className="slc-progress-meta mono">{packDone}/{window.PACK_DOCS.length} ready</span>
       </div>
     </div>
   );
