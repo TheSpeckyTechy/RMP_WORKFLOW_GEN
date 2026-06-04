@@ -991,24 +991,42 @@ const readPDFasDataUrl = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
-const PackFileModal = ({ packFile, docName, onClose }) => (
-  <div className="modal-backdrop" onClick={onClose}>
-    <div className="modal sketch-modal" onClick={e => e.stopPropagation()}>
-      <div className="modal-head">
-        <div style={{fontWeight:600,fontSize:15}}>{docName} — {packFile.name}</div>
-        <div style={{display:"flex",gap:6,alignItems:"center"}}>
-          <a className="btn sm" href={packFile.data} download={packFile.name} title="Download file">
-            <Icon.Download /> Download
-          </a>
-          <button className="btn ghost sm" aria-label="Close dialog" onClick={onClose}><Icon.X /></button>
+const PackFileModal = ({ packFile, docName, onClose }) => {
+  const handleDownload = () => {
+    // <a href={dataUrl} download> silently fails in Chrome for large files;
+    // convert to a Blob URL instead.
+    const [meta, b64] = packFile.data.split(',');
+    const mime = (meta.match(/:(.*?);/) || ['', 'application/pdf'])[1];
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = packFile.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  };
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal sketch-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <div style={{fontWeight:600,fontSize:15}}>{docName} — {packFile.name}</div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <button className="btn sm" onClick={handleDownload} title="Download file">
+              <Icon.Download /> Download
+            </button>
+            <button className="btn ghost sm" aria-label="Close dialog" onClick={onClose}><Icon.X /></button>
+          </div>
+        </div>
+        <div className="sketch-body">
+          <iframe src={packFile.data} title={docName} className="sketch-frame" />
         </div>
       </div>
-      <div className="sketch-body">
-        <iframe src={packFile.data} title={docName} className="sketch-frame" />
-      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── Doc Preview (thumbnail per document type) ────────────────────────────────
 
@@ -1242,6 +1260,9 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
       try {
         await downloadFrontPdf(scheme);
         updateScheme(scheme.id, { docs_generated: { ...docsGen, front: true } });
+      } catch (e) {
+        console.error('[Pack] Front Sheet generation failed:', e);
+        if (window.Toast) window.Toast.show({ kind: 'error', msg: 'Front Sheet generation failed: ' + e.message, duration: 6000 });
       } finally {
         setGeneratingFront(false);
       }

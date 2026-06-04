@@ -485,7 +485,7 @@ const BoQTab = ({ schemeId, onOpenDesigner }) => {
     if (!window.exportBoQXlsx) { alert('Export module not loaded'); return; }
     setDownloading(true);
     try {
-      window.exportBoQXlsx(scheme, { ...boq, quick_inputs: effective }, computed);
+      await window.exportBoQXlsx(scheme, { ...boq, quick_inputs: effective }, computed);
       updateScheme(schemeId, { docs_generated: { ...(scheme.docs_generated||{}), boq: true } });
     } catch (e) {
       console.error(e);
