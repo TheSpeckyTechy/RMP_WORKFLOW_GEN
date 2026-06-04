@@ -20,11 +20,22 @@
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Tracks how many ModalShell instances are currently mounted so the topmost
+// one can claim exclusive ownership of the Escape key.
+let _modalDepth = 0;
+
 const useModal = ({ onClose, initialFocus } = {}) => {
-  const dialogRef = React.useRef(null);
-  const triggerRef = React.useRef(null);
+  const dialogRef     = React.useRef(null);
+  const triggerRef    = React.useRef(null);
+  const depthRef      = React.useRef(0);
+  // Stable refs so the effect never needs to re-run when these change.
+  const onCloseRef      = React.useRef(onClose);
+  const initialFocusRef = React.useRef(initialFocus);
+  React.useEffect(() => { onCloseRef.current = onClose; });
+  React.useEffect(() => { initialFocusRef.current = initialFocus; });
 
   React.useEffect(() => {
+    depthRef.current = ++_modalDepth;
     triggerRef.current = document.activeElement;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -32,7 +43,8 @@ const useModal = ({ onClose, initialFocus } = {}) => {
     const focusFirst = () => {
       const node = dialogRef.current;
       if (!node) return;
-      if (initialFocus && initialFocus.current) { initialFocus.current.focus(); return; }
+      const f = initialFocusRef.current;
+      if (f && f.current) { f.current.focus(); return; }
       const focusable = node.querySelectorAll(FOCUSABLE);
       if (focusable.length) focusable[0].focus();
       else node.setAttribute('tabindex', '-1'), node.focus();
@@ -41,8 +53,11 @@ const useModal = ({ onClose, initialFocus } = {}) => {
 
     const onKey = (e) => {
       if (e.key === 'Escape') {
+        // Only the topmost modal handles Escape so stacked modals don't all
+        // close simultaneously when a single Escape is pressed.
+        if (depthRef.current !== _modalDepth) return;
         e.stopPropagation();
-        onClose && onClose();
+        onCloseRef.current && onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -58,6 +73,7 @@ const useModal = ({ onClose, initialFocus } = {}) => {
 
     return () => {
       clearTimeout(t);
+      _modalDepth = Math.max(0, _modalDepth - 1);
       document.removeEventListener('keydown', onKey, true);
       document.body.style.overflow = prevOverflow;
       const trigger = triggerRef.current;
@@ -65,7 +81,7 @@ const useModal = ({ onClose, initialFocus } = {}) => {
         try { trigger.focus(); } catch (_) {}
       }
     };
-  }, [onClose, initialFocus]);
+  }, []); // Stable: mutable values accessed via refs; depth managed by counter
 
   return { dialogRef };
 };
