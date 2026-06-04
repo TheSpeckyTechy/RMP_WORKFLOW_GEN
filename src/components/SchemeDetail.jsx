@@ -995,19 +995,39 @@ const PackFileModal = ({ packFile, docName, onClose }) => {
   const handleDownload = () => {
     // <a href={dataUrl} download> silently fails in Chrome for large files;
     // convert to a Blob URL instead.
-    const [meta, b64] = packFile.data.split(',');
-    const mime = (meta.match(/:(.*?);/) || ['', 'application/pdf'])[1];
-    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    const blob = new Blob([bytes], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = packFile.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 100);
+    let url;
+    try {
+      const [meta, b64] = packFile.data.split(',');
+      const mime = (meta.match(/:(.*?);/) || ['', 'application/pdf'])[1];
+      const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: mime });
+      url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = packFile.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (e) {
+      if (url) URL.revokeObjectURL(url);
+      console.error('[PackFileModal] download failed:', e);
+      if (window.Toast) window.Toast.show({ kind: 'error', msg: 'Download failed: ' + e.message, duration: 5000 });
+    }
   };
+  // Build a Blob URL for the preview iframe so Chrome doesn't blank large data URLs.
+  const [iframeSrc, setIframeSrc] = React.useState('');
+  React.useEffect(() => {
+    let blobUrl;
+    try {
+      const [meta, b64] = packFile.data.split(',');
+      const mime = (meta.match(/:(.*?);/) || ['', 'application/pdf'])[1];
+      const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      blobUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+      setIframeSrc(blobUrl);
+    } catch { setIframeSrc(packFile.data); }
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+  }, [packFile.data]);
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal sketch-modal" onClick={e => e.stopPropagation()}>
@@ -1021,7 +1041,7 @@ const PackFileModal = ({ packFile, docName, onClose }) => {
           </div>
         </div>
         <div className="sketch-body">
-          <iframe src={packFile.data} title={docName} className="sketch-frame" />
+          <iframe src={iframeSrc} title={docName} className="sketch-frame" />
         </div>
       </div>
     </div>

@@ -557,11 +557,11 @@ const BoQTab = ({ schemeId, onOpenDesigner }) => {
 window.BoQTab = BoQTab;
 
 // Standalone BoQ export usable by GenerateModal without the tab being mounted.
-window.__exportBoQForScheme = function(scheme) {
+window.__exportBoQForScheme = async function(scheme) {
   if (!window.exportBoQXlsx || !window.BOQ_ENGINE) throw new Error('BoQ engine not loaded');
   const E = window.BOQ_ENGINE;
   const boq = scheme.boq || (window.defaultBoq ? window.defaultBoq() : {});
   const effective = E.effectiveQuickInputs(scheme, boq);
   const computed  = E.buildBoQLines({ ...boq, quick_inputs: effective }, scheme);
-  window.exportBoQXlsx(scheme, { ...boq, quick_inputs: effective }, computed);
+  await window.exportBoQXlsx(scheme, { ...boq, quick_inputs: effective }, computed);
 };

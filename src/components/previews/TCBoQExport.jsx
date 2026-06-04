@@ -129,11 +129,11 @@ async function downloadTCBoQXlsx(scheme, computed) {
 
   if (!saved) {
     const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const _url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = xlsxFilename;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    a.href = _url; a.download = xlsxFilename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(_url), 100);
   } else {
     if (window.Toast) window.Toast.show({ kind: 'success', msg: `TC BoQ saved to ${window.schemeFolderName(scheme)}/Contract/`, duration: 4000 });
   }

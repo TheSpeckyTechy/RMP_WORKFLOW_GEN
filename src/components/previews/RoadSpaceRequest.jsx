@@ -144,10 +144,11 @@ async function downloadRSR(scheme) {
     ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], docxFilename, out, { versioned: true })
     : false;
   if (!saved) {
+    const _url = URL.createObjectURL(new Blob([out], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}));
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([out], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}));
-    a.download = docxFilename;
-    a.click(); URL.revokeObjectURL(a.href);
+    a.href = _url; a.download = docxFilename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(_url), 100);
   } else {
     if (window.Toast) window.Toast.show({ kind: 'success', msg: `RSR saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
   }
