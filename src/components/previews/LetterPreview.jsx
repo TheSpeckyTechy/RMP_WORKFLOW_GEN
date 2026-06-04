@@ -198,10 +198,11 @@ async function mailMergeLetter(scheme, recipients) {
       ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], docxFilename, buf, { versioned: true })
       : false;
     if (!saved) {
+      const _url = URL.createObjectURL(new Blob([buf], { type: docType }));
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([buf], { type: docType }));
-      a.download = docxFilename;
-      a.click(); URL.revokeObjectURL(a.href);
+      a.href = _url; a.download = docxFilename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(_url), 100);
     } else {
       if (window.Toast) window.Toast.show({ kind: 'success', msg: `Letter saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
     }
@@ -220,10 +221,11 @@ async function mailMergeLetter(scheme, recipients) {
     ? await window.fsSaveToProjectFolder(scheme, ['Project Admin'], zipFilename, zipBuf, { versioned: true })
     : false;
   if (!zipSaved) {
+    const _url = URL.createObjectURL(new Blob([zipBuf], { type: 'application/zip' }));
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([zipBuf], { type: 'application/zip' }));
-    a.download = zipFilename;
-    a.click(); URL.revokeObjectURL(a.href);
+    a.href = _url; a.download = zipFilename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(_url), 100);
   } else {
     if (window.Toast) window.Toast.show({ kind: 'success', msg: `Letters saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
   }

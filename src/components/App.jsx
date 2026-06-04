@@ -296,13 +296,14 @@ const GenerateModal = ({ scheme, onClose }) => {
           : false;
         if (!packSaved) {
           const blob  = new Blob([bytes], { type: 'application/pdf' });
+          const _url  = URL.createObjectURL(blob);
           const a     = document.createElement('a');
-          a.href      = URL.createObjectURL(blob);
+          a.href      = _url;
           a.download  = packFilename;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(a.href), 100);
+          setTimeout(() => URL.revokeObjectURL(_url), 100);
         }
         window.dispatchEvent(new CustomEvent('rmp-download', {
           detail: { label: `Compiled Pack — ${scheme.road_name}`, ref: scheme.project_number },

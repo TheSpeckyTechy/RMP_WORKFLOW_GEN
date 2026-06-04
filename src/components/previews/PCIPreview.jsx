@@ -632,10 +632,9 @@ const PCIModal = ({ schemeId, onClose }) => {
           const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
           const url  = URL.createObjectURL(blob);
           const a    = document.createElement('a');
-          a.href     = url;
-          a.download = docxFilename;
-          a.click();
-          URL.revokeObjectURL(url);
+          a.href = url; a.download = docxFilename;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 100);
         } else {
           if (window.Toast) window.Toast.show({ kind: 'success', msg: `PCI/CPP saved to ${window.schemeFolderName(scheme)}/CDM/`, duration: 4000 });
         }
@@ -778,10 +777,9 @@ window.__downloadPCI = async (scheme) => {
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = docxFilename;
-      a.click();
-      URL.revokeObjectURL(url);
+      a.href = url; a.download = docxFilename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
     }
     window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number, fn: '__downloadPCI', schemeId: scheme.id } }));
   } catch (e) { console.warn('PCI download failed', e); }
