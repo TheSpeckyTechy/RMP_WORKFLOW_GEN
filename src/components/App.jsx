@@ -881,6 +881,7 @@ const AppInner = () => {
 
   React.useEffect(() => {
     const handler = (e) => {
+      if (e.origin !== window.location.origin) return;
       if (e.data?.type === "__activate_edit_mode") setTweaksOn(true);
       else if (e.data?.type === "__deactivate_edit_mode") setTweaksOn(false);
     };

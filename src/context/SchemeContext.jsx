@@ -125,9 +125,15 @@ const fsUpsertOnce = async (id, data) => {
     const dir = await fsResolveFolder();
     const stamped = { ...data, updated_at: data.updated_at || new Date().toISOString() };
     const fileHandle = await dir.getFileHandle(`${id}.json`, { create: true });
-    const writable   = await fileHandle.createWritable();
-    await writable.write(JSON.stringify(stamped, null, 2));
-    await writable.close();
+    let writable;
+    try {
+      writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(stamped, null, 2));
+      await writable.close();
+    } catch (e) {
+      if (writable) await writable.abort().catch(() => {});
+      throw e;
+    }
     return { error: null };
   } catch (e) {
     return { error: e instanceof Error ? e : new Error(String(e)) };
@@ -199,8 +205,9 @@ const SCHEME_FOLDER_TREE = [
 // Canonical folder name for a scheme: "R6020 - Mid Craigie Road"
 // or just the road name when no project number is assigned yet.
 const schemeFolderName = (scheme) => {
-  const ref  = (scheme.project_number || '').trim();
-  const name = (scheme.road_name || scheme.id || '').trim();
+  const sanitise = (s) => s.replace(/[/\\:*?"<>|]/g, '-').trim();
+  const ref  = sanitise((scheme.project_number || '').trim());
+  const name = sanitise((scheme.road_name || scheme.id || '').trim());
   return ref ? `${ref} - ${name}` : name;
 };
 window.schemeFolderName = schemeFolderName;
@@ -216,7 +223,7 @@ const fsSavePredesignSketch = async (schemeDir, scheme) => {
     const blob = await res.blob();
     const drawings = await schemeDir.getDirectoryHandle('Drawings', { create: true });
     const approved = await drawings.getDirectoryHandle('Approved', { create: true });
-    const fileHandle = await approved.getFileHandle(scheme.sketch_pdf, { create: true });
+    const fileHandle = await approved.getFileHandle(scheme.sketch_pdf.replace(/[/\\]/g, '_'), { create: true });
     const writable   = await fileHandle.createWritable();
     await writable.write(blob);
     await writable.close();
@@ -245,6 +252,10 @@ const fsProvisionSchemeFolder = async (scheme) => {
 // Returns true on success, false if folder not connected or write fails.
 const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data, { versioned = false } = {}) => {
   try {
+    // Sanitise filename — strip chars illegal on Windows/OneDrive.
+    // dot > 0 (not >= 0) avoids an empty base for dotfiles like ".hidden".
+    const safeFilename = filename.replace(/[/\\:*?"<>|]/g, '_').trim() || 'file';
+
     const root = await fsResolveFolder();
     const folderName = schemeFolderName(scheme);
     let dir = await root.getDirectoryHandle(folderName, { create: true });
@@ -259,29 +270,41 @@ const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data, { v
 
     if (versioned) {
       try {
-        const existingHandle = await dir.getFileHandle(filename);
+        const existingHandle = await dir.getFileHandle(safeFilename);
         const existingBuf    = await (await existingHandle.getFile()).arrayBuffer();
         const revDir = await dir.getDirectoryHandle('Superseded', { create: true });
-        const dot  = filename.lastIndexOf('.');
-        const base = dot >= 0 ? filename.slice(0, dot) : filename;
-        const ext  = dot >= 0 ? filename.slice(dot)    : '';
+        const dot  = safeFilename.lastIndexOf('.');
+        const base = dot > 0 ? safeFilename.slice(0, dot) : safeFilename;
+        const ext  = dot > 0 ? safeFilename.slice(dot)    : '';
         let rev = 1;
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
+        const MAX_REVS = 999;
+        while (rev <= MAX_REVS) {
           try { await revDir.getFileHandle(`${base}_R${rev}${ext}`); rev++; }
-          catch { break; }
+          catch (re) { if (re.name === 'NotFoundError') break; throw re; }
         }
         const revFh = await revDir.getFileHandle(`${base}_R${rev}${ext}`, { create: true });
-        const revW  = await revFh.createWritable();
-        await revW.write(new Blob([existingBuf]));
-        await revW.close();
-      } catch { /* file doesn't exist yet — no archiving needed */ }
+        let revW;
+        try {
+          revW = await revFh.createWritable();
+          await revW.write(new Blob([existingBuf]));
+          await revW.close();
+        } catch (e) {
+          if (revW) await revW.abort().catch(() => {});
+          throw e;
+        }
+      } catch (e) { if (e.name !== 'NotFoundError') throw e; }
     }
 
-    const fh = await dir.getFileHandle(filename, { create: true });
-    const w  = await fh.createWritable();
-    await w.write(blob);
-    await w.close();
+    const fh = await dir.getFileHandle(safeFilename, { create: true });
+    let w;
+    try {
+      w = await fh.createWritable();
+      await w.write(blob);
+      await w.close();
+    } catch (e) {
+      if (w) await w.abort().catch(() => {});
+      throw e;
+    }
     return true;
   } catch (e) {
     // Surface the real error in the console so failures are diagnosable.
@@ -835,7 +858,14 @@ const SchemeProvider = ({ children }) => {
           if (error) { setSyncStatus('error'); return false; }
           if (rows && rows.length > 0) {
             const remoteMap = Object.fromEntries(rows.map(r => [r.id, { data: r.data, updated_at: r.updated_at }]));
-            setSchemes(prev => prev.map(s => remoteMap[s.id] ? migrate({ ...s, ...remoteMap[s.id].data }) : s));
+            setSchemes(prev => prev.map(s => {
+              const remote = remoteMap[s.id];
+              if (!remote) return s;
+              const localTs  = s.updated_at ? Date.parse(s.updated_at) : 0;
+              const remoteTs = remote.updated_at ? Date.parse(remote.updated_at) : 0;
+              if (localTs >= remoteTs && localTs > 0) return s;
+              return migrate({ ...s, ...remote.data });
+            }));
           }
           setSyncStatus('synced');
           setLastSynced(new Date());
