@@ -3,7 +3,7 @@
 // Bump this string whenever you push an update and want users to get the
 // new version on their next (briefly-online) visit. The activate handler
 // below deletes every cache whose name doesn't match.
-const CACHE_NAME = 'rmp-studio-26.06.04h';
+const CACHE_NAME = 'rmp-studio-26.06.04i';
 
 // Template files are only fetched on demand (when a user generates a document)
 // so the runtime cache-first handler never gets a chance to cache them on
