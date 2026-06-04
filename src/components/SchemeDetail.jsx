@@ -700,7 +700,15 @@ const LocationTab = ({ schemeId }) => {
 const UtilitiesTab = ({ scheme }) => {
   const { updateScheme } = React.useContext(window.SchemeContext);
   const today = new Date().toISOString().slice(0,10);
-  const addMonths = (dateStr, n) => { const d = new Date(dateStr); d.setMonth(d.getMonth()+n); return d.toISOString().slice(0,10); };
+  const addMonths = (dateStr, n) => {
+    const d = new Date(dateStr);
+    const day = d.getDate();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + n);
+    // Clamp to the last day of the target month so e.g. Aug 31 + 3 = Nov 30, not Dec 1.
+    d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+    return d.toISOString().slice(0, 10);
+  };
   const applied = scheme.utility_applied || {};
   const rows = window.UTILITIES.map(u => ({ ...u, applied: applied[u.name] || "" }));
   const setApplied = (name, date) => updateScheme(scheme.id, { utility_applied: { ...applied, [name]: date } });
@@ -921,8 +929,8 @@ async function downloadFrontPdf(scheme) {
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
   document.body.appendChild(container);
+  const root = ReactDOM.createRoot(container);
   try {
-    const root = ReactDOM.createRoot(container);
     root.render(React.createElement(FrontSheetDoc, { scheme }));
     await new Promise(r => setTimeout(r, 500));
     const filename = `Front_Sheet_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.pdf`;
@@ -932,11 +940,11 @@ async function downloadFrontPdf(scheme) {
       : false;
     if (!saved) await window.htmlToPdf(container.firstChild || container, filename);
     else if (window.Toast) window.Toast.show({ kind: 'success', msg: `Front Sheet saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
-    root.unmount();
     window.dispatchEvent(new CustomEvent('rmp-download', {
       detail: { label: 'Front Sheet — ' + (scheme.road_name || 'scheme'), ref: scheme.project_number || '', fn: '__downloadFrontPdf', schemeId: scheme.id },
     }));
   } finally {
+    root.unmount();
     document.body.removeChild(container);
   }
 }
@@ -948,14 +956,13 @@ window.__getFrontPdfBuffer = async (scheme, opts) => {
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
   document.body.appendChild(container);
+  const root = ReactDOM.createRoot(container);
   try {
-    const root = ReactDOM.createRoot(container);
     root.render(React.createElement(FrontSheetDoc, { scheme, contents: opts?.contents }));
     await new Promise(r => setTimeout(r, 500));
-    const buf = await window.htmlToPdfBuffer(container.firstChild || container);
-    root.unmount();
-    return buf;
+    return await window.htmlToPdfBuffer(container.firstChild || container);
   } finally {
+    root.unmount();
     document.body.removeChild(container);
   }
 };
@@ -1244,6 +1251,8 @@ const PackTab = ({ scheme, onGenerate, onPreview, onTabSwitch }) => {
             if (saved && window.Toast) {
               window.Toast.show({ kind: 'success', msg: `${file.name} saved to ${window.schemeFolderName(scheme)}/${folderPath.join('/')}/`, duration: 4000 });
             }
+          }).catch(e => {
+            if (window.Toast) window.Toast.show({ kind: 'error', msg: `Failed to save ${file.name} to folder: ${e.message}`, duration: 6000 });
           });
         }
       } catch (e) { alert(`Failed to read ${file.name}: ${e.message}`); }
