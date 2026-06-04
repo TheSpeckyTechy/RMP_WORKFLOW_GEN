@@ -397,113 +397,163 @@ $('projFile').onchange=e=>{ if(e.target.files[0]) loadProjectFile(e.target.files
 $('pickerBtn').onclick=()=>openPicker();
 
 // ---- sketch picker / start screen ----
-const CD = window.CONSTRUCTION_DATES || {};
-const TYPES = window.SKETCH_TYPES || {};
-// drawing-type badge shown on picker cards; untyped sketches show nothing
+const CD    = window.CONSTRUCTION_DATES    || {};
+const TYPES = window.SKETCH_TYPES          || {};
+const DD    = window.SKETCH_DESIGNERS      || {};
+const DI    = window.SKETCH_DESIGNERS_INFO || [];
+
 const TYPE_BADGE = {footway:['fw','FOOTWAY'], cw4:['cw','CW CAT4']};
 function typeBadge(n){
-  const b = TYPE_BADGE[TYPES[n]];
+  var b=TYPE_BADGE[TYPES[n]];
   return b ? ' <span class="ptype '+b[0]+'">'+b[1]+'</span>' : '';
 }
-const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+var MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDate(iso){
   if(!iso) return 'TBC';
-  const d=new Date(iso);
+  var d=new Date(iso);
   return 'w/c '+d.getDate()+' '+MONTHS[d.getMonth()]+' \''+String(d.getFullYear()).slice(2);
 }
-// completion / other-designer state — stored independently of project data
-const LS_DONE='rmp_done_', LS_OTHER='rmp_other_';
+
+// Completion state (per-sketch localStorage flag)
+var LS_DONE='rmp_done_';
 function isDone(key){ try{ return !!localStorage.getItem(LS_DONE+key); }catch(e){ return false; } }
 function setDone(key,v){ try{ v?localStorage.setItem(LS_DONE+key,'1'):localStorage.removeItem(LS_DONE+key); }catch(e){} }
-function isOther(key){ try{ return !!localStorage.getItem(LS_OTHER+key); }catch(e){ return false; } }
-function setOther(key,v){ try{ v?localStorage.setItem(LS_OTHER+key,'1'):localStorage.removeItem(LS_OTHER+key); }catch(e){} }
 
-let pickerTab='active';
+// Designer helpers
+function getDesignerInfo(id){ return DI.find(function(d){ return d.id===id; })||null; }
+
+// Urgency — returns {days, urgent, past} or null if no date
+function urgencyInfo(n){
+  var iso=CD[n]; if(!iso) return null;
+  var today=new Date(); today.setHours(0,0,0,0);
+  var dt=new Date(iso);
+  var days=Math.round((dt-today)/86400000);
+  return {days:days, urgent:days>=0&&days<42, past:days<0};
+}
+
+// Countdown badge HTML
+function countdownBadge(n){
+  var u=urgencyInfo(n); if(!u) return '';
+  if(u.past) return ' <span class="punderway">&#9679; Underway</span>';
+  if(u.urgent){
+    var w=Math.round(u.days/7);
+    var txt=u.days<7?u.days+' day'+(u.days!==1?'s':''):w+' wk'+(w!==1?'s':'');
+    return ' <span class="purgent">&#9889; in '+txt+'</span>';
+  }
+  return '';
+}
+
+// Designer chip HTML
+function designerChip(n){
+  var id=DD[n]; if(!id) return '';
+  var d=getDesignerInfo(id); if(!d) return '';
+  return '<span class="pdesigner-chip" style="background:'+d.colour+'22;color:'+d.colour+';border:1px solid '+d.colour+'44">'+d.initials+'</span>';
+}
+
+// Picker state
+var pickerDesigner='all';
+var hideCompleted=false;
+
+// Build the tab bar from designer data
+function buildPickerTabs(){
+  var container=$('pickerTabs'); if(!container) return;
+  var tabs=[{id:'all',label:'All',col:'#9aa3ad'}];
+  DI.forEach(function(d){ tabs.push({id:d.id,label:d.initials,col:d.colour}); });
+  tabs.push({id:'unassigned',label:'—',col:'#9aa3ad'});
+
+  var counts={all:names.length,unassigned:names.filter(function(n){ return !DD[n]; }).length};
+  DI.forEach(function(d){ counts[d.id]=names.filter(function(n){ return DD[n]===d.id; }).length; });
+
+  container.innerHTML='';
+  tabs.forEach(function(t){
+    var btn=document.createElement('button');
+    btn.className='ptab'+(pickerDesigner===t.id?' on':'');
+    btn.dataset.tab=t.id;
+    btn.style.setProperty('--ptab-col',t.col);
+    btn.innerHTML=t.label+' <span class="ptab-count">'+(counts[t.id]||0)+'</span>';
+    btn.onclick=function(){ pickerDesigner=t.id; buildPicker($('pickerSearch').value); };
+    container.appendChild(btn);
+  });
+
+  var tog=document.createElement('button');
+  tog.className='ptab-toggle'+(hideCompleted?' on':'');
+  tog.textContent='Hide ✓';
+  tog.title='Toggle hide completed sketches';
+  tog.onclick=function(){ hideCompleted=!hideCompleted; buildPicker($('pickerSearch').value); };
+  container.appendChild(tog);
+}
+
+// Update the header stats line
+function updatePickerStats(){
+  var el=$('pickerStats'); if(!el) return;
+  var today=new Date(); today.setHours(0,0,0,0);
+  var D42=new Date(today); D42.setDate(D42.getDate()+42);
+  var urgent=names.filter(function(n){
+    var d=CD[n]; if(!d) return false;
+    var dt=new Date(d); return dt>today&&dt<=D42;
+  }).length;
+  el.innerHTML=names.length+' sketches'+(urgent>0?' &middot; <span class="urgent-count">&#9889; '+urgent+' urgent</span>':'');
+}
 
 function buildPicker(filter){
-  const grid=$('pickerGrid'); grid.innerHTML='';
-  const f=(filter||'').toLowerCase();
-  let filtered=names.filter(n=>D[n].title.toLowerCase().includes(f));
-  // sort: soonest date first; undated last alphabetically
-  filtered.sort((a,b)=>{
-    const da=CD[a]||null, db=CD[b]||null;
+  var grid=$('pickerGrid'); grid.innerHTML='';
+  var f=(filter||'').toLowerCase();
+  var filtered=names.filter(function(n){ return D[n].title.toLowerCase().includes(f); });
+
+  // sort: soonest date first, undated last alphabetically
+  filtered.sort(function(a,b){
+    var da=CD[a]||null, db=CD[b]||null;
     if(da&&db) return da.localeCompare(db);
     if(da) return -1; if(db) return 1;
     return D[a].title.localeCompare(D[b].title);
   });
-  // filter by active tab
-  if(pickerTab==='complete') filtered=filtered.filter(n=>isDone(n));
-  else if(pickerTab==='other') filtered=filtered.filter(n=>isOther(n));
-  else filtered=filtered.filter(n=>!isDone(n)&&!isOther(n));
 
-  filtered.forEach(n=>{
-    const done=isDone(n), other=isOther(n);
-    const card=document.createElement('div');
-    card.className='pcard'+(done?' done':other?' other-designer':'');
-    const started=hasLocal(n);
-    const dateStr=fmtDate(CD[n]||null);
-    const isTbc=!CD[n];
+  // designer tab filter
+  if(pickerDesigner==='unassigned') filtered=filtered.filter(function(n){ return !DD[n]; });
+  else if(pickerDesigner!=='all')   filtered=filtered.filter(function(n){ return DD[n]===pickerDesigner; });
+
+  // hide completed
+  if(hideCompleted) filtered=filtered.filter(function(n){ return !isDone(n); });
+
+  filtered.forEach(function(n){
+    var done=isDone(n);
+    var u=urgencyInfo(n);
+    var urgent=u&&u.urgent;
+    var card=document.createElement('div');
+    card.className='pcard'+(done?' done':'')+(urgent?' urgent':'');
+
+    var started=hasLocal(n);
+    var isTbc=!CD[n];
     card.innerHTML=
-      '<div class="pname">'+D[n].title+typeBadge(n)+'</div>'+
-      '<div class="pmeta">'+(started?'In progress':'Not started')+'</div>'+
-      '<div class="pcard-foot">'+
-        '<div class="pdate'+(isTbc?' tbc':'')+'">⬦ '+dateStr+'</div>'+
+      '<div class="pname">'+(urgent?'&#9889; ':'')+D[n].title+typeBadge(n)+'</div>'+
+      '<div class="pmeta" style="display:flex;align-items:center;gap:6px;margin-top:4px">'+
+        designerChip(n)+
+        (started?'<span class="ptag" style="position:static;margin:0">SAVED</span>':'')+
       '</div>'+
-      (started?'<div class="ptag">SAVED</div>':'');
+      '<div class="pcard-foot" style="margin-top:8px">'+
+        '<div class="pdate'+(isTbc?' tbc':'')+'">'+fmtDate(CD[n]||null)+countdownBadge(n)+'</div>'+
+      '</div>';
 
-    // two tick buttons — mutually exclusive
-    const pair=document.createElement('div'); pair.className='tick-pair';
-
-    const tickC=document.createElement('button');
+    var tickC=document.createElement('button');
     tickC.className='tick-btn complete'+(done?' on':'');
     tickC.textContent='✓'; tickC.title=done?'Unmark complete':'Mark complete';
-    tickC.onclick=e=>{
-      e.stopPropagation();
-      const nd=!isDone(n); setDone(n,nd); if(nd) setOther(n,false);
-      buildPicker($('pickerSearch').value);
-    };
+    tickC.onclick=function(e){ e.stopPropagation(); setDone(n,!isDone(n)); buildPicker($('pickerSearch').value); };
+    card.querySelector('.pcard-foot').appendChild(tickC);
 
-    const tickO=document.createElement('button');
-    tickO.className='tick-btn other'+(other?' on':'');
-    tickO.textContent='✓'; tickO.title=other?'Unmark other designer':'Mark as other designer';
-    tickO.onclick=e=>{
-      e.stopPropagation();
-      const no=!isOther(n); setOther(n,no); if(no) setDone(n,false);
-      buildPicker($('pickerSearch').value);
-    };
-
-    pair.appendChild(tickC); pair.appendChild(tickO);
-    card.querySelector('.pcard-foot').appendChild(pair);
-    card.onclick=()=>chooseSketch(n);
+    card.onclick=function(){ chooseSketch(n); };
     grid.appendChild(card);
   });
 
-  // update tab active states and counts
-  document.querySelectorAll('.ptab').forEach(t=>{
-    t.classList.toggle('on', t.dataset.tab===pickerTab);
-  });
+  buildPickerTabs();
+  updatePickerStats();
 }
+
 function openPicker(){ buildPicker($('pickerSearch').value); $('picker').classList.remove('hidden'); }
 function closePicker(){ $('picker').classList.add('hidden'); }
 $('homeBtn').onclick=openPicker;
 $('pickerClose').onclick=closePicker;
-document.querySelectorAll('.ptab').forEach(t=>t.onclick=()=>{
-  pickerTab=t.dataset.tab; buildPicker($('pickerSearch').value);
-});
-function chooseSketch(n){
-  $('picker').classList.add('hidden');
-  $('pickerClose').classList.remove('hidden');
-  S.key=n; sel.value=n;
-  $('stTitle').textContent=D[n].title;
-  loadImage(()=>{
-    // restore saved work for this sketch if present, else fresh
-    if(!loadLocal(n, ()=>saveLocal())){
-      S.polys=[];S.assets=[];S.draft=[];S.quickSpecs=[];S.tb=blankTB(D[n].title);
-      setDwg('treatment'); syncTBInputs(); renderAreaList(); renderQsList(); render();
-    }
-  });
-}
-$('pickerSearch').oninput=e=>buildPicker(e.target.value);
+$('pickerSearch').oninput=function(e){ buildPicker(e.target.value); };
 
 // ---- state object (used by snippet, project file, and autosave) ----
 function stateObject(){

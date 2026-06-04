@@ -128,18 +128,28 @@
   .tick-btn.other.on{background:var(--acc2);border-color:var(--acc2);color:#fff}
   .pcard.done{border-color:#2a4a35}
   .pcard.done .pname{color:var(--muted)}
-  .pcard.other-designer{border-color:#1a2c5a}
-  .pcard.other-designer .pname{color:var(--muted)}
-  .tick-pair{display:flex;gap:5px}
-  /* picker tabs */
-  .picker-tabs{display:flex;gap:8px;margin-bottom:20px}
-  .ptab{padding:8px 20px;border:1px solid #3a424c;border-radius:6px;background:var(--field);
-    color:var(--muted);cursor:pointer;font:600 12px "IBM Plex Mono",monospace;letter-spacing:.03em}
+  /* urgent card — red border + name */
+  .pcard.urgent{border-color:var(--acc)}
+  .pcard.urgent .pname{color:#ff8a72}
+  /* designer chip on picker card */
+  .pdesigner-chip{display:inline-flex;align-items:center;gap:4px;font:700 10px "IBM Plex Mono",monospace;
+    padding:2px 7px;border-radius:9px;letter-spacing:.04em;flex-shrink:0}
+  /* countdown badges */
+  .purgent{font:700 10px "IBM Plex Mono",monospace;color:var(--acc);letter-spacing:.03em}
+  .punderway{font:700 10px "IBM Plex Mono",monospace;color:var(--ok)}
+  /* picker tabs — designer edition */
+  .picker-tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+  .ptab{padding:7px 14px;border:1px solid #3a424c;border-radius:6px;background:var(--field);
+    color:var(--muted);cursor:pointer;font:600 11px "IBM Plex Mono",monospace;letter-spacing:.03em}
   .ptab:hover{border-color:var(--txt);color:var(--txt)}
-  .ptab.on{color:#fff;border-color:transparent}
-  .ptab[data-tab="active"].on{background:#3a1f1a;border-color:var(--acc);color:var(--acc)}
-  .ptab[data-tab="complete"].on{background:#1e3a2a;border-color:var(--ok);color:var(--ok)}
-  .ptab[data-tab="other"].on{background:#1a2c5a;border-color:var(--acc2);color:var(--acc2)}
+  .ptab.on{border-color:var(--ptab-col,var(--acc2));color:var(--ptab-col,var(--acc2));background:var(--field)}
+  .ptab .ptab-count{opacity:.65;font-weight:500;margin-left:4px}
+  .ptab-toggle{margin-left:auto;padding:7px 12px;border:1px solid #3a424c;border-radius:6px;background:var(--field);
+    color:var(--muted);cursor:pointer;font:600 11px "IBM Plex Mono",monospace}
+  .ptab-toggle.on{border-color:var(--ok);color:var(--ok);background:#1e3a2a}
+  .ptab-toggle:hover{border-color:var(--txt);color:var(--txt)}
+  .picker-stat{color:var(--muted);font-size:12px}
+  .picker-stat .urgent-count{color:var(--acc);font-weight:700}
   .home-btn{padding:4px 12px;border:1px solid #3a424c;border-radius:5px;background:var(--field);
     color:var(--copper);cursor:pointer;font:700 11px "IBM Plex Mono",monospace;letter-spacing:.04em;
     white-space:nowrap;flex-shrink:0}
@@ -329,16 +339,12 @@
     <div class="picker-head">
       <div>
         <div class="picker-title">RMP Drawing Processor</div>
-        <div class="picker-sub">Dundee City Council · Roads Maintenance Partnership</div>
+        <div class="picker-sub">Dundee City Council · Roads Maintenance Partnership · <span class="picker-stat" id="pickerStats"></span></div>
       </div>
       <button class="picker-back hidden" id="pickerClose">← Back to sketch</button>
       <input type="text" id="pickerSearch" placeholder="Search sketches…">
     </div>
-    <div class="picker-tabs">
-      <button class="ptab on" data-tab="active">Active</button>
-      <button class="ptab" data-tab="complete">✓ Complete</button>
-      <button class="ptab" data-tab="other">✓ Other Designer</button>
-    </div>
+    <div class="picker-tabs" id="pickerTabs"></div>
     <div class="picker-grid" id="pickerGrid"></div>
   </div>
 </div>
@@ -347,6 +353,7 @@
 <script src="assets/titleblock_data.js"></script>
 <script src="assets/dates.js"></script>
 <script src="assets/types.js"></script>
+<script src="assets/designers.js"></script>
 <script src="assets/version.js"></script>
 <script src="src/app.js"></script>
 <script>
