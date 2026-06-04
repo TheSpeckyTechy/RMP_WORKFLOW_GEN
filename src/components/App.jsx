@@ -904,6 +904,7 @@ const AppInner = () => {
       { id: 'go-dashboard',  label: 'Go to dashboard',         group: 'Navigation', icon: <Icon.Folder />,   run: () => { setOpenScheme(null); setView('dashboard');  } },
       { id: 'go-analytics',  label: 'Go to analysis',           group: 'Navigation', icon: <Icon.BarChart />, run: () => { setOpenScheme(null); setView('analytics');  } },
       { id: 'go-tracker',    label: 'Go to programme tracker',  group: 'Navigation', icon: <Icon.Calendar />, run: () => { setOpenScheme(null); setView('tracker');    } },
+      { id: 'go-drawings',   label: 'Open Drawing Processor',   group: 'Navigation', icon: <Icon.Pencil />,   run: () => window.open('./drawing-processor/', '_blank') },
       { id: 'go-settings',   label: 'Open settings',            group: 'Navigation', icon: <Icon.Cog />,      run: () => { setOpenScheme(null); setView('settings');   } },
       { id: 'shortcuts-help', label: 'Show keyboard shortcuts', group: 'Help', run: () => window.Shortcuts && window.Shortcuts.openHelp() },
     ];
@@ -1033,6 +1034,10 @@ const AppInner = () => {
           onClick={() => { setView("tracker"); setOpenScheme(null); setMenuOpen(false); }}>
           <Icon.Calendar />
           <span>Programme</span>
+        </button>
+        <button className="bottom-nav-tab" onClick={() => window.open('./drawing-processor/', '_blank')}>
+          <Icon.Pencil />
+          <span>Drawings</span>
         </button>
         <button className={"bottom-nav-tab" + (view === "settings" ? " active" : "")}
           aria-current={view === "settings" ? "page" : undefined}
