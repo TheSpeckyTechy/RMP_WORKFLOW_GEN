@@ -42,7 +42,7 @@ const deriveMetrics = (scheme) => {
     subtotal:    computed.subtotal,
     totalIncVat: computed.totalIncVat,
     costPerM2:   area > 0 && computed.subtotal > 0 ? computed.subtotal / area : null,
-    packDone:    Object.values(docsGenerated).filter(Boolean).length,
+    packDone:    (window.PACK_DOCS || []).filter(d => !!docsGenerated[d.key]).length,
     packKeys:    Object.keys(docsGenerated).length,
     docsGenerated,
   };
@@ -189,7 +189,7 @@ const HorizBarChart = ({ labels, values, colours, formatTooltip }) => {
       },
     });
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [labels, values]);
+  }, [labels, values, colours]);
   const h = Math.max(180, labels.length * 34);
   return <canvas ref={canvasRef} style={{ height: h, maxHeight: h }} />;
 };
@@ -280,7 +280,7 @@ const OverviewTab = ({ metrics, schemes }) => {
 
   const totalDocs       = metrics.reduce((s, m) => s + m.packDone, 0);
   const schemesWithDocs = metrics.filter(m => m.packDone > 0).length;
-  const fullyDoc        = metrics.filter(m => m.packDone >= 4).length;
+  const fullyDoc        = metrics.filter(m => m.packDone >= (window.PACK_DOCS || []).length).length;
   const completePct     = metrics.length > 0 ? Math.round((fullyDoc / metrics.length) * 100) : 0;
   const appHoursRaw     = totalDocs * APP_MINS_PER_DOC / 60;
   const manualHoursRaw  = totalDocs * MANUAL_MINS_PER_DOC / 60;
