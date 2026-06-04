@@ -144,7 +144,7 @@ const MasterWorkbook = ({ schemeId }) => {
     const sheetName = "Project Info";
     const rows = [], meta = [], namedRanges = [];
 
-    rows.push([`${scheme.project_number} · ${scheme.road_name} — Master Workbook`, "", ""]);
+    rows.push([`${scheme.project_number || ''} · ${scheme.road_name || ''} — Master Workbook`, "", ""]);
     meta.push({ type: "title" });
     rows.push(["Named Range", "Label", "Value"]);
     meta.push({ type: "header" });
@@ -299,7 +299,7 @@ const MasterWorkbook = ({ schemeId }) => {
     if (f.type === "ward") return (
       <div className="mwb-row" key={f.key}>
         <div className="mwb-key mono">{f.key}</div><div className="mwb-label">{f.label}</div>
-        <div className="mwb-val"><select value={scheme.ward_num} onChange={e => { const num=+e.target.value; const w=window.WARDS.find(x=>x.num===num); updateScheme(schemeId,{ward_num:num,ward_selected:w.name}); }}>
+        <div className="mwb-val"><select value={scheme.ward_num} onChange={e => { const num=+e.target.value; const w=window.WARDS.find(x=>x.num===num); if (!w) return; updateScheme(schemeId,{ward_num:num,ward_selected:w.name}); }}>
           {window.WARDS.map(w => <option key={w.num} value={w.num}>W{w.num} {w.name}</option>)}
         </select></div>
       </div>
