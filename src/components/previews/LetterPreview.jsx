@@ -102,10 +102,13 @@ const LETTER_BINDINGS = [
   { tag: "<<Ward_Councillor_3>>", derive: s => { const w=window.WARDS.find(x=>x.num===s.ward_num); if(!w)return""; const c=w.councillors[2]; return c?`${c.title} ${c.name} (Ward ${w.num} ${w.name})`:"";}},
 ];
 
+let _letterTemplateBuf = null;
 const loadLetterBuffer = async () => {
-  const res = await fetch("templates/Residential_Letter_Template (1).docx", { cache: 'no-cache' });
+  if (_letterTemplateBuf) return _letterTemplateBuf;
+  const res = await fetch("templates/Residential_Letter_Template (1).docx");
   if (!res.ok) throw new Error('Letter template not found');
-  return res.arrayBuffer();
+  _letterTemplateBuf = await res.arrayBuffer();
+  return _letterTemplateBuf;
 };
 
 const xmlEscape = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -655,6 +658,7 @@ const CAGImportPanel = ({ scheme, onClose }) => {
 const LetterModal = ({ scheme: schemeProp, onClose }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeProp.id);
+  if (!scheme) return null;
   const recipients = scheme.recipients || [];
   const [selectedIdx, setSelectedIdx] = React.useState(0);
   const [showImport, setShowImport] = React.useState(false);
