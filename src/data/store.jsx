@@ -696,7 +696,7 @@ window.WORKBOOK_SCHEMA = [
     { key: "tender_total", label: "Tender Total (£)", type: "number", mono: true },
     { key: "cost_per_m2", label: "Cost per m² (£)", type: "calc", mono: true, formula: s => {
       const total = (+s.carriageway_area_m2 || 0) + (+s.footway_area_m2 || 0);
-      return total ? (+s.tender_total / total).toFixed(2) : 0;
+      return total ? +(+s.tender_total / total).toFixed(2) : 0;
     }},
     { key: "network_length", label: "Network Length (m)", type: "number", mono: true },
     { key: "budget_code", label: "Budget Code", type: "text", mono: true },
