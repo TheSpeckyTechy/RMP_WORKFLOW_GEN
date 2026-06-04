@@ -164,7 +164,9 @@ const TDZonesPanel = ({ scheme, write }) => {
   const rmZone = (id) => setZones(zones.filter(z => z.id !== id));
 
   const totalArea = zones.reduce((s, z) => s + (+z.area_m2 || 0), 0);
-  const masterArea = window.schemeArea(scheme);
+  // Compare carriageway zones against carriageway area only; footway is
+  // tracked separately by TDFootwayPanel with its own footway_area_m2 field.
+  const masterArea = +(scheme.carriageway_area_m2 || 0);
   const diff = totalArea - masterArea;
   const balanced = masterArea > 0 && Math.abs(diff) <= 5;
 
@@ -242,7 +244,7 @@ const TDZonesPanel = ({ scheme, write }) => {
                       style={{ flex: 1, fontSize: 11, maxWidth: 280 }}>
                       {TD_BINDER_OPTIONS.map(o => <option key={o.tag} value={o.tag}>{o.label}</option>)}
                     </select>
-                    <input type="number" inputMode="decimal" className="mono" placeholder="depth mm" className="td-num-narrow" style={{ fontSize: 11 }}
+                    <input type="number" inputMode="decimal" className="mono td-num-narrow" placeholder="depth mm" style={{ fontSize: 11 }}
                       value={zone.binder_depth_mm}
                       onChange={e => updZone(zone.id, { binder_depth_mm: +e.target.value || 0 })} />
                   </>
@@ -263,7 +265,7 @@ const TDZonesPanel = ({ scheme, write }) => {
                       style={{ flex: 1, fontSize: 11, maxWidth: 280 }}>
                       {TD_BASE_OPTIONS.map(o => <option key={o.tag} value={o.tag}>{o.label}</option>)}
                     </select>
-                    <input type="number" inputMode="decimal" className="mono" placeholder="depth mm" className="td-num-narrow" style={{ fontSize: 11 }}
+                    <input type="number" inputMode="decimal" className="mono td-num-narrow" placeholder="depth mm" style={{ fontSize: 11 }}
                       value={zone.base_depth_mm}
                       onChange={e => updZone(zone.id, { base_depth_mm: +e.target.value || 0 })} />
                   </>
@@ -279,7 +281,7 @@ const TDZonesPanel = ({ scheme, write }) => {
                   Sub-base
                 </label>
                 {zone.includes_subbase && (
-                  <input type="number" inputMode="decimal" className="mono" placeholder="depth mm" className="td-num-narrow" style={{ fontSize: 11 }}
+                  <input type="number" inputMode="decimal" className="mono td-num-narrow" placeholder="depth mm" style={{ fontSize: 11 }}
                     value={zone.subbase_depth_mm}
                     onChange={e => updZone(zone.id, { subbase_depth_mm: +e.target.value || 0 })} />
                 )}
