@@ -16,3 +16,7 @@ node_modules/
 dist/
 .env
 scripts/__pycache__/
+
+# Local testing artefacts
+_vendor/
+_vendor_index.html
