@@ -113,6 +113,30 @@ const masterIssues = (scheme) => {
   return issues;
 };
 
+// Five section completion rings give the user a quick at-a-glance check
+// before exporting or generating documents.
+const MasterProgressRings = ({ scheme }) => {
+  const sections = [
+    { label: 'Identity',  ok: !!(scheme.project_number && scheme.road_name && scheme.scheme_extent) },
+    { label: 'Dates',     ok: !!(scheme.date_start && scheme.date_finish) },
+    { label: 'Team',      ok: !!(scheme.prepared_by && scheme.contractor) },
+    { label: 'Design',    ok: window.schemeArea(scheme) > 0 && (scheme.design?.zones || []).length > 0 },
+    { label: 'Financial', ok: (+scheme.tender_total || 0) > 0 },
+  ];
+  const complete = sections.filter(s => s.ok).length;
+  return (
+    <div className="mwb-progress-rings">
+      {sections.map(s => (
+        <div key={s.label} className={"mwb-progress-ring" + (s.ok ? " ok" : "")}>
+          <div className="mwb-ring-dot" />
+          {s.label}
+        </div>
+      ))}
+      <div className="mwb-ring-score">{complete}/5 sections ready</div>
+    </div>
+  );
+};
+
 const MasterValidationBanner = ({ scheme }) => {
   const issues = masterIssues(scheme);
   if (issues.length === 0) {
@@ -134,7 +158,7 @@ const MasterValidationBanner = ({ scheme }) => {
   );
 };
 
-const MasterWorkbook = ({ schemeId }) => {
+const MasterWorkbook = ({ schemeId, onGenerate }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeId);
   const update = (key, val) => updateScheme(schemeId, { [key]: val });
@@ -406,9 +430,15 @@ const MasterWorkbook = ({ schemeId }) => {
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <span className="mwb-sync-note" style={{fontSize:11,color:"var(--green)",fontFamily:"var(--font-mono)"}}>● synced · all docs will refresh</span>
+          {onGenerate && (
+            <button className="btn accent sm" onClick={() => onGenerate(scheme)} title="Generate all pack documents from the current master data">
+              <Icon.Wand /> Generate docs
+            </button>
+          )}
           <button className="btn sm" onClick={exportXlsx}><Icon.Download /> Export .xlsx</button>
         </div>
       </div>
+      <MasterProgressRings scheme={scheme} />
       <MasterPreviewBar scheme={scheme} />
       <MasterZoneStrip scheme={scheme} />
       <MasterValidationBanner scheme={scheme} />

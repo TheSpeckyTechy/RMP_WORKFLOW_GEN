@@ -334,21 +334,24 @@ const OverviewTab = ({ metrics, schemes }) => {
         <ProgrammeGantt schemes={schemes} />
       </Panel>
 
-      {/* Quality narrative callout */}
-      <div style={{ background:'var(--bg)', border:'2px solid var(--accent)', borderRadius:'var(--radius)', padding:'16px 20px' }}>
-        <div style={{ fontSize:12, fontWeight:700, marginBottom:8, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.06em' }}>
-          Quality improvement case
+      {/* Quality narrative callout — collapsible to save space in day-to-day use */}
+      <details className="quality-callout-details">
+        <summary>
+          <span>Quality improvement case</span>
+          <span style={{ fontSize:10, fontWeight:400, opacity:0.7, textTransform:'none', letterSpacing:0 }}>click to expand</span>
+        </summary>
+        <div className="quality-callout-body">
+          <div style={{ fontSize:13, lineHeight:1.7, color:'var(--ink-2)' }}>
+            Documentation across this programme that traditionally required approximately{' '}
+            <strong style={{ color:'var(--ink)' }}>{manualHoursRaw.toFixed(1)} hours</strong> of ad-hoc individual effort — with variable quality
+            and missing details — has been completed systematically in approximately{' '}
+            <strong style={{ color:'var(--ink)' }}>{appHoursRaw.toFixed(1)} hours</strong> using RMP Design Studio. Every scheme now follows the
+            same standardised template, ensuring consistent, auditable, publication-ready outputs
+            regardless of workload pressure or the individual producing them.
+            That represents a <strong style={{ color:'var(--ink)' }}>4× improvement in documentation thoroughness</strong> for the same time investment.
+          </div>
         </div>
-        <div style={{ fontSize:13, lineHeight:1.7, color:'var(--ink-1)' }}>
-          Documentation across this programme that traditionally required approximately{' '}
-          <strong>{manualHoursRaw.toFixed(1)} hours</strong> of ad-hoc individual effort — with variable quality
-          and missing details — has been completed systematically in approximately{' '}
-          <strong>{appHoursRaw.toFixed(1)} hours</strong> using RMP Design Studio. Every scheme now follows the
-          same standardised template, ensuring consistent, auditable, publication-ready outputs
-          regardless of workload pressure or the individual producing them.
-          That represents a <strong>4× improvement in documentation thoroughness</strong> for the same time investment.
-        </div>
-      </div>
+      </details>
 
       {/* Before / After comparison */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>

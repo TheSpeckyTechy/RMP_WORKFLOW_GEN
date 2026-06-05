@@ -245,7 +245,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
         {tabs.map(t=><div key={t.k} className={"tab "+(tab===t.k?"active":"")} onClick={()=>setTab(t.k)}>{t.l}{t.badge&&<span className="badge">{t.badge}</span>}</div>)}
       </div>
       <div key={tab} className="tab-panel">
-        {tab==="workbook"&&<MasterWorkbook schemeId={schemeId} />}
+        {tab==="workbook"&&<MasterWorkbook schemeId={schemeId} onGenerate={onGenerate} />}
         {tab==="treatment"&&<window.TreatmentDesigner schemeId={schemeId} />}
         {tab==="sd_design"&&<window.SurfaceDressingDesigner schemeId={schemeId} />}
         {tab==="ward"&&<WardTab schemeId={schemeId} />}
