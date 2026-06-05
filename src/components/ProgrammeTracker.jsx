@@ -35,12 +35,11 @@ const ptIsUrgent = (s) => {
 };
 
 // ── Individual Gantt row ──────────────────────────────────────────────────────
-const TrackerRow = ({ scheme, onOpen, idx, showDesigner }) => {
+const TrackerRow = ({ scheme, onOpen, idx, showDesigner, todayPct }) => {
   const designer = (window.DESIGNERS||[]).find(d => d.id === scheme.assigned_designer_id);
   const colour   = designer?.colour || 'var(--ink-3)';
   const startMs  = ptParseDMY(scheme.date_start);
   const finishMs = ptParseDMY(scheme.date_finish);
-  const todayPct = ((Date.now() - PT_START) / PT_SPAN) * 100;
   const urgent   = ptIsUrgent(scheme);
 
   // Clamp both edges before computing width so bars never overflow the grid
@@ -137,6 +136,7 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter,
 
   const designers      = (window.DESIGNERS||[]).filter(d => d.id !== 'new');
   const activeDesigner = designerView ? designers.find(d => d.id === designerView) : null;
+  const todayPct       = ((Date.now() - PT_START) / PT_SPAN) * 100;
 
   const byStatus = (s) => {
     if (statusFilter === 'active') return s.status !== 'archived' && s.status !== 'constructed' && s.status !== 'shelved';
@@ -223,15 +223,31 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter,
         </div>
       </div>
 
+      {/* Designer colour legend */}
+      <div className="tracker-legend">
+        {designers.map(d => (
+          <div key={d.id} className="tracker-legend-item">
+            <div className="tracker-legend-dot" style={{ background: d.colour }} />
+            {d.name.split(' ')[0]}
+          </div>
+        ))}
+        {designers.length === 0 && (
+          <span style={{ fontSize:11, color:'var(--ink-3)' }}>Colour-coded by designer</span>
+        )}
+      </div>
+
       <div className="tracker-gantt-wrap">
         {/* Month header — minWidth 600 matches gantt-track to keep columns aligned */}
         <div className="tracker-gantt-header">
           <div className="tracker-label-col" />
           <div className="tracker-status-col" />
-          <div style={{ flex:1, position:'relative', minWidth:600, height:18 }}>
+          <div style={{ flex:1, position:'relative', minWidth:600, height:20 }}>
             {PT_MONTHS.map((m,i) => (
               <div key={i} className="gantt-month-label" style={{ left:`${(i/12)*100}%` }}>{m}</div>
             ))}
+            {todayPct >= 0 && todayPct <= 100 && (
+              <div className="gantt-today-header-label" style={{ left:`${todayPct}%` }}>Today</div>
+            )}
           </div>
         </div>
 
@@ -246,7 +262,7 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter,
             )}
             {rows.map(s => {
               const i = rowIdx++;
-              return <TrackerRow key={s.id} scheme={s} onOpen={onOpen} idx={i} showDesigner={!designerView} />;
+              return <TrackerRow key={s.id} scheme={s} onOpen={onOpen} idx={i} showDesigner={!designerView} todayPct={todayPct} />;
             })}
           </div>
         ))}
@@ -259,7 +275,7 @@ const ProgrammeTracker = ({ onOpen, designerView, setDesignerView, statusFilter,
             </div>
             {undated.map(s => {
               const i = rowIdx++;
-              return <TrackerRow key={s.id} scheme={s} onOpen={onOpen} idx={i} showDesigner={!designerView} />;
+              return <TrackerRow key={s.id} scheme={s} onOpen={onOpen} idx={i} showDesigner={!designerView} todayPct={todayPct} />;
             })}
           </div>
         )}
