@@ -1161,11 +1161,11 @@ input[type=radio]:focus-visible{
   position: absolute; top: 0;
 }
 .gantt-today-line {
-  position: absolute; top: 0; bottom: 0; width: 1px;
-  background: var(--accent); opacity: 0.7; pointer-events: none; z-index: 2;
+  position: absolute; top: 0; bottom: 0; width: 2px;
+  background: var(--accent); opacity: 0.9; pointer-events: none; z-index: 2;
 }
 .gantt-row {
-  display: flex; align-items: center; height: 26px; margin: 2px 0;
+  display: flex; align-items: center; height: 40px; margin: 2px 0;
   cursor: pointer;
 }
 .gantt-row:hover .gantt-label { color: var(--ink); }
@@ -1188,18 +1188,19 @@ input[type=radio]:focus-visible{
   opacity: 0.4;
 }
 .gantt-bar {
-  position: absolute; top: 4px; height: 18px; border-radius: 4px;
-  display: flex; align-items: center; padding: 0 5px;
-  font-size: 9px; font-weight: 700; color: white; white-space: nowrap;
+  position: absolute; top: 6px; height: 28px; border-radius: 5px;
+  display: flex; align-items: center; padding: 0 8px;
+  font-size: 10px; font-weight: 700; color: white; white-space: nowrap;
   overflow: hidden; text-overflow: clip;
   transform-origin: left center;
   animation: gantt-bar-in 0.45s ease-out both;
-  transition: filter 0.12s, transform 0.12s;
+  transition: filter 0.12s, transform 0.12s, box-shadow 0.12s;
   cursor: pointer; z-index: 1;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.18);
 }
-.gantt-bar:hover { filter: brightness(1.1); transform: scaleY(1.1); }
+.gantt-bar:hover { filter: brightness(1.12); transform: scaleY(1.06); box-shadow: 0 4px 12px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.18); }
 .gantt-dot {
-  position: absolute; top: 7px; width: 10px; height: 10px;
+  position: absolute; top: 15px; width: 10px; height: 10px;
   border-radius: 50%; border: 2px solid white;
   animation: gantt-bar-in 0.45s ease-out both;
   cursor: pointer; z-index: 1;
@@ -1299,11 +1300,11 @@ input[type=radio]:focus-visible{
 }
 
 .tracker-row {
-  display: flex; align-items: center; height: 26px; margin: 0;
-  cursor: pointer; border-radius: 3px;
-  transition: background 0.1s;
+  display: flex; align-items: center; height: 40px; margin: 1px 0;
+  cursor: pointer; border-radius: 4px;
+  transition: background 0.1s, box-shadow 0.1s;
 }
-.tracker-row:hover { background: var(--bg-sunken); }
+.tracker-row:hover { background: var(--bg-sunken); box-shadow: inset 3px 0 0 var(--accent); }
 
 .tracker-row-label {
   width: 260px; min-width: 260px; flex-shrink: 0;
@@ -1334,4 +1335,54 @@ input[type=radio]:focus-visible{
 }
 .tracker-dot--unassigned {
   background: var(--line); color: var(--ink-3);
+}
+
+/* Designer legend + today header marker */
+.tracker-legend {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 6px 0 10px;
+}
+.tracker-legend-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--ink-3); font-weight: 500;
+}
+.tracker-legend-dot {
+  width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.gantt-today-header-label {
+  position: absolute; bottom: 2px; transform: translateX(-50%);
+  font-size: 9px; font-weight: 700; color: var(--accent);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  white-space: nowrap; pointer-events: none; line-height: 1;
+}
+
+/* Urgency lane — amber panel pinning imminent schemes above the main table */
+.urgency-lane {
+  margin-bottom: 14px; border: 1.5px solid var(--amber);
+  border-radius: var(--radius); overflow: hidden;
+}
+.urgency-lane-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 10px 14px;
+  background: var(--amber-wash); cursor: pointer;
+  font-size: 12px; font-weight: 600; color: var(--amber);
+  transition: background 0.12s;
+}
+.urgency-lane-head:hover { background: color-mix(in oklab, var(--amber-wash) 80%, var(--amber)); }
+.urgency-lane-body { padding: 8px 12px; background: var(--bg); }
+.urgency-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 6px; border-radius: 5px; cursor: pointer;
+  font-size: 12px; transition: background 0.1s;
+  border-bottom: 1px solid var(--line);
+}
+.urgency-item:last-child { border-bottom: none; }
+.urgency-item:hover { background: var(--amber-wash); }
+.urgency-item-name { flex: 1; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.urgency-item-date { font-family: var(--font-mono); font-size: 11px; color: var(--amber); font-weight: 600; white-space: nowrap; }
+.urgency-item-countdown { font-family: var(--font-mono); font-size: 10px; color: var(--amber); background: var(--amber-wash); padding: 2px 7px; border-radius: 10px; white-space: nowrap; border: 1px solid color-mix(in oklab, var(--amber) 30%, transparent); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .urgency-lane-head { color: var(--amber); }
+  :root:not([data-theme="light"]) .urgency-item:hover { background: var(--amber-wash); }
 }

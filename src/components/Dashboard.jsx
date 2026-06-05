@@ -53,9 +53,16 @@ const isUrgentScheme = (s) => {
 // SchemeDetail's source of truth, replacing the stale scheme.packProgress/packTotal fields.
 const packDoneFor = (s) => window.PACK_DOCS.filter(d => (s.docs_generated || {})[d.key]).length;
 
+const daysUntil = (s) => {
+  const ms = parseStartDate(s.date_start);
+  if (!isFinite(ms)) return null;
+  return Math.ceil((ms - Date.now()) / (24 * 60 * 60 * 1000));
+};
+
 const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, setDesignerView }) => {
   const { schemes, updateScheme, provisionAllFolders, backendMode, folderName } = React.useContext(window.SchemeContext);
   const [provisioning, setProvisioning] = React.useState(false);
+  const [urgencyOpen, setUrgencyOpen] = React.useState(true);
   const isMobile = window.useIsMobile ? window.useIsMobile() : false;
   const useCounter = window.useCounter || ((v) => v);
 
@@ -155,6 +162,43 @@ const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, set
         {filters.map(f => <button key={f.k} className={"chip "+(filter===f.k?"active":"")} onClick={()=>setFilter(f.k)}>{f.l}</button>)}
         <div style={{ marginLeft:"auto", fontSize:12, color:"var(--ink-3)", fontFamily:"var(--font-mono)" }}>{search ? `${list.length} result${list.length!==1?"s":""} for "${search}"` : `${list.length} of ${schemes.length}`}</div>
       </div>
+
+      {/* Urgency lane — schemes starting within 6 weeks */}
+      {totals.urgent > 0 && (
+        <div className="urgency-lane">
+          <div className="urgency-lane-head" onClick={() => setUrgencyOpen(o => !o)}>
+            <span>⚡ {totals.urgent} scheme{totals.urgent !== 1 ? 's' : ''} starting within 6 weeks — action required</span>
+            <span style={{ fontSize:11, fontWeight:400, opacity:0.8 }}>{urgencyOpen ? '▲ Hide' : '▼ Show'}</span>
+          </div>
+          {urgencyOpen && (
+            <div className="urgency-lane-body">
+              {list.filter(s => isUrgentScheme(s)).map(s => {
+                const d = daysUntil(s);
+                const ward = window.WARDS.find(w => w.num === s.ward_num);
+                const designer = (window.DESIGNERS||[]).find(x => x.id === s.assigned_designer_id);
+                return (
+                  <div key={s.id} className="urgency-item" onClick={() => onOpen(s.id)}>
+                    {designer && (
+                      <span title={designer.name} style={{ width:20, height:20, borderRadius:'50%', background:designer.colour, color:'white', display:'grid', placeItems:'center', fontSize:8, fontWeight:700, fontFamily:'var(--font-mono)', flexShrink:0 }}>
+                        {designer.initials}
+                      </span>
+                    )}
+                    <span className="urgency-item-name">{s.road_name}</span>
+                    <span className="mono" style={{ fontSize:11, color:'var(--ink-3)', flexShrink:0 }}>{s.project_number}</span>
+                    {ward && <span style={{ fontSize:11, color:'var(--ink-3)', flexShrink:0 }}>W{ward.num}</span>}
+                    <span className="urgency-item-date">{s.date_start}</span>
+                    <span className="urgency-item-countdown">
+                      {d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : `${d}d`}
+                    </span>
+                    <span className={"pill "+s.status} style={{ flexShrink:0 }}>{STATUS_LABELS[s.status]}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {isMobile ? (
         <div className="schemes-cards">
           {list.map(s => <SchemeListCard key={s.id} scheme={s} onOpen={onOpen} updateScheme={updateScheme} />)}
