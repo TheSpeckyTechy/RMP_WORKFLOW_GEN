@@ -44,7 +44,7 @@ class ErrorBoundary extends React.Component {
           <div style={{fontSize:32}}>⚠</div>
           <div style={{fontWeight:700,fontSize:18}}>Something went wrong</div>
           <div style={{fontSize:13,color:'var(--ink-2,#666)',maxWidth:480,lineHeight:1.6}}>
-            An unexpected error occurred. Your data is safe — it is stored in localStorage and Supabase.
+            An unexpected error occurred. Your data is safe — it is stored in localStorage and your OneDrive data folder.
           </div>
           <div style={{fontFamily:'monospace',fontSize:11,color:'var(--red)',background:'var(--red-wash)',padding:'8px 14px',borderRadius:6,maxWidth:560,wordBreak:'break-word'}}>
             {this.state.error?.message}
@@ -401,7 +401,7 @@ const GenerateModal = ({ scheme, onClose }) => {
 
 const SyncDot = ({ status }) => {
   const cfg = {
-    loading: { color: 'var(--amber)',       label: 'Connecting to Supabase…' },
+    loading: { color: 'var(--amber)',       label: 'Connecting to data folder…' },
     syncing: { color: 'var(--amber)',       label: 'Syncing…' },
     synced:  { color: 'var(--green)',       label: 'Synced' },
     error:   { color: 'var(--red,#c0392b)', label: 'Sync error' },
@@ -645,9 +645,9 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
               <div style={{display:"flex",alignItems:"center",gap:10}}>
                 <SyncDot status={syncStatus} />
                 <div>
-                  <div style={{fontSize:13,fontWeight:500}}>Supabase · Workload</div>
+                  <div style={{fontSize:13,fontWeight:500}}>Data Folder · Workload</div>
                   <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>
-                    {syncStatus==='synced' && `All changes synced · West EU (Ireland)${lastSynced ? ' · ' + relativeTime(lastSynced) : ''}`}
+                    {syncStatus==='synced' && `All changes saved to data folder${lastSynced ? ' · ' + relativeTime(lastSynced) : ''}`}
                     {syncStatus==='syncing' && 'Syncing…'}
                     {syncStatus==='loading' && 'Connecting…'}
                     {syncStatus==='error' && <span style={{color:"var(--red)"}}>Sync error — check console</span>}

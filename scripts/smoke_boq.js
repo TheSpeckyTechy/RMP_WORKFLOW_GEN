@@ -25,9 +25,6 @@ const ctx = {
 ctx.window = ctx;
 ctx.globalThis = ctx;
 
-// Stub Supabase before loading SchemeContext
-ctx.supabase = { createClient: () => ({ from: () => ({ select: () => Promise.resolve({ data: [], error: null }), upsert: () => Promise.resolve({ error: null }), delete: () => ({ eq: () => Promise.resolve({ error: null }) }) }) }) };
-
 vm.createContext(ctx);
 
 const loadPlain = (p) => {
@@ -47,6 +44,26 @@ loadPlain('src/data/boq_engine.js');
 // store.jsx: only the trailing JSX is in WARDS data (none) — it's pure JS
 //   except baseScheme uses no JSX. Should load.
 loadPlain('src/data/store.jsx');
+
+// window.SCHEMES is now empty in the deployed app; seed-data/ holds the
+// 2026/27 register as individual JSON files. Load them all here so the
+// smoke test has the same schemes it would find in a seeded data folder.
+{
+  const seedDir = path.join(repo, 'seed-data');
+  if (fs.existsSync(seedDir)) {
+    const seeds = fs.readdirSync(seedDir)
+      .filter(f => f.endsWith('.json'))
+      .map(f => {
+        try { return JSON.parse(fs.readFileSync(path.join(seedDir, f), 'utf8')); }
+        catch { return null; }
+      })
+      .filter(Boolean);
+    ctx.window.SCHEMES = seeds;
+    console.log(`Loaded ${seeds.length} schemes from seed-data/`);
+  } else {
+    console.warn('seed-data/ directory not found — run scripts/export_seed_json.js first');
+  }
+}
 
 // SchemeContext.jsx: has JSX in SchemeProvider.return. Need to strip.
 const ctxSrc = read('src/context/SchemeContext.jsx');

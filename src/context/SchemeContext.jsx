@@ -1,42 +1,23 @@
 // ─── SchemeContext.jsx ────────────────────────────────────────────────────────
 // React context providing scheme data to all components.
 //
-// Persistence: localStorage (instant local cache) + Supabase (cross-device sync).
-// Every write goes to localStorage immediately and upserts to Supabase async.
-// On mount the latest data is fetched from Supabase and merged into state.
+// Persistence: File System Access API (fs backend) only. Each scheme is
+// stored as a {id}.json file in a user-picked OneDrive-synced folder.
+// localStorage provides an instant local cache. On mount, the latest files
+// are fetched from the chosen data folder and merged into state.
 //
 // Exports (via window): SchemeContext, SchemeProvider
-// Depends on: React, window.supabase (Supabase JS v2 UMD), window.SCHEMES
+// Depends on: React, File System Access API (Edge/Chrome desktop)
+// See SETUP_FS.md for first-use setup and seed-data/ for the initial register.
 // ─────────────────────────────────────────────────────────────────────────────
 
 window.SchemeContext = React.createContext(null);
 
-// ── Backend mode ─────────────────────────────────────────────────────────
-// 'supabase' — third-party Postgres, default for backward compat.
-// 'fs'       — File System Access API. Stores each scheme as a JSON file
-//              in a user-picked OneDrive folder. Zero IT setup; data stays
-//              on the work laptop + DCC's OneDrive tenant. Desktop Edge /
-//              Chrome / Opera only (no Firefox, no Safari, no mobile).
-//              See SETUP_FS.md for usage.
-const BACKEND_MODE = 'fs';   // 'supabase' | 'fs'
-
-// ── Supabase backend ─────────────────────────────────────────────────────
-const SUPABASE_URL  = 'https://humgbvwpxkhgfznnvhrn.supabase.co';
-const SUPABASE_ANON = 'sb_publishable_0mH4xC8eTp_HZaMmzBb8tQ_zMqXgm1o';
-
-// Created lazily so 'fs' mode neither depends on nor loads the Supabase CDN
-// script (index.html no longer includes it). To re-enable the Supabase
-// backend: restore the script tag in index.html and set BACKEND_MODE above.
-let _sbClient = null;
-const sb = () => {
-  if (!_sbClient) {
-    if (!window.supabase) {
-      throw new Error('Supabase library not loaded — re-add the supabase-js script tag in index.html to use BACKEND_MODE="supabase".');
-    }
-    _sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-  }
-  return _sbClient;
-};
+// The fs backend is the only persistence path. 'backendMode' is still
+// provided in the context value because several components branch on it
+// (SchemeDetail, Dashboard, App) — keeping it as a stable 'fs' literal
+// avoids touching those call-sites.
+const BACKEND_MODE = 'fs';
 
 // ── File System Access backend ───────────────────────────────────────────
 // Stores each scheme as a {id}.json file in a folder the user picks once.
@@ -182,22 +163,11 @@ const fsFetchAll = async () => {
   }
 };
 
-// Single dispatchers — switch on BACKEND_MODE so SchemeProvider doesn't
-// have to know which backend it's talking to.
-const backendUpsertOnce = (id, data) =>
-  BACKEND_MODE === 'fs'
-    ? fsUpsertOnce(id, data)
-    : sbUpsertOnce(id, data);
-
-const backendDeleteOnce = (id) =>
-  BACKEND_MODE === 'fs'
-    ? fsDeleteOnce(id)
-    : sb().from('schemes').delete().eq('id', id).then(r => r);
-
-const backendFetchAll = () =>
-  BACKEND_MODE === 'fs'
-    ? fsFetchAll()
-    : sb().from('schemes').select('id, data, updated_at').then(r => r);
+// Backend dispatchers — fs is the only backend; these thin wrappers keep
+// call-sites unchanged throughout the provider.
+const backendUpsertOnce = (id, data) => fsUpsertOnce(id, data);
+const backendDeleteOnce = (id)        => fsDeleteOnce(id);
+const backendFetchAll   = ()          => fsFetchAll();
 
 // ── Folder structure provisioning ────────────────────────────────────────────
 // Defines the subfolder tree to create inside each scheme's project folder.
@@ -448,7 +418,7 @@ const lsSet = (id, s) => {
 };
 
 // ── Pending-write queue ─────────────────────────────────────────────────────
-// Failed Supabase upserts go here so they survive refreshes and get
+// Failed data-folder writes go here so they survive refreshes and get
 // retried on next mount, on next successful sync, or when the browser
 // reports `online` after an offline stretch. Each entry is the full
 // scheme `data` keyed by id; the latest write for an id supersedes any
@@ -588,7 +558,7 @@ const withBoq = (s) => {
   // Strip auto-lines from any pre-derivation persisted state. They were
   // stored alongside user-added (custom) lines until auto-lines became
   // a render-time derivation; leaving them on disk would bloat
-  // localStorage / Supabase rows over time. boq.touched is also obsolete.
+  // localStorage / data folder files over time. boq.touched is also obsolete.
   const lines = boq.custom_lines || [];
   const userOnly = lines.filter(l => !l.auto);
   if (userOnly.length !== lines.length || 'touched' in boq) {
@@ -606,26 +576,56 @@ const withBoq = (s) => {
 const migrate = (s) => withBoq(withDesign(s));
 
 const initSchemes = () => {
-  const deleted = lsGetDeleted();
-  const base = window.SCHEMES
+  const deleted  = lsGetDeleted();
+  // window.SCHEMES is now always empty — the register lives in the data folder.
+  // Base is an empty array; kept for forward-compat if seeds are ever re-added.
+  const base     = window.SCHEMES
     .filter(s => !deleted[s.id])
     .map(s => { const saved = lsGet(s.id); return migrate(saved ? { ...s, ...saved } : s); });
   const defaultIds = new Set(window.SCHEMES.map(s => s.id));
-  const extras = lsGetIds()
+
+  // Schemes in the explicit LS_IDS list (user-created on this device).
+  const knownExtras = lsGetIds()
     .filter(id => !defaultIds.has(id) && !deleted[id])
     .map(id => lsGet(id)).filter(Boolean).map(migrate);
-  return [...extras, ...base];
+
+  // Adopt any orphaned rmp_scheme_* localStorage entries whose id is not
+  // already accounted for above. These are schemes that were edited on
+  // this device before the seed array was removed, so their id was never
+  // written to LS_IDS (the old code skipped that for seed-derived ids).
+  const knownIds = new Set([
+    ...defaultIds,
+    ...lsGetIds(),
+  ]);
+  const adopted = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(LS_PREFIX)) continue;
+      const id = key.slice(LS_PREFIX.length);
+      if (knownIds.has(id) || deleted[id]) continue;
+      try {
+        const raw = localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (parsed && parsed.id) {
+          adopted.push(migrate(parsed));
+          knownIds.add(id);
+        }
+      } catch { /* skip corrupt entry */ }
+    }
+  } catch { /* localStorage enumeration failed — ignore */ }
+
+  if (adopted.length > 0) {
+    // Persist the newly-discovered ids into LS_IDS so future loads find them.
+    const current = lsGetIds();
+    const fresh   = adopted.map(s => s.id).filter(id => !current.includes(id));
+    if (fresh.length > 0) lsSetIds([...fresh, ...current]);
+  }
+
+  return [...adopted, ...knownExtras, ...base];
 };
 
-// ── Supabase helpers ─────────────────────────────────────────────────────────
-const sbUpsertOnce = async (id, data) => {
-  // Use the embedded data.updated_at so the row column and the data field
-  // stay in sync — on the next fetch we compare the row column against
-  // localStorage's data.updated_at to resolve which side is newer.
-  const updatedAt = data.updated_at || new Date().toISOString();
-  return sb().from('schemes').upsert({ id, data, updated_at: updatedAt });
-};
-
+// ── Backend write helpers ─────────────────────────────────────────────────────
 const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
   onStatus('syncing');
   const { error } = await backendUpsertOnce(id, data);
@@ -646,7 +646,7 @@ const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
 // Drain pending writes in FIFO order. Stops on first failure so the
 // failed item stays at the head of the queue and any later writes
 // queued behind it don't get reordered. Called from the provider's
-// mount-effect (after the initial Supabase fetch) and on the browser's
+// mount-effect (after the initial folder fetch) and on the browser's
 // `online` event so post-reconnect recovery is automatic.
 const sbDrainQueue = async (onStatus, onSynced) => {
   let queue = sbqGet();
@@ -676,25 +676,24 @@ const SchemeProvider = ({ children }) => {
   // Seed folderName from the cached IndexedDB handle so the Settings panel
   // shows the folder name even before the first fsFetchAll resolves.
   React.useEffect(() => {
-    if (BACKEND_MODE !== 'fs') return;
     fsIdbGet(FS_HANDLE_KEY).then(h => { if (h) setFolderName(h.name); }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // On mount: fetch from Supabase and merge into state. Per-scheme,
+  // On mount: fetch from the data folder and merge into state. Per-scheme,
   // compare embedded data.updated_at against the local copy and keep
   // whichever is newer — this protects against the race where a user
-  // edits locally, refreshes before the async sbUpsert lands, and the
-  // GET returns the pre-edit server value. Without this guard, the
+  // edits locally, refreshes before the async write lands, and the
+  // folder read returns the pre-edit value. Without this guard, the
   // remote spread { ...local, ...remote } silently clobbers the
   // in-flight local edit.
   React.useEffect(() => {
     backendFetchAll().then(({ data: rows, error }) => {
       if (error) {
-        // 'fs' mode: no folder picked yet (or permission cleared on tab
-        // restore) → not an error, just a first-run state the UI handles
-        // by surfacing a "Choose data folder" button.
+        // No folder picked yet (or permission cleared on tab restore) →
+        // not an error, just a first-run state the UI handles by
+        // surfacing a "Choose data folder" button.
         const msg = String(error.message || error);
-        if (BACKEND_MODE === 'fs' && /no_folder_chosen|permission_denied/.test(msg)) {
+        if (/no_folder_chosen|permission_denied/.test(msg)) {
           setSyncStatus('folder-required');
         } else {
           setSyncStatus('error');
@@ -746,11 +745,11 @@ const SchemeProvider = ({ children }) => {
           });
         }
       }
-      if (BACKEND_MODE === 'fs' && _fsDir) setFolderName(_fsDir.name);
+      if (_fsDir) setFolderName(_fsDir.name);
       setSyncStatus('synced');
       setLastSynced(new Date());
-      // Drain any writes that were queued while offline / Supabase was
-      // down. Runs after the initial fetch so we don't race the two.
+      // Drain any writes that were queued while offline or the folder
+      // was temporarily unavailable. Runs after the initial fetch.
       sbDrainQueue(setSyncStatus, () => setLastSynced(new Date()));
     });
     // Re-drain whenever the browser regains connectivity. Covers the
@@ -758,7 +757,7 @@ const SchemeProvider = ({ children }) => {
     // were back on wifi" case without requiring a manual action.
     const onOnline = () => sbDrainQueue(setSyncStatus, () => setLastSynced(new Date()));
     window.addEventListener('online', onOnline);
-    // Fetch from Supabase exactly once on provider mount; per-scheme
+    // Fetch from the data folder exactly once on provider mount; per-scheme
     // updates after that flow through updateScheme(). Setters are
     // stable identities so they don't need to appear in the dep array.
     return () => window.removeEventListener('online', onOnline);
@@ -769,8 +768,8 @@ const SchemeProvider = ({ children }) => {
   const updateScheme = (id, updates) => {
     const current = latestSchemes.current.find(s => s.id === id);
     if (!current) return;
-    // Stamp updated_at on every edit so the next Supabase fetch can tell
-    // whether the local copy is newer than what came back from the server.
+    // Stamp updated_at on every edit so the next folder fetch can tell
+    // whether the local copy is newer than what came back from the folder.
     const merged = { ...current, ...updates, updated_at: new Date().toISOString() };
     // docs_generated patches come from long async handlers that spread a
     // render-time snapshot; merging key-wise against the live copy stops two
@@ -786,10 +785,9 @@ const SchemeProvider = ({ children }) => {
 
   const addScheme = (scheme) => {
     // Stamp updated_at at creation so the last-write-wins merge in the
-    // mount-effect Supabase fetch (line ~207) can see the local copy as
-    // newer than any pre-existing remote row. Without this, a network
-    // race on first sync could let a stale Supabase value overwrite a
-    // freshly-created scheme.
+    // mount-effect folder fetch can see the local copy as newer than any
+    // pre-existing file. Without this, a race on first sync could let a
+    // stale folder value overwrite a freshly-created scheme.
     const stamped = { ...scheme, updated_at: scheme.updated_at || new Date().toISOString() };
     const ok = lsSet(stamped.id, stamped);
     if (!ok) setSyncStatus('error');
@@ -806,13 +804,12 @@ const SchemeProvider = ({ children }) => {
   const deleteScheme = (id) => {
     try { localStorage.removeItem(LS_PREFIX + id); } catch {}
     lsSetIds(lsGetIds().filter(i => i !== id));
-    // Tombstone so seed schemes (always re-seeded by initSchemes) and any
-    // backend copy this device can't reach don't resurrect on reload.
+    // Tombstone so any data-folder copy this device can't yet reach
+    // doesn't resurrect on the next reload.
     tombstoneAdd(id);
     setSchemes(prev => prev.filter(s => s.id !== id));
     setSyncStatus('syncing');
-    backendDeleteOnce(id)
-      .then(({ error }) => setSyncStatus(error ? 'error' : 'synced'));
+    backendDeleteOnce(id).then(({ error }) => setSyncStatus(error ? 'error' : 'synced'));
   };
 
   const resetAllSchemes = () => {
@@ -832,7 +829,6 @@ const SchemeProvider = ({ children }) => {
   };
 
   const createSnapshot = async () => {
-    if (BACKEND_MODE !== 'fs') return;
     try {
       const dir = await fsResolveFolder();
       const backupsDir = await dir.getDirectoryHandle('_backups', { create: true });
@@ -863,13 +859,11 @@ const SchemeProvider = ({ children }) => {
 
   // Autosave snapshot every 10 minutes while a folder is connected
   React.useEffect(() => {
-    if (BACKEND_MODE !== 'fs') return;
     const id = setInterval(() => createSnapshot(), 10 * 60 * 1000);
     return () => clearInterval(id);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const syncAllToFolder = async () => {
-    if (BACKEND_MODE !== 'fs') return;
     setSyncStatus('syncing');
     for (const s of latestSchemes.current) {
       const { error } = await backendUpsertOnce(s.id, s);
