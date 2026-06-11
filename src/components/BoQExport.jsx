@@ -1,6 +1,6 @@
 // ─── BoQExport.jsx ───────────────────────────────────────────────────────────
 // Modernised Excel export for the BoQ tab. Three sheets:
-//   1. Bill of Quantities — full priced detail, series banners, frozen header
+//   1. Bill of Quantities — full priced detail, series banners
 //   2. Summary           — visual summary (header, series breakdown, totals ladder)
 //   3. Rate Schedule     — audit trail: rate A/B/C per line + band applied
 //
@@ -225,7 +225,6 @@
         // Each series banner row also merged — added below
       ],
       mergeBannerRows: true,
-      freeze: { ySplit: 5, xSplit: 0 },
     });
   }
 
@@ -251,7 +250,6 @@
         }
       });
     }
-    if (opts.freeze) ws['!freeze'] = opts.freeze;
     // Row heights
     ws['!rows'] = rows.map((_, r) => ({ hpx: r === 0 ? 26 : 18 }));
     return ws;
@@ -358,7 +356,6 @@
         {s:{r:1,c:0},e:{r:1,c:5}},
         {s:{r:rows.length-1,c:0},e:{r:rows.length-1,c:5}},
       ],
-      freeze: null,
     });
   }
 
@@ -400,7 +397,6 @@
     return buildSheet(rows, {
       cols: [{wch:12},{wch:48},{wch:8},{wch:10},{wch:12},{wch:12},{wch:12},{wch:10}],
       merges: [{s:{r:0,c:0},e:{r:0,c:7}}],
-      freeze: { ySplit: 3, xSplit: 0 },
     });
   }
 
@@ -415,8 +411,15 @@
   // ── Public entry point ─────────────────────────────────────────────────────
   window.exportBoQXlsx = async function (scheme, boq, computed) {
     if (!window.XLSX) throw new Error('xlsx-js-style not loaded');
-    // If caller didn't precompute, do it now so the helper can be called standalone.
-    if (!computed) computed = E.buildBoQLines(boq, scheme);
+    // If caller didn't precompute, regenerate auto lines + merge user lines first so
+    // the standalone path produces the same full BoQ as window.__exportBoQForScheme.
+    if (!computed) {
+      const effective = E.effectiveQuickInputs(scheme, boq);
+      const autoLines = E.regenAutoLines(effective);
+      const userLines = (boq.custom_lines || []).filter(l => !l.auto);
+      boq = { ...boq, quick_inputs: effective, custom_lines: [...autoLines, ...userLines] };
+      computed = E.buildBoQLines(boq, scheme);
+    }
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, buildDetailSheet(scheme, computed),       'Bill of Quantities');

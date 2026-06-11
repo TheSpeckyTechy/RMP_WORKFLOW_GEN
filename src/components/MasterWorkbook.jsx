@@ -164,6 +164,7 @@ const MasterWorkbook = ({ schemeId, onGenerate }) => {
   const update = (key, val) => updateScheme(schemeId, { [key]: val });
 
   const exportXlsx = async () => {
+    try {
     const XLSX = window.XLSX;
     const sheetName = "Project Info";
     const rows = [], meta = [], namedRanges = [];
@@ -282,7 +283,9 @@ const MasterWorkbook = ({ schemeId, onGenerate }) => {
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     wb.Workbook = { Names: namedRanges };
 
-    const filename = `${scheme.project_number}_${(scheme.road_name||"").replace(/\s+/g,"_")}_Master.xlsx`;
+    const _mwRef  = (scheme.project_number || scheme.id || 'WB').replace(/[^\w-]+/g, '_');
+    const _mwRoad = (scheme.road_name      || 'scheme').replace(/[^\w-]+/g, '_');
+    const filename = `${_mwRef}_${_mwRoad}_Master.xlsx`;
     const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const saved = window.fsSaveToProjectFolder
       ? await window.fsSaveToProjectFolder(scheme, ['Contract'], filename, bytes, { versioned: true })
@@ -293,6 +296,11 @@ const MasterWorkbook = ({ schemeId, onGenerate }) => {
       if (window.Toast) window.Toast.show({ kind: 'success', msg: `Master Workbook saved to ${window.schemeFolderName(scheme)}/Contract/`, duration: 4000 });
     }
     window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `Workbook — ${scheme.road_name}`, ref: scheme.project_number } }));
+    } catch (err) {
+      const msg = 'Master Workbook export failed: ' + (err && err.message ? err.message : String(err));
+      if (window.Toast) window.Toast.show({ kind: 'error', msg, duration: 6000 });
+      else alert(msg);
+    }
   };
 
   React.useEffect(() => {
@@ -425,7 +433,7 @@ const MasterWorkbook = ({ schemeId, onGenerate }) => {
             Master Workbook · Project Info tab
           </div>
           <div style={{fontSize:12,color:"var(--ink-3)",fontFamily:"var(--font-mono)",marginTop:4}}>
-            {scheme.project_number}_{(scheme.road_name||"").replace(/\s+/g,"_")}_Master.xlsx · 49 named ranges
+            {(scheme.project_number||scheme.id||'WB').replace(/[^\w-]+/g,'_')}_{(scheme.road_name||'scheme').replace(/[^\w-]+/g,'_')}_Master.xlsx · 49 named ranges
           </div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>

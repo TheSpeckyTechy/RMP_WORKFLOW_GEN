@@ -23,8 +23,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # Publish only what the app needs at runtime. The repo root also holds
+      # internal working files (JMCA-priced source workbooks, completed forms,
+      # docs, screenshots, scripts) that must not be served from the public
+      # Pages site.
+      - name: Stage deployable files
+        run: |
+          mkdir -p _site/assets
+          cp index.html sw.js manifest.json icon.svg .nojekyll _site/
+          cp -r src _site/src
+          cp -r templates _site/templates
+          cp -r assets/samples _site/assets/samples
+          # Internal-only files that live inside otherwise-deployed folders
+          rm -f "_site/templates/RSR_R6083_Guthrie_Terrace (3).docx" _site/templates/README.md
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

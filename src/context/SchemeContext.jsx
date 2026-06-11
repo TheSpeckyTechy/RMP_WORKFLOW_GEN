@@ -24,7 +24,19 @@ const BACKEND_MODE = 'fs';   // 'supabase' | 'fs'
 const SUPABASE_URL  = 'https://humgbvwpxkhgfznnvhrn.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_0mH4xC8eTp_HZaMmzBb8tQ_zMqXgm1o';
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+// Created lazily so 'fs' mode neither depends on nor loads the Supabase CDN
+// script (index.html no longer includes it). To re-enable the Supabase
+// backend: restore the script tag in index.html and set BACKEND_MODE above.
+let _sbClient = null;
+const sb = () => {
+  if (!_sbClient) {
+    if (!window.supabase) {
+      throw new Error('Supabase library not loaded — re-add the supabase-js script tag in index.html to use BACKEND_MODE="supabase".');
+    }
+    _sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  }
+  return _sbClient;
+};
 
 // ── File System Access backend ───────────────────────────────────────────
 // Stores each scheme as a {id}.json file in a folder the user picks once.
@@ -98,7 +110,15 @@ const fsResolveFolder = async () => {
   if (!stored) throw new Error('no_folder_chosen');
   const perm = await stored.queryPermission({ mode: 'readwrite' });
   if (perm !== 'granted') {
-    const req = await stored.requestPermission({ mode: 'readwrite' });
+    // requestPermission throws a SecurityError when called without a user
+    // gesture (e.g. the mount-time fetch on a fresh session). That's the
+    // normal "show the reconnect button" state, not a hard sync error.
+    let req;
+    try {
+      req = await stored.requestPermission({ mode: 'readwrite' });
+    } catch {
+      throw new Error('permission_denied');
+    }
     if (req !== 'granted') throw new Error('permission_denied');
   }
   _fsDir = stored;
@@ -172,12 +192,12 @@ const backendUpsertOnce = (id, data) =>
 const backendDeleteOnce = (id) =>
   BACKEND_MODE === 'fs'
     ? fsDeleteOnce(id)
-    : sb.from('schemes').delete().eq('id', id).then(r => r);
+    : sb().from('schemes').delete().eq('id', id).then(r => r);
 
 const backendFetchAll = () =>
   BACKEND_MODE === 'fs'
     ? fsFetchAll()
-    : sb.from('schemes').select('id, data, updated_at').then(r => r);
+    : sb().from('schemes').select('id, data, updated_at').then(r => r);
 
 // ── Folder structure provisioning ────────────────────────────────────────────
 // Defines the subfolder tree to create inside each scheme's project folder.
@@ -375,6 +395,22 @@ const lsGet    = (id)  => { try { const v = localStorage.getItem(LS_PREFIX + id)
 const lsGetIds = ()    => { try { const v = localStorage.getItem(LS_IDS); return v ? JSON.parse(v) : []; } catch { return []; } };
 const lsSetIds = (ids) => { try { localStorage.setItem(LS_IDS, JSON.stringify(ids)); } catch {} };
 
+// Delete tombstones: { id: deletedAtISO }. Without these, deleting one of the
+// seed schemes from window.SCHEMES only lasts until the next reload, because
+// initSchemes() unconditionally re-seeds the whole register. A backend row
+// (or seed) with updated_at NEWER than the tombstone wins — that's a scheme
+// genuinely re-created elsewhere — and clears the tombstone.
+const LS_DELETED = 'rmp_deleted_ids_v1';
+const lsGetDeleted = () => { try { const v = localStorage.getItem(LS_DELETED); return v ? JSON.parse(v) : {}; } catch { return {}; } };
+const lsSetDeleted = (m) => { try { localStorage.setItem(LS_DELETED, JSON.stringify(m)); } catch {} };
+const tombstoneAdd    = (id) => lsSetDeleted({ ...lsGetDeleted(), [id]: new Date().toISOString() });
+const tombstoneClear  = (id) => { const m = lsGetDeleted(); if (id in m) { delete m[id]; lsSetDeleted(m); } };
+// True when `updatedAt` proves the record is newer than its tombstone.
+const tombstoneBeaten = (id, updatedAt) => {
+  const t = lsGetDeleted()[id];
+  return !!(t && updatedAt && Date.parse(updatedAt) > Date.parse(t));
+};
+
 // localStorage writes can fail two ways: quota exhaustion (a couple of
 // big base64 PDFs in pack_files_* push past the 5MB per-origin limit)
 // or private-browsing sandboxes that throw on every setItem. Both used
@@ -570,9 +606,14 @@ const withBoq = (s) => {
 const migrate = (s) => withBoq(withDesign(s));
 
 const initSchemes = () => {
-  const base = window.SCHEMES.map(s => { const saved = lsGet(s.id); return migrate(saved ? { ...s, ...saved } : s); });
+  const deleted = lsGetDeleted();
+  const base = window.SCHEMES
+    .filter(s => !deleted[s.id])
+    .map(s => { const saved = lsGet(s.id); return migrate(saved ? { ...s, ...saved } : s); });
   const defaultIds = new Set(window.SCHEMES.map(s => s.id));
-  const extras = lsGetIds().filter(id => !defaultIds.has(id)).map(id => lsGet(id)).filter(Boolean).map(migrate);
+  const extras = lsGetIds()
+    .filter(id => !defaultIds.has(id) && !deleted[id])
+    .map(id => lsGet(id)).filter(Boolean).map(migrate);
   return [...extras, ...base];
 };
 
@@ -582,7 +623,7 @@ const sbUpsertOnce = async (id, data) => {
   // stay in sync — on the next fetch we compare the row column against
   // localStorage's data.updated_at to resolve which side is newer.
   const updatedAt = data.updated_at || new Date().toISOString();
-  return sb.from('schemes').upsert({ id, data, updated_at: updatedAt });
+  return sb().from('schemes').upsert({ id, data, updated_at: updatedAt });
 };
 
 const sbUpsertFn = async (id, data, onStatus, onSuccess) => {
@@ -682,7 +723,17 @@ const SchemeProvider = ({ children }) => {
             }
             return migrate({ ...s, ...remote.data });
           });
-          const extras = rows.filter(r => !localIds.has(r.id) && r.data).map(r => migrate(r.data));
+          const extras = rows
+            .filter(r => !localIds.has(r.id) && r.data)
+            // Locally-deleted schemes stay deleted unless the backend copy
+            // is newer than the tombstone (re-created on another device).
+            .filter(r => {
+              const dels = lsGetDeleted();
+              if (!dels[r.id]) return true;
+              if (tombstoneBeaten(r.id, r.updated_at)) { tombstoneClear(r.id); return true; }
+              return false;
+            })
+            .map(r => migrate(r.data));
           return extras.length ? [...extras, ...updated] : updated;
         });
         if (conflictLosses.length > 0 && window.Toast) {
@@ -721,6 +772,12 @@ const SchemeProvider = ({ children }) => {
     // Stamp updated_at on every edit so the next Supabase fetch can tell
     // whether the local copy is newer than what came back from the server.
     const merged = { ...current, ...updates, updated_at: new Date().toISOString() };
+    // docs_generated patches come from long async handlers that spread a
+    // render-time snapshot; merging key-wise against the live copy stops two
+    // concurrent generations/uploads silently reverting each other's flags.
+    if (updates.docs_generated && current.docs_generated) {
+      merged.docs_generated = { ...current.docs_generated, ...updates.docs_generated };
+    }
     const ok = lsSet(id, merged);
     setSchemes(prev => prev.map(s => s.id === id ? merged : s));
     if (!ok) setSyncStatus('error');
@@ -736,6 +793,7 @@ const SchemeProvider = ({ children }) => {
     const stamped = { ...scheme, updated_at: scheme.updated_at || new Date().toISOString() };
     const ok = lsSet(stamped.id, stamped);
     if (!ok) setSyncStatus('error');
+    tombstoneClear(stamped.id); // re-creating a previously deleted id revives it
     const defaultIds = new Set(window.SCHEMES.map(s => s.id));
     if (!defaultIds.has(stamped.id)) {
       const current = lsGetIds();
@@ -748,6 +806,9 @@ const SchemeProvider = ({ children }) => {
   const deleteScheme = (id) => {
     try { localStorage.removeItem(LS_PREFIX + id); } catch {}
     lsSetIds(lsGetIds().filter(i => i !== id));
+    // Tombstone so seed schemes (always re-seeded by initSchemes) and any
+    // backend copy this device can't reach don't resurrect on reload.
+    tombstoneAdd(id);
     setSchemes(prev => prev.filter(s => s.id !== id));
     setSyncStatus('syncing');
     backendDeleteOnce(id)
@@ -758,6 +819,7 @@ const SchemeProvider = ({ children }) => {
     try {
       Object.keys(localStorage).filter(k => k.startsWith(LS_PREFIX)).forEach(k => localStorage.removeItem(k));
       localStorage.removeItem(LS_IDS);
+      localStorage.removeItem(LS_DELETED);
     } catch {}
     window.location.reload();
   };
@@ -858,14 +920,31 @@ const SchemeProvider = ({ children }) => {
           if (error) { setSyncStatus('error'); return false; }
           if (rows && rows.length > 0) {
             const remoteMap = Object.fromEntries(rows.map(r => [r.id, { data: r.data, updated_at: r.updated_at }]));
-            setSchemes(prev => prev.map(s => {
-              const remote = remoteMap[s.id];
-              if (!remote) return s;
-              const localTs  = s.updated_at ? Date.parse(s.updated_at) : 0;
-              const remoteTs = remote.updated_at ? Date.parse(remote.updated_at) : 0;
-              if (localTs >= remoteTs && localTs > 0) return s;
-              return migrate({ ...s, ...remote.data });
-            }));
+            setSchemes(prev => {
+              const localIds = new Set(prev.map(s => s.id));
+              const updated = prev.map(s => {
+                const remote = remoteMap[s.id];
+                if (!remote) return s;
+                const localTs  = s.updated_at ? Date.parse(s.updated_at) : 0;
+                const remoteTs = remote.updated_at ? Date.parse(remote.updated_at) : 0;
+                if (localTs >= remoteTs && localTs > 0) return s;
+                return migrate({ ...s, ...remote.data });
+              });
+              // Schemes that exist in the picked folder but not in local
+              // state — same extras handling as the mount-time fetch.
+              // (Previously dropped here, so a folder full of schemes from
+              // another machine appeared empty until a manual refresh.)
+              const extras = rows
+                .filter(r => !localIds.has(r.id) && r.data)
+                .filter(r => {
+                  const dels = lsGetDeleted();
+                  if (!dels[r.id]) return true;
+                  if (tombstoneBeaten(r.id, r.updated_at)) { tombstoneClear(r.id); return true; }
+                  return false;
+                })
+                .map(r => migrate(r.data));
+              return extras.length ? [...extras, ...updated] : updated;
+            });
           }
           setSyncStatus('synced');
           setLastSynced(new Date());
