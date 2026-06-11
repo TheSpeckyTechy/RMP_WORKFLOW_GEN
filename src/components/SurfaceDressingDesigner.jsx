@@ -259,6 +259,39 @@ const sdBlankDesign = () => ({
   notes:             '',
 });
 
+// ─── Rate editor input ────────────────────────────────────────────────────────
+// Holds the raw string in local state while editing so the user can clear and
+// retype. The parsed number is committed to rateOverrides only when blur fires
+// with a valid parse (or when a valid number is typed). isNaN-gating on onChange
+// was preventing the field from being emptied at all.
+
+function SDRateInput({ value, onCommit }) {
+  const [raw, setRaw] = React.useState(String(value));
+  // Sync raw string when the external value changes (e.g. after Reset).
+  React.useEffect(() => { setRaw(String(value)); }, [value]);
+  return (
+    <input
+      type="number"
+      step="0.01"
+      value={raw}
+      onChange={e => {
+        setRaw(e.target.value);
+        const v = parseFloat(e.target.value);
+        if (!isNaN(v)) onCommit(v);
+      }}
+      onBlur={() => {
+        const v = parseFloat(raw);
+        if (isNaN(v)) {
+          // Snap back to last known-good value on blur if still invalid.
+          setRaw(String(value));
+        } else {
+          onCommit(v);
+        }
+      }}
+    />
+  );
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 function SurfaceDressingDesigner({ schemeId }) {
@@ -310,8 +343,18 @@ function SurfaceDressingDesigner({ schemeId }) {
     ...(scheme.sd_design || {}),
   }), [scheme.sd_design]);
 
+  // Keep a ref that always reflects the latest persisted sd_design.
+  // This lets `update()` spread from the ref rather than the render-closure
+  // value of scheme.sd_design, so two patches dispatched in the same flush
+  // (e.g. auto-area and auto-select effects firing together) don't clobber
+  // each other's fields.
+  const sdDesignRef = React.useRef(scheme.sd_design || {});
+  React.useEffect(() => { sdDesignRef.current = scheme.sd_design || {}; }, [scheme.sd_design]);
+
   const update = (patch) => {
-    updateScheme(schemeId, { sd_design: { ...(scheme.sd_design || {}), ...patch } });
+    const next = { ...sdDesignRef.current, ...patch };
+    sdDesignRef.current = next;
+    updateScheme(schemeId, { sd_design: next });
   };
 
   // Pre-populate from parent scheme on first open
@@ -332,16 +375,14 @@ function SurfaceDressingDesigner({ schemeId }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Portal: scroll-reveal + active-step tracking via IntersectionObserver
+  // Portal: active-step tracking via IntersectionObserver.
+  // `view` is included in deps: switching Design ↔ Proforma remounts the step
+  // panels, so observers must re-attach to the freshly-mounted DOM nodes.
   React.useEffect(() => {
     if (!portalOpen) return;
     const body = portalBodyRef.current;
     const refs = stepRefs.current.filter(Boolean);
     if (!refs.length) return;
-
-    const revealObs = new IntersectionObserver(entries => {
-      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('sd-revealed'); });
-    }, { threshold: 0.1 });
 
     const trackObs = new IntersectionObserver(entries => {
       entries.forEach(e => {
@@ -352,18 +393,21 @@ function SurfaceDressingDesigner({ schemeId }) {
       });
     }, { root: body, threshold: 0.25 });
 
-    refs.forEach(r => { revealObs.observe(r); trackObs.observe(r); });
-    return () => { revealObs.disconnect(); trackObs.disconnect(); };
-  }, [portalOpen]);
+    refs.forEach(r => { trackObs.observe(r); });
+    return () => { trackObs.disconnect(); };
+  }, [portalOpen, view]);
 
-  // Auto-derive area from length × width if blank
+  // Auto-derive area from length × width if blank.
+  // active.areaM2 must be in deps: clearing the field should re-trigger
+  // derivation so the user can reset back to auto-calculated.
   React.useEffect(() => {
     const l = parseFloat(active.length);
     const w = parseFloat(active.width);
     if (!isNaN(l) && !isNaN(w) && !active.areaM2) {
       update({ areaM2: (l * w).toFixed(0) });
     }
-  }, [active.length, active.width]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.length, active.width, active.areaM2]);
 
   // ── Derived values ──────────────────────────────────────────────────────────
 
@@ -1001,9 +1045,7 @@ function SurfaceDressingDesigner({ schemeId }) {
 
     /* ── Portal content + scroll-reveal ─────────────────────────────────────── */
     .sd-portal-content { flex: 1; overflow-y: auto; padding: 16px 20px; }
-    .sd-portal-content .sd-panel { opacity: 1; transform: none; transition: opacity 350ms ease, transform 350ms ease; }
-    .sd-portal-content .sd-panel.sd-scroll-hidden { opacity: 0; transform: translateY(14px); }
-    .sd-portal-content .sd-panel.sd-revealed { opacity: 1; transform: none; }
+    .sd-portal-content .sd-panel { opacity: 1; transform: none; }
     .sd-portal-content .sd-grid-2 .sd-panel { margin-bottom: 14px; }
     @media (max-width: 600px) {
       .sd-portal-rail { width: 40px; }
@@ -1015,8 +1057,39 @@ function SurfaceDressingDesigner({ schemeId }) {
 
     @media print {
       @page { margin: 0; size: A4; }
+      /* Hide all portal chrome — header bar and progress rail. Elements that
+         must not appear in the print should carry the sd-no-print class. */
       .sd-no-print { display: none !important; }
-      .sd-pf-page { page-break-after: always; box-shadow: none !important; }
+      /* The proforma lives inside a position:fixed portal overlay which the
+         browser will clip or refuse to paginate. Flatten the entire overlay
+         stack to normal flow so the A4 proforma page renders correctly. */
+      .sd-portal-overlay {
+        position: static !important;
+        animation: none !important;
+        overflow: visible !important;
+        display: block !important;
+      }
+      .sd-portal-body {
+        display: block !important;
+        overflow: visible !important;
+      }
+      .sd-portal-content {
+        overflow: visible !important;
+        padding: 0 !important;
+      }
+      /* The proforma page itself: let it flow naturally on the printed page. */
+      .sd-pf-page {
+        position: static !important;
+        page-break-after: always;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 14mm 12mm !important;
+      }
+      /* Wrapper around the proforma page: remove screen shadow. */
+      .sd-pf-scroll {
+        overflow: visible !important;
+      }
     }
   `;
 
@@ -1490,8 +1563,8 @@ function SurfaceDressingDesigner({ schemeId }) {
       {portalOpen && ReactDOM.createPortal(
         <div className="sd-portal-overlay">
 
-          {/* Live header */}
-          <div className="sd-portal-hdr">
+          {/* Live header — hidden on print */}
+          <div className="sd-portal-hdr sd-no-print">
             <div className="sd-portal-hdr-name">{scheme.road_name || 'SD Design'}</div>
             <div className="sd-portal-hdr-stats">
               {trafficCat && <span className="sd-portal-stat">Cat <strong>{trafficCat.cat}</strong></span>}
@@ -1507,15 +1580,17 @@ function SurfaceDressingDesigner({ schemeId }) {
           {/* Body = rail + scrollable content */}
           <div className="sd-portal-body">
 
-            {/* Progress rail */}
-            <div className="sd-portal-rail">
+            {/* Progress rail — hidden on print */}
+            <div className="sd-portal-rail sd-no-print">
               {SD_STEP_LABELS.map((label,i) => (
                 <React.Fragment key={i}>
-                  <div
+                  <button
+                    type="button"
                     className={`sd-rail-dot${activeStep===i?' sd-rail-active':''}${stepComplete[i]?' sd-rail-done':''}`}
                     onClick={()=>scrollToStep(i)}
                     title={`Step ${i+1}: ${label}`}
-                  >{stepComplete[i]?'✓':i+1}</div>
+                    style={{background:'none',cursor:'pointer',padding:0,fontFamily:'inherit',fontWeight:700,fontSize:11}}
+                  >{stepComplete[i]?'✓':i+1}</button>
                   {i<8&&<div className="sd-rail-connector"/>}
                 </React.Fragment>
               ))}
@@ -1564,12 +1639,8 @@ function SurfaceDressingDesigner({ schemeId }) {
                       <div><strong style={{color:isOverridden?'var(--green)':'var(--accent)'}}>{item.item}</strong></div>
                       <div style={{fontSize:10,color:'var(--ink-3)'}}>{item.desc}</div>
                       {['small','medium','large'].map(band => (
-                        <input key={band} type="number" step="0.01" value={cur[band]}
-                          onChange={e => {
-                            const v = parseFloat(e.target.value);
-                            if (isNaN(v)) return;
-                            setRateOverrides(prev => ({ ...prev, [item.item]: { ...cur, [band]: v } }));
-                          }} />
+                        <SDRateInput key={band} value={cur[band]}
+                          onCommit={v => setRateOverrides(prev => ({ ...prev, [item.item]: { ...cur, [band]: v } }))} />
                       ))}
                     </div>
                   );

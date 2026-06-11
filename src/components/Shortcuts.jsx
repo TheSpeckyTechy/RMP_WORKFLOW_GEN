@@ -58,11 +58,29 @@ const formatBinding = (b) => {
 
 const _registry = new Map(); // binding string -> { binding, handler, label, group, allowInEditable }
 
+// Create the registry object at module scope so callers that run before
+// ShortcutsHost mounts (CommandPaletteHost effect, AppInner registration
+// effects) can register immediately without checking window.Shortcuts first.
+// openHelp is a stub until the host installs the real one.
+window.Shortcuts = {
+  register: (binding, handler, { label = '', group = 'General', allowInEditable = false } = {}) => {
+    const b = normalize(binding);
+    _registry.set(binding.toLowerCase(), { raw: binding.toLowerCase(), binding: b, handler, label, group, allowInEditable });
+  },
+  unregister: (binding) => {
+    _registry.delete(String(binding).toLowerCase());
+  },
+  list: () => Array.from(_registry.values()),
+  openHelp: () => { console.warn('[Shortcuts] openHelp called before ShortcutsHost mounted'); },
+};
+
 const ShortcutsHost = () => {
   const [helpOpen, setHelpOpen] = React.useState(false);
   const [, force] = React.useReducer(x => x + 1, 0);
 
   React.useEffect(() => {
+    // Upgrade the module-scope stub with the real implementations that can
+    // trigger re-renders and open the help overlay.
     window.Shortcuts = {
       register: (binding, handler, { label = '', group = 'General', allowInEditable = false } = {}) => {
         const b = normalize(binding);
@@ -76,7 +94,13 @@ const ShortcutsHost = () => {
       list: () => Array.from(_registry.values()),
       openHelp: () => setHelpOpen(true),
     };
-    return () => { delete window.Shortcuts; };
+    // On unmount, restore a minimal stub so callers don't crash.
+    return () => {
+      window.Shortcuts = {
+        register: () => {}, unregister: () => {}, list: () => [],
+        openHelp: () => {},
+      };
+    };
   }, []);
 
   React.useEffect(() => {

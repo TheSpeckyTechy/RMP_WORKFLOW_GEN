@@ -106,7 +106,7 @@ function buildRSRFields(scheme) {
     DATE_FINISH:      scheme.date_finish || '',
     DURATION:         String(days),
     TM_HOURS:         tm.hours || scheme.tm_hours || '',
-    TM_DIVERSION:     tm.diversion_by || scheme.tm_diversion_by || '',
+    TM_DIVERSION:     tm.diversion_by || scheme.tm_diversion_by || scheme.tm_diversion || '',
     DATE_PREPARED:    scheme.date_prepared || new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }),
   };
 }
@@ -120,18 +120,37 @@ async function loadRSRDocxBuffer() {
   return _rsrTemplateBuf.slice(0);
 }
 
+// Convert a plain-text value to safe XML for insertion inside a <w:t> run.
+// \n must become <w:br/> elements — a literal newline inside <w:t> is not a
+// line break in WordprocessingML and will be collapsed by Word.
+const multilineXmlRSR = (value) => {
+  const escaped = xmlEscapeRSR(value);
+  return escaped.replace(/\n/g, '</w:t><w:br/><w:t xml:space="preserve">');
+};
+
 async function injectRSRValues(buffer, scheme) {
   const zip = new window.JSZip();
   await zip.loadAsync(buffer);
   const fields = buildRSRFields(scheme);
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
+  const allXml = [];
   for (const p of xmlPaths) {
     const f = zip.file(p); if (!f) continue;
     let xml = await f.async('string');
     for (const [k,v] of Object.entries(fields)) {
-      xml = xml.split(`{{${k}}}`).join(xmlEscapeRSR(v));
+      xml = xml.split(`{{${k}}}`).join(multilineXmlRSR(v));
     }
     zip.file(p, xml);
+    allXml.push(xml);
+  }
+  // Warn if any {{...}} placeholders survived replacement — likely a run-split
+  // tag from a Word re-save. Does not block the save.
+  const combined = allXml.join('');
+  const surviving = [...combined.matchAll(/\{\{[A-Z0-9_]+\}\}/g)].map(m => m[0]);
+  if (surviving.length > 0) {
+    const unique = [...new Set(surviving)];
+    window.Toast?.show({ kind: 'error', msg: `RSR: ${unique.length} placeholder${unique.length>1?'s':''} not replaced: ${unique.join(', ')}`, duration: 7000 });
+    console.warn('RSR injectRSRValues — unreplaced placeholders:', unique);
   }
   return zip.generateAsync({ type: 'arraybuffer' });
 }
@@ -157,33 +176,39 @@ async function downloadRSR(scheme) {
 // Renders the actual DOCX template via docx-preview — preview = download
 const RSRDoc = ({ scheme }) => {
   const containerRef = React.useRef(null);
+  const genRef       = React.useRef(0);
   const [status, setStatus] = React.useState('idle');
   const [errMsg, setErrMsg] = React.useState('');
 
   React.useEffect(() => {
     if (!scheme) return;
-    let cancelled = false;
+    const gen = ++genRef.current;
     setStatus('loading');
     (async () => {
       try {
         const buffer = await loadRSRDocxBuffer();
         const injected = await injectRSRValues(buffer, scheme);
-        if (cancelled) return;
+        if (gen !== genRef.current) return;
+        // Render into a detached node so a stale run cannot overwrite the
+        // live container after a newer render has already committed.
+        const tmp = document.createElement('div');
         if (window.docx && window.docx.renderAsync) {
-          await window.docx.renderAsync(injected, containerRef.current, null, {
+          await window.docx.renderAsync(injected, tmp, null, {
             className: 'docx-preview',
             inWrapper: false,
             useBase64URL: true,
           });
         } else {
-          containerRef.current.innerHTML = '<p class="pci-err">docx-preview library not loaded.</p>';
+          tmp.innerHTML = '<p class="pci-err">docx-preview library not loaded.</p>';
         }
-        if (!cancelled) setStatus('ready');
+        if (gen !== genRef.current || !containerRef.current) return;
+        containerRef.current.innerHTML = '';
+        while (tmp.firstChild) containerRef.current.appendChild(tmp.firstChild);
+        setStatus('ready');
       } catch (err) {
-        if (!cancelled) { setStatus('error'); setErrMsg(err.message); }
+        if (gen === genRef.current) { setStatus('error'); setErrMsg(err.message); }
       }
     })();
-    return () => { cancelled = true; };
   }, [scheme && JSON.stringify(buildRSRFields(scheme))]);
 
   return (
@@ -209,8 +234,8 @@ async function downloadRSRPdf(scheme) {
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
   document.body.appendChild(container);
+  const root = ReactDOM.createRoot(container);
   try {
-    const root = ReactDOM.createRoot(container);
     const displayScheme = { ...scheme, treatment_type: window.schemeTreatment(scheme) || '' };
     root.render(React.createElement(RoadSpaceRequestDoc, { scheme: displayScheme }));
     await new Promise(r => setTimeout(r, 400));
@@ -221,8 +246,8 @@ async function downloadRSRPdf(scheme) {
       : false;
     if (!pdfSaved) await window.htmlToPdf(container.firstChild || container, pdfFilename);
     else if (window.Toast) window.Toast.show({ kind: 'success', msg: `RSR PDF saved to ${window.schemeFolderName(scheme)}/Project Admin/`, duration: 4000 });
-    root.unmount();
   } finally {
+    root.unmount();
     document.body.removeChild(container);
   }
 }
@@ -243,7 +268,7 @@ const RSR_FIELD_META = {
   date_start:     { label: "Start date", hint: "DD/MM/YYYY" },
   date_finish:    { label: "Finish date", hint: "DD/MM/YYYY" },
   tm_hours:       { label: "Working hours", multi: true },
-  tm_diversion:   { label: "Diversion route(s)", multi: true },
+  tm_diversion_by: { label: "Diversion route(s)", multi: true },
   date_prepared:  { label: "Date prepared", hint: "DD/MM/YYYY" },
 };
 
@@ -341,29 +366,34 @@ window.__downloadRSR = async (scheme) => {
   try {
     await downloadRSR(scheme);
     window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR — ${scheme.road_name}`, ref: scheme.project_number, fn: '__downloadRSR', schemeId: scheme.id } }));
-  } catch (e) { console.warn('RSR download failed', e); }
+  } catch (e) {
+    console.warn('RSR download failed', e);
+    window.Toast?.show({ kind: 'error', msg: `RSR download failed: ${e.message}`, duration: 6000 });
+  }
 };
 
 window.__downloadRSRPdf = async (scheme) => {
   try {
     await downloadRSRPdf(scheme);
     window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `RSR PDF — ${scheme.road_name}`, ref: scheme.project_number, fn: '__downloadRSRPdf', schemeId: scheme.id } }));
-  } catch (e) { console.warn('RSR PDF download failed', e); }
+  } catch (e) {
+    console.warn('RSR PDF download failed', e);
+    window.Toast?.show({ kind: 'error', msg: `RSR PDF download failed: ${e.message}`, duration: 6000 });
+  }
 };
 
 window.__getRSRPdfBuffer = async (scheme) => {
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
   document.body.appendChild(container);
+  const root = ReactDOM.createRoot(container);
   try {
     const displayScheme = { ...scheme, treatment_type: window.schemeTreatment(scheme) || '' };
-    const root = ReactDOM.createRoot(container);
     root.render(React.createElement(RoadSpaceRequestDoc, { scheme: displayScheme }));
     await new Promise(r => setTimeout(r, 400));
-    const buf = await window.htmlToPdfBuffer(container.firstChild || container);
-    root.unmount();
-    return buf;
+    return await window.htmlToPdfBuffer(container.firstChild || container);
   } finally {
+    root.unmount();
     document.body.removeChild(container);
   }
 };

@@ -150,6 +150,9 @@
     // dedicated tags rather than falling back to substring-matched defaults.
     if (t.includes('taycoat'))                                     return 'surf_taycoat_10_40';
     if ((t.includes('sma 10') || t.includes('sma10')) && t.includes('100/150')) return 'surf_taycoat_10_40';
+    // Fix #3: SMA 6 — must come before the generic SMA 10 rule so it doesn't
+    // fall through to null. Tag surf_sma6_30 maps to 7/055 in BOQ_LEGACY_TAG_MAP.
+    if (t.includes('sma 6') || t.includes('sma6'))                return 'surf_sma6_30';
     if ((t.includes('sma 14') || t.includes('sma14')))             return 'surf_sma14_40';
     // HBC variants before plain AC so they match precisely.
     if (t.includes('ac14') && (t.includes('hbc') || t.includes('hb '))) return 'surf_ac14hb_40';
@@ -251,6 +254,9 @@
         ? q.milling_entries
         : [{ depth: q.milling_depth, area: null }];
       for (const m of entries) {
+        // Fix #8: explicit depth of 0 (or '0') means no milling for this zone;
+        // only fall back to 40mm when depth is null/undefined (not set at all).
+        if (m.depth !== null && m.depth !== undefined && +m.depth === 0) continue;
         const a = layerArea(m.area);
         if (a > 0) pushByTag('mill_' + snapMillingDepth(m.depth), a);
       }
@@ -289,20 +295,43 @@
     // (zones deeper than surface+binder), reproducing the engine's pre-
     // Phase-3 output exactly.
     if (q.include_subbase) {
-      let area = 0;
-      if (zonesPath) {
-        area = q.surface_zones
-          .filter(sz => sz.needsSubbase)
-          .reduce((t, sz) => t + (+sz.area || 0), 0);
+      let vol;
+      if (q.subbase_volume_m3 != null) {
+        // Fix #7: use pre-computed zone-level volume (Σ area×depth/1000) so
+        // each zone's own depth is used rather than the max depth × total area.
+        vol = Math.round(+q.subbase_volume_m3 * 10) / 10;
       } else {
-        area = layerArea(q.subbase_area);
+        // Manual path: single depth × area.
+        const area = layerArea(q.subbase_area);
+        vol = Math.round(area * (+q.subbase_depth || 150) / 1000 * 10) / 10;
       }
-      const vol = Math.round(area * (+q.subbase_depth || 150) / 1000 * 10) / 10;
       if (vol > 0) pushByTag('subbase_t1', vol);
     }
 
     // Series 1100 — Kerbs
-    if (+q.kerb_length > 0) pushByTag(q.kerb_type || 'kerb_k1_laid', +q.kerb_length);
+    // Fix #1: group kerb rows by type tag, sum lengths per tag, emit one line
+    // per type. Falls back to the legacy single-kerb path when kerb_rows is
+    // absent (pre-Phase-4 schemes or manual-path callers).
+    const kerbRows = Array.isArray(q.kerb_rows) ? q.kerb_rows : [];
+    if (kerbRows.length > 0) {
+      // Build a map: tag → total length. Resolve each row's type label to a
+      // tag via the KERB_OPTIONS table; unknown labels fall back to kerb_k1_laid.
+      // KERB_OPTIONS is the const defined at the top of this module closure.
+      const KERB_LABEL_TO_TAG = new Map(KERB_OPTIONS.map(o => [o.label, o.tag]));
+      const kerbByTag = new Map();
+      for (const row of kerbRows) {
+        const len = +row.length_m || 0;
+        if (len <= 0) continue;
+        const tag = KERB_LABEL_TO_TAG.get(row.type) || 'kerb_k1_laid';
+        kerbByTag.set(tag, (kerbByTag.get(tag) || 0) + len);
+      }
+      for (const [tag, len] of kerbByTag) {
+        pushByTag(tag, len);
+      }
+    } else if (+q.kerb_length > 0) {
+      // Legacy single-line path: use kerb_type tag directly (or default K1 laid).
+      pushByTag(q.kerb_type || 'kerb_k1_laid', +q.kerb_length);
+    }
 
     // Series 1100 — Footway surfacing
     if (fw > 0) {
@@ -314,7 +343,7 @@
     if (q.include_markings   && +q.markings_area > 0) pushByTag('mark_area',      +q.markings_area);
     if (q.include_line_marks && +q.line_marks_m  > 0) pushByTag('mark_cont_100',  +q.line_marks_m);
 
-    // Series 2700 — Ironwork
+    // Series 2700 — Ironwork (replace / adjust in carriageway and footway)
     if (+q.iw_sw_cway   > 0) pushByTag('iw_sw_cway',   +q.iw_sw_cway);
     if (+q.iw_sse_cway  > 0) pushByTag('iw_sse_cway',  +q.iw_sse_cway);
     if (+q.iw_bt_cway   > 0) pushByTag('iw_bt_cway',   +q.iw_bt_cway);
@@ -325,6 +354,12 @@
     if (+q.iw_gas_fw    > 0) pushByTag('iw_gas_fw',    +q.iw_gas_fw);
     // Series 500 — Gully grating reset (priced per raised grating unit)
     if (+q.iw_gully_cway > 0) pushByTag('iw_gully_cway', +q.iw_gully_cway);
+    // Fix #4: raise/adjust block — folded into the same adjust-level catalogue
+    // items as the replace counts (Series 2700 "Raise the level of …" items).
+    if (+q.iw_raise_sw_cway  > 0) pushByTag('iw_sw_cway',   +q.iw_raise_sw_cway);
+    if (+q.iw_raise_bt_cway  > 0) pushByTag('iw_bt_cway',   +q.iw_raise_bt_cway);
+    if (+q.iw_raise_gas_cway > 0) pushByTag('iw_gas_cway',  +q.iw_raise_gas_cway);
+    if (+q.iw_raise_gully    > 0) pushByTag('iw_gully_cway', +q.iw_raise_gully);
 
     return dedupeLines(lines);
   }
@@ -594,20 +629,35 @@
     const anyBinder  = surfaceFromZones.some(z => z.needsBinder);
     const anyBase    = surfaceFromZones.some(z => z.needsBase);
     const anySubbase = surfaceFromZones.some(z => z.needsSubbase);
-    // Subbase depth = max across the zones that include it; typical default
-    // 150mm if explicit toggle is set without a depth.
+    // Fix #7: subbase volume = Σ(zone_area × zone_depth_mm) / 1000 across
+    // zones that have their subbase toggle on. Using max-depth × total-area
+    // over-bills every zone that is shallower than the deepest one.
+    // subbaseDepth is still derived (as the max) for the non-zoned manual
+    // path fallback, where a single depth × area is the only available data.
     const subbaseDepth = zones.reduce((max, z) =>
       z.includes_subbase ? Math.max(max, +z.subbase_depth_mm || 0) : max, 0) || 150;
+    // Zone-level pre-computed volume (m³) — used in regenAutoLines when zonesPath.
+    const subbaseVolumeZones = zones.reduce((sum, z) => {
+      if (!z.includes_subbase) return sum;
+      const depth = +z.subbase_depth_mm || 150; // default 150mm if toggle set without depth
+      return sum + (+z.area_m2 || 0) * depth / 1000;
+    }, 0);
 
     // Ironworks. iw_sw_* combines manhole + water covers — Scottish Water
     // pricing tag covers both. Footway block introduced in Phase 1; legacy
     // schemes get 0s through deriveDesignFromLegacy until the user populates.
-    const cway = design.ironworks?.cway || {};
-    const fway = design.ironworks?.fway || {};
+    const cway  = design.ironworks?.cway  || {};
+    const fway  = design.ironworks?.fway  || {};
+    // Fix #4: raise block — covers that need raising/adjusting without full
+    // replacement. The Series 2700 catalogue items are all "Raise the level of …"
+    // which matches the "Raise / replace" intent exactly. We fold raise counts
+    // into the same adjust-level tags as the cway/fway sets because the catalogue
+    // does not carry a separate "raise only" item distinct from "raise the level
+    // of cover and frame" — the adjust items already describe the raise operation.
+    const raise = design.ironworks?.raise || {};
 
-    // Kerbs: total length across rows. Tag picked from the first row, with a
-    // safe fallback. Phase 4+ will move kerbs to a per-row line-builder so
-    // mixed types coexist; for now the engine still emits a single kerb line.
+    // Kerbs: group by type tag, sum lengths per tag so mixed-type runs emit
+    // one correctly-priced line per kerb type (fix #1).
     const kerbTotal = (design.kerbs || []).reduce((t, k) => t + (+k.length_m || 0), 0);
 
     // Lining → Series 1200. Linear items feed line_marks_m (continuous
@@ -630,12 +680,17 @@
       surface_tag:       matchSurfaceTag(dominant?.surface || ''),
       include_binder:    anyBinder,
       include_base:      anyBase,
-      include_subbase:   anySubbase,
-      subbase_depth:     subbaseDepth,
-      milling_depth:     snapMillingDepth(dominantMill),
-      include_milling:   true,
-      include_tack:      true,
-      kerb_length:       kerbTotal,
+      include_subbase:      anySubbase,
+      subbase_depth:        subbaseDepth,
+      // Fix #7: pre-computed zone-level subbase volume (m³). When non-zero, the
+      // line builder uses this directly instead of area × max-depth.
+      subbase_volume_m3:    zones.length ? subbaseVolumeZones : null,
+      milling_depth:        snapMillingDepth(dominantMill),
+      include_milling:      true,
+      include_tack:         true,
+      kerb_length:          kerbTotal,
+      // Fix #1: per-kerb-row tag grouping — list passed to regenAutoLines.
+      kerb_rows:            design.kerbs || [],
       iw_sw_cway:        (+cway.mh || 0) + (+cway.water || 0),
       iw_bt_cway:        +cway.bt  || 0,
       iw_gas_cway:       +cway.gas || 0,
@@ -643,6 +698,14 @@
       iw_sw_fw:          (+fway.mh || 0) + (+fway.water || 0),
       iw_bt_fw:          +fway.bt  || 0,
       iw_gas_fw:         +fway.gas || 0,
+      // Fix #4: raise block quantities. Folded into the same Scottish Water /
+      // BT / SGN / gully adjust tags as the cway/fway replace counts because
+      // the catalogue items are "Raise the level of … cover and frame" — the
+      // same operation in both the replace and raise/adjust scenarios.
+      iw_raise_sw_cway:  (+raise.mh || 0) + (+raise.water || 0),
+      iw_raise_bt_cway:  +raise.bt      || 0,
+      iw_raise_gas_cway: +raise.gas     || 0,
+      iw_raise_gully:    +raise.gullies || 0,
       include_markings:   liningM2 > 0,
       markings_area:      liningM2,
       include_line_marks: liningM  > 0,

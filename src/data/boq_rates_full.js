@@ -9,7 +9,7 @@ window.BOQ_RATES_FULL = {
     bandThresholds: [],
     items: [
       {"id": "1/001", "desc": "Erection of offices and messes for the Contractor (Comply with appendix 0/6)", "unit": "Item", "rateA": 120.0, "rateB": 120.0, "rateC": 100.0},
-      {"id": "1/002", "desc": "Servicing of offices and messes for the Contractor (Comply with appendix 0/6)", "unit": "Day", "rateA": 100.0, "rateB": 1000.0, "rateC": 20.0},
+      {"id": "1/002", "desc": "Servicing of offices and messes for the Contractor (Comply with appendix 0/6)", "unit": "Day", "rateA": 100.0, "rateB": 100.0, "rateC": 20.0},
       {"id": "1/003", "desc": "Dismantling of offices and messes for the Contractor (Comply with appendix 0/6)", "unit": "Item", "rateA": 120.0, "rateB": 120.0, "rateC": 100.0},
       {"id": "1/004", "desc": "Erection of stores and workshops for the Contractor", "unit": "Item", "rateA": 120.0, "rateB": 0.0, "rateC": 100.0},
       {"id": "1/005", "desc": "Servicing of stores and workshops for the Contractor", "unit": "Day", "rateA": 100.0, "rateB": 0.0, "rateC": 10.0},
@@ -30,9 +30,9 @@ window.BOQ_RATES_FULL = {
       {"id": "1/020", "desc": "Extra over for item temporary1050x450mm signage in frames with extended legs", "unit": "no", "rateA": 2.42, "rateB": 0.0, "rateC": 50.0},
       {"id": "1/021", "desc": "Supply of non-standard temporary signage 1200x1200mm as directed as per Drawing 100/3 (Z series)", "unit": "no", "rateA": 60.5, "rateB": 0.0, "rateC": 50.0},
       {"id": "1/022", "desc": "Extra over for item temporary1200x1200mm signage in frames with extended legs", "unit": "No", "rateA": 2.42, "rateB": 0.0, "rateC": 50.0},
-      {"id": "1/023", "desc": "Erection of temporary diversion route as per shown 3.3 on P.37 Chapter 8 Traffic Signs Manual part 1.", "unit": "Item", "rateA": 393.25, "rateB": 1573.0, "rateC": 495.0},
-      {"id": "1/024", "desc": "Maintenance of temporary diversion route as shown figure 3.3 on P.37 Chapter 8 Traffic Signs Manual part 1.", "unit": "Day", "rateA": 121.0, "rateB": 1210.0, "rateC": 500.0},
-      {"id": "1/025", "desc": "Removal of temporary diversion route as per shown 3.3 on P.37 Chapter 8 Traffic Signs Manual part 1.", "unit": "item", "rateA": 393.25, "rateB": 1573.0, "rateC": 495.0},
+      {"id": "1/023", "desc": "Erection of temporary diversion route as per shown 3.3 on P.37 Chapter 8 Traffic Signs Manual part 1.", "unit": "Item", "rateA": 393.25, "rateB": 393.25, "rateC": 495.0},
+      {"id": "1/024", "desc": "Maintenance of temporary diversion route as shown figure 3.3 on P.37 Chapter 8 Traffic Signs Manual part 1.", "unit": "Day", "rateA": 121.0, "rateB": 121.0, "rateC": 500.0},
+      {"id": "1/025", "desc": "Removal of temporary diversion route as per shown 3.3 on P.37 Chapter 8 Traffic Signs Manual part 1.", "unit": "item", "rateA": 393.25, "rateB": 393.25, "rateC": 495.0},
       {"id": "1/026", "desc": "Erection of temporary diversion route as per shown 3.3 on P.37 Chapter 8 Traffic Signs Manual part 1.", "unit": "Item", "rateA": 477.95, "rateB": 0.0, "rateC": 495.0},
       {"id": "1/027", "desc": "Maintenance of temporary diversion route as shown figure 3.3 on P.37 Chapter 8 Traffic Signs Manual part 1.", "unit": "Day", "rateA": 121.0, "rateB": 0.0, "rateC": 495.0},
       {"id": "1/028", "desc": "Removal of temporary diversion route as per shown 3.3 on P.37 Chapter 8 Traffic Signs Manual part 1.", "unit": "item", "rateA": 477.95, "rateB": 0.0, "rateC": 495.0},
@@ -1854,11 +1854,16 @@ window.BOQ_LEGACY_TAG_MAP = {
   "sd_10mm_int": "7/084",
   "sd_10mm_prem": "7/085",
   "sd_6mm_int": "7/086",
-  "kerb_k1_laid": "11/001",
-  "kerb_k1_raised": "11/002",
-  "kerb_k2_laid": "11/003",
-  "kerb_k2_raised": "11/004",
-  "kerb_k3_laid": "11/005",
+  "kerb_k1_laid":   "11/001",
+  // Fix #2: kerb_k1_raised / kerb_k2_raised map to the "Remove from set aside
+  // and relay" items (11/135, 11/137) which are the correct Series 11 items for
+  // resetting existing kerbs to a new level. 11/002 and 11/004 describe kerbs
+  // "laid to curves not exceeding 12 metres radius" — a geometry variant, not
+  // a raise/relay operation. 11/135 = K1 relay straight/>12m; 11/137 = K2 relay.
+  "kerb_k1_raised": "11/135",
+  "kerb_k2_laid":   "11/003",
+  "kerb_k2_raised": "11/137",
+  "kerb_k3_laid":   "11/005",
   "fw_ac6_20": "11/194",
   "fw_ac6_30": "11/195",
   "fw_ac10_30": "11/196",
@@ -1883,10 +1888,9 @@ window.BOQ_LEGACY_TAG_MAP = {
   "iw_gas_cway": "2700/83",
   "iw_gas_fw": "2700/73",
   "iw_gully_cway": "5/195",
-  "surf_micro": "11/201",
-  "sd_10mm_int": "7/084",
-  "sd_10mm_prem": "7/085",
-  "sd_6mm_int": "7/086"
+  "surf_micro": "11/201"
+  // Fix #9: duplicate keys sd_10mm_int, sd_10mm_prem, sd_6mm_int removed;
+  // they were already defined at lines 1854-1856 above with identical values.
 };
 
 
@@ -1946,7 +1950,12 @@ window.BOQ_LEGACY_TAG_MAP = {
       : (series && series.bandThresholds && series.bandThresholds.length
           ? series.bandThresholds : null);
     if (!thresholds || thresholds.length < 2) {
-      return +item.rateB || +item.rateA || 0;
+      // Fix #5: no-thresholds fallback uses rateA (the Tayside Contracts JMCA
+      // column A rate). Series 100 has empty bandThresholds and the reference
+      // workbooks confirm rateA is the billed rate in all three source documents.
+      // rateB values in this series were mistakenly populated from the "total"
+      // column of a specific project quantity. rateA is authoritative.
+      return +item.rateA || +item.rateB || 0;
     }
     const m = +measurement || 0;
     if (m < thresholds[0]) return +item.rateA || 0;
@@ -1963,7 +1972,7 @@ window.BOQ_LEGACY_TAG_MAP = {
       ? item.bandThresholds
       : (series && series.bandThresholds && series.bandThresholds.length
           ? series.bandThresholds : null);
-    if (!thresholds || thresholds.length < 2) return 'B';
+    if (!thresholds || thresholds.length < 2) return 'A'; // Fix #6: mirrors rateA fallback in boqPickRateForSeries
     const m = +measurement || 0;
     if (m < thresholds[0]) return 'A';
     if (m < thresholds[1]) return 'B';

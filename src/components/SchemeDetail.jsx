@@ -79,6 +79,16 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
   const [showSketch, setShowSketch] = React.useState(false);
   const isMobile = window.useIsMobile ? window.useIsMobile() : React.useMemo(()=>window.innerWidth<=768,[]);
   const [mobileExpanded, setMobileExpanded] = React.useState(false);
+
+  // Navigate back when the scheme is deleted remotely. This effect must be
+  // placed before any early return so hook order is always stable regardless
+  // of whether scheme is null or not.
+  React.useEffect(() => {
+    if (!scheme) onBack();
+  }, [scheme]);
+
+  if (!scheme) return null;
+
   const workbookFieldCount = window.WORKBOOK_SCHEMA.flatMap(s=>s.fields).filter(f=>f.type!=="subheader"&&f.type!=="zone-label").length;
   const tabs = [
     { k:"workbook", l:"Master Workbook", badge: String(workbookFieldCount) },
@@ -165,7 +175,13 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
         // BoQ silently prices off the zone path while the user sees a
         // 0 m² header. Fire whenever either side has a real value.
         const zoneTotal = zones.reduce((s, z) => s + (+z.area_m2 || 0), 0);
-        const masterArea = window.schemeArea(scheme);
+        // Compare carriageway zone total only against carriageway_area_m2, NOT
+        // the combined schemeArea (carriageway + footway). Using schemeArea here
+        // caused a permanent false "under" warning for any scheme with footway
+        // area, because the zone total (carriageway only) would always be less
+        // than carriageway + footway combined. TreatmentDesigner uses this same
+        // carriageway-only comparison (see TreatmentDesigner.jsx:167-169).
+        const masterArea = +scheme.carriageway_area_m2 || 0;
         const eitherNonZero = zoneTotal > 0.5 || masterArea > 0.5;
         // Reusable "snap Master to zone-total" action for the drift
         // warnings. The Designer's zones are usually the source of
@@ -179,7 +195,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
         if (eitherNonZero) {
           if (masterArea < 0.5 && zoneTotal > 0.5) {
             zoneFlags.push({
-              msg: `Master Workbook area is 0 m² but Designer zones sum to ${zoneTotal.toLocaleString()} m² — ` +
+              msg: `Master Workbook carriageway area is 0 m² but Designer zones sum to ${zoneTotal.toLocaleString()} m² — ` +
                    `set Carriageway Area in the Workbook so the figures match.`,
               action: syncAction(zoneTotal),
             });
@@ -190,7 +206,7 @@ const SchemeDetail = ({ schemeId, onBack, onGenerate, onPreview, onDuplicate }) 
             const diff = zoneTotal - masterArea;
             if (Math.abs(diff) > 0.5) {
               zoneFlags.push({
-                msg: `Treatment zones sum to ${zoneTotal.toLocaleString()} m² but scheme area is ${masterArea.toLocaleString()} m² ` +
+                msg: `Treatment zones sum to ${zoneTotal.toLocaleString()} m² but carriageway area is ${masterArea.toLocaleString()} m² ` +
                      `(${diff > 0 ? '+' : ''}${diff.toLocaleString()} m² ${diff > 0 ? 'over' : 'under'})`,
                 action: syncAction(zoneTotal),
               });
@@ -268,6 +284,7 @@ const WardTab = ({ schemeId }) => {
   const setWardNum = (num) => { const w=window.WARDS.find(x=>x.num===num); updateScheme(schemeId,{ward_num:num,ward_selected:w.name}); };
   const ward = window.WARDS.find(w=>w.num===scheme.ward_num);
   const copyList = React.useMemo(() => {
+    if (!ward) return [];
     const entries=[],seen=new Set();
     const convener=window.WARDS.flatMap(w=>w.councillors).find(c=>c.role==="Convener of City Development");
     const deputeConv=window.WARDS.flatMap(w=>w.councillors).find(c=>c.role==="Depute Convener of City Development");
@@ -275,10 +292,10 @@ const WardTab = ({ schemeId }) => {
     if(convener){entries.push({role:"Convener of City Development",name:"Councillor "+convener.name});seen.add(convener.name);}
     if(deputeConv){entries.push({role:"Depute Convener of City Development",name:"Councillor "+deputeConv.name});seen.add(deputeConv.name);}
     if(lordProvost){entries.push({role:"Lord Provost",name:lordProvost.name});seen.add(lordProvost.name);}
-    ward.councillors.forEach(c=>{if(seen.has(c.name))return;entries.push({ward:true,role:c.title,name:c.name});seen.add(c.name);});
+    (ward?.councillors||[]).forEach(c=>{if(seen.has(c.name))return;entries.push({ward:true,role:c.title,name:c.name});seen.add(c.name);});
     ["Executive Director of City Development","Head of Public Relations","RMP Manager","Depute RMP Manager","Team Leader Customer Services"].forEach(r=>entries.push({role:r,nameless:true}));
     return entries;
-  },[scheme.ward_num]);
+  },[scheme.ward_num, ward]);
   return (
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24}}>
       <div className="form-section">
@@ -287,7 +304,10 @@ const WardTab = ({ schemeId }) => {
       </div>
       <div className="form-section">
         <div className="section-head"><div className="section-title"><span className="section-num">CC</span> Letter copy list</div><span className="mono" style={{fontSize:11,color:"var(--green)"}}>● live</span></div>
-        <div className="copy-list">{copyList.map((e,i)=>(<div key={i} className={"entry "+(e.ward?"ward-entry":"")}>{e.nameless?<span className="role">{e.role}</span>:e.ward?<span className="name">{e.role==="Bailie"?"Bailie":"Councillor"} {e.name}</span>:e.role==="Lord Provost"?<span><span className="role">Lord Provost</span> <span className="name">{e.name}</span></span>:<span><span className="role">{e.role}</span> – <span className="name">{e.name}</span></span>}</div>))}</div>
+        {!ward
+          ? <div style={{fontSize:12,color:"var(--ink-3)",fontStyle:"italic",padding:"8px 0"}}>Select a ward to see the copy list.</div>
+          : <div className="copy-list">{copyList.map((e,i)=>(<div key={i} className={"entry "+(e.ward?"ward-entry":"")}>{e.nameless?<span className="role">{e.role}</span>:e.ward?<span className="name">{e.role==="Bailie"?"Bailie":"Councillor"} {e.name}</span>:e.role==="Lord Provost"?<span><span className="role">Lord Provost</span> <span className="name">{e.name}</span></span>:<span><span className="role">{e.role}</span> – <span className="name">{e.name}</span></span>}</div>))}</div>
+        }
       </div>
     </div>
   );
@@ -699,15 +719,29 @@ const LocationTab = ({ schemeId }) => {
 
 const UtilitiesTab = ({ scheme }) => {
   const { updateScheme } = React.useContext(window.SchemeContext);
-  const today = new Date().toISOString().slice(0,10);
+  // Build "today" from local date components to avoid the UTC-vs-local offset
+  // that makes toISOString() return the wrong date after ~23:00 UK DST.
+  const today = (() => {
+    const d = new Date();
+    const yy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+  })();
   const addMonths = (dateStr, n) => {
-    const d = new Date(dateStr);
+    // Parse as local midnight (split manually) rather than UTC midnight so
+    // month arithmetic and day-clamping stay in local time throughout.
+    const [y, mo, dy] = dateStr.split('-').map(Number);
+    const d = new Date(y, mo - 1, dy);
     const day = d.getDate();
     d.setDate(1);
     d.setMonth(d.getMonth() + n);
     // Clamp to the last day of the target month so e.g. Aug 31 + 3 = Nov 30, not Dec 1.
     d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
-    return d.toISOString().slice(0, 10);
+    const ry = d.getFullYear();
+    const rm = String(d.getMonth() + 1).padStart(2, '0');
+    const rd = String(d.getDate()).padStart(2, '0');
+    return `${ry}-${rm}-${rd}`;
   };
   const applied = scheme.utility_applied || {};
   const rows = window.UTILITIES.map(u => ({ ...u, applied: applied[u.name] || "" }));
@@ -717,7 +751,11 @@ const UtilitiesTab = ({ scheme }) => {
   const getStatus = (applied) => {
     if (!applied) return { label:"todo", cls:"archived" };
     const expiry = addMonths(applied, 3);
-    const daysLeft = Math.ceil((new Date(expiry)-new Date()) / 86400000);
+    // Parse expiry as local midnight (not UTC) for consistent day-diff in UK DST.
+    const [ey, em, ed] = expiry.split('-').map(Number);
+    const expiryMs = new Date(ey, em - 1, ed).getTime();
+    const nowMs = new Date(); nowMs.setHours(0,0,0,0);
+    const daysLeft = Math.ceil((expiryMs - nowMs.getTime()) / 86400000);
     if (daysLeft < 0)  return { label:"expired", cls:"design", expiry };
     if (daysLeft < 14) return { label:`exp. soon`, cls:"review", expiry };
     return { label:"valid", cls:"ready", expiry };
