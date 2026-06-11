@@ -1,0 +1,285 @@
+{
+  "scheme_type": "Carriageway",
+  "road_name": "Clepington Road",
+  "project_number": "R6016",
+  "financial_year": "2026/27",
+  "carriageway_area_m2": 2370,
+  "footway_area_m2": 0,
+  "scheme_extent": "Balgray Pl to Hindmarsh Ave",
+  "grid_ref": "340227 732142",
+  "date_prepared": "24/02/2026",
+  "date_approved": "28/02/2026",
+  "date_start": "12/05/2026",
+  "date_finish": "05/06/2026",
+  "working_pattern": "Mon–Fri",
+  "shift_pattern": "Day",
+  "assigned_designer_id": "jake",
+  "prepared_by": "Jake McAllister",
+  "designer_email": "jake.mcallister@dundeecity.gov.uk",
+  "designer_phone": "01382 834028",
+  "reviewed_by": "Steve Lindsay",
+  "approved_by": "Steve Lindsay",
+  "client_officer": "James Mullen",
+  "client_email": "James.Mullen@dundeecity.gov.uk",
+  "client_phone": "01382 307921",
+  "contractor": "Tayside Contracts",
+  "contractor_ref": "TC/DCC/R5008",
+  "contractor_pe": "Garry Robertson",
+  "contractor_ch": "K McLeod",
+  "contractor_ooh": "07767 326827",
+  "supervisor_name": "",
+  "supervisor_phone": "",
+  "supervisor_email": "",
+  "budget": 135000,
+  "tender_total": 129436.41,
+  "cost_per_m2": 54.61,
+  "budget_code": "C2601",
+  "cpp_ref": "CPP-R5008-2026",
+  "drawing_ref": "R6016-DCC-ZZ-DR-C-001",
+  "sketch_pdf": "",
+  "network_length": 320,
+  "ward_selected": "Coldside",
+  "ward_num": 3,
+  "postcode": "DD3 7EE",
+  "postcode_link": "Click to open DCC lookup",
+  "road_category": "B",
+  "pci_before": "35",
+  "pci_after": "75",
+  "pci_justification": "Structural failure and surface deterioration beyond maintenance threshold. PCI survey confirms category D deficiency. Resurfacing required to restore structural integrity and ride quality.",
+  "pci_description": "Carriageway Resurfacing as per R6016-DCC-ZZ-DR-C-001 & 002 Resurfacing Plan & Cross-section drawings.\n\n40mm Carriageway Resurfacing — 805m²: plane off existing surface to a depth of 40mm across full extents. DCC Engineer present during operations to identify localised areas requiring deeper excavation up to 100mm. Post-milling: regulate using HRA 30/14F surface regulating course (40/60 pen) at 0.43 m³/t; lay 40mm HRA 30/14F (40/60 pen) Surface Course. Pre-coated chippings to be evenly distributed and fully embedded. Material temperatures to be recorded on delivery and prior to laying. Form smooth transition ramps at tie-in points. Maintain traffic flow between 15:30 and 07:30.\n\n100mm Carriageway Resurfacing — 1565m²: plane off to initial 40mm with further excavation to 100mm where instructed. Build-up: HRA 30/14F regulating layer where required; 60mm HRA 50/20 (40/60 pen) binder; 40mm HRA 30/14F (40/60 pen) surface course. Full compaction and bond between layers; pre-coated chippings applied uniformly. Temporary road surface available for public use between 15:30 and 07:00.",
+  "pci_ironwork_summary": "13 no. Scottish Water manhole covers and frames to be reset. 1 no. gas cover to be replaced. 5 no. existing gully gratings to be adjusted and tied into new surface levels. Ref: R6016-DCC-ZZ-DR-C-003.",
+  "pci_lining_summary": "All road markings to be installed as per the specifications in the Master Lining Plan (R6016-DCC-ZZ-DR-C-004).",
+  "pci_occupiers": "All residents and businesses along Clepington Road contacted in advance of commencement. Attention given to North End Motors — aware that the road will be completely shut with no access; opportunity to leave access open will be explored where practicable.",
+  "client_name_address": "Fiona Welch\nDundee City Council, Executive Director of City Development",
+  "department": "Sustainable Transport and Roads",
+  "designer_head_of": "Head of Sustainable Transport and Roads",
+  "cdm_head_of": "Head of Design and Property",
+  "client_ref_work_order": "",
+  "contractor_address": "Contracts House, 1 Soutar Street, Dundee DD3 8SS",
+  "contractor_email": "",
+  "pci_site_security": "Heras fencing to be erected around the perimeter of the site to segregate members of the public from the working area and prevent unauthorised access. All excavations to be covered or made safe at all times.",
+  "welfare_toilet": "Yes",
+  "welfare_washing": "Yes",
+  "welfare_rest": "Yes",
+  "welfare_water": "Yes",
+  "welfare_changing": "No",
+  "haz_working_height": "N/A",
+  "haz_slips": "No unusual slip or trip hazards. Contractor to ensure site is tidy at all times.",
+  "haz_excavations": "Utilities are present — plans in site file, however accuracy of plans is unreliable. Designs and construction should eliminate potential utility impact by not exceeding 300mm depth where practicable. Trial holes and CAT scanning to be undertaken. All excavations to be made safe when left unattended.",
+  "haz_structures": "N/A",
+  "haz_health": "The Construction Phase Plan to include risk assessments, method statements and procedures to protect all personnel working or attending site.",
+  "haz_asbestos": "N/A",
+  "haz_public": "Works conducted under road closure between the Tak A Wa (Chinese takeaway) and 187 Clepington Road, protected in accordance with the Safety at Street Works and Road Works Code of Practice. Works delivered in two phases — once the roundabout is resurfaced it reopens for 24-hour use. Pedestrian access for businesses and residents maintained at all times. Emergency services vehicular access maintained throughout.",
+  "haz_environment": "All waste generated through cold milling to be removed from site.",
+  "haz_other": "Contractor to adhere with latest government guidance relating to site safety.",
+  "haz_additional": "Businesses in the area: contact has been made by the client with each business; each has been informed of no possible access between 07:30 and 15:30 throughout the duration of the works. Evidence of heave caused by tree roots — advice to be sought prior to works commencing.",
+  "cdm_principal_designer": "Jake McAllister",
+  "letter_subject_override": "",
+  "letter_body_override": "",
+  "utility_applied": {
+    "LSBUD (multi-utility)": "2026-02-24",
+    "SGN (Gas)": "2026-02-24",
+    "Scottish Water": "2026-02-24",
+    "SSEN (Electricity)": "2026-02-24",
+    "Cityfibre": "2026-02-24",
+    "Virgin Media": "2026-02-24",
+    "Openreach (BT)": "2026-02-24"
+  },
+  "boq": {
+    "custom_lines": [],
+    "recent_items": [],
+    "settings": {
+      "useBERR": false,
+      "berrIndex": 1,
+      "berrDate": "May 2022",
+      "showPWP": true,
+      "areaBandOverride": null,
+      "percentAdditions": {
+        "ohp": {
+          "enabled": true,
+          "pct": 0.125,
+          "label": "Overheads & Profit"
+        },
+        "contingency": {
+          "enabled": true,
+          "pct": 0.05,
+          "label": "Contingency"
+        },
+        "ois": {
+          "enabled": false,
+          "pct": 0.025,
+          "label": "Off-site Items"
+        },
+        "night_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Night-shift uplift (Series 6400/003)"
+        },
+        "saturday_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Saturday uplift (Series 6400/004)"
+        },
+        "sunday_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Sunday uplift (Series 6400/005)"
+        },
+        "dundee_area": {
+          "enabled": false,
+          "pct": 0.03,
+          "label": "Dundee City Council area (Series 6400/011)"
+        }
+      }
+    }
+  },
+  "design": {
+    "zones": [],
+    "ironworks": {
+      "cway": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0,
+        "gullies": 0
+      },
+      "fway": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0
+      },
+      "raise": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0,
+        "gullies": 0
+      }
+    },
+    "kerbs": [],
+    "lining": [],
+    "footway": {
+      "surface_tag": "",
+      "include_subbase": false
+    },
+    "tm": {
+      "type": "",
+      "hours": "",
+      "phases": 1,
+      "diversion_by": "",
+      "compound": "",
+      "duration_days": null
+    },
+    "touched": false
+  },
+  "status": "design",
+  "packProgress": 9,
+  "packTotal": 14,
+  "lastUpdated": "2h ago",
+  "flags": [],
+  "docs_generated": {},
+  "id": "R5008",
+  "treatment_type": "HRA 30/14F surf 40/60",
+  "surface_depth_mm": 40,
+  "binder_depth_mm": 50,
+  "subbase_depth_mm": 10,
+  "total_depth_mm": 100,
+  "traffic_category": "Medium-High",
+  "matrix": {
+    "traffic": "Heavy",
+    "bus_stops": "1–2",
+    "junctions": "Minor",
+    "turning": "Occasional",
+    "parking": "No",
+    "condition": "Poor",
+    "cracking": "Block",
+    "rutting": "5–15mm"
+  },
+  "treatments": [
+    {
+      "id": 1,
+      "zone": "40mm inlay — main carriageway",
+      "area_m2": 805,
+      "depth_mm": 40,
+      "treatment_type": "HRA 30/14F surf 40/60"
+    },
+    {
+      "id": 2,
+      "zone": "100mm deep inlay — junction areas",
+      "area_m2": 1565,
+      "depth_mm": 100,
+      "treatment_type": "HRA 30/14F surf 40/60"
+    }
+  ],
+  "tm_type": "Partial Road Closure",
+  "tm_hours": "08:00-15:30",
+  "tm_phases": 4,
+  "tm_compound": "Balgray Pl hammerhead",
+  "iron_mh": 13,
+  "iron_water": 8,
+  "iron_gas": 1,
+  "iron_bt": 0,
+  "iron_gullies": 5,
+  "kerb_length": 12,
+  "lining_req": "Yes",
+  "recipients": [
+    {
+      "type": "resident",
+      "name": "The Current Occupier",
+      "address1": "176 Clepington Road",
+      "address2": "",
+      "postcode": "DD3 7ED",
+      "town": "DUNDEE"
+    },
+    {
+      "type": "resident",
+      "name": "The Current Occupier",
+      "address1": "178 Clepington Road",
+      "address2": "",
+      "postcode": "DD3 7ED",
+      "town": "DUNDEE"
+    },
+    {
+      "type": "resident",
+      "name": "The Current Occupier",
+      "address1": "180 Clepington Road",
+      "address2": "",
+      "postcode": "DD3 7ED",
+      "town": "DUNDEE"
+    },
+    {
+      "type": "business",
+      "name": "North End Motors",
+      "address1": "Unit 3, Balgray Pl",
+      "address2": "",
+      "postcode": "DD3 7EE",
+      "town": "DUNDEE"
+    },
+    {
+      "type": "business",
+      "name": "Tak A Wa",
+      "address1": "187 Clepington Road",
+      "address2": "",
+      "postcode": "DD3 7EE",
+      "town": "DUNDEE"
+    },
+    {
+      "type": "resident",
+      "name": "The Current Occupier",
+      "address1": "185 Clepington Road",
+      "address2": "",
+      "postcode": "DD3 7EE",
+      "town": "DUNDEE"
+    },
+    {
+      "type": "resident",
+      "name": "The Current Occupier",
+      "address1": "183 Clepington Road",
+      "address2": "",
+      "postcode": "DD3 7EE",
+      "town": "DUNDEE"
+    }
+  ],
+  "updated_at": "2026-06-11T00:00:00.000Z"
+}

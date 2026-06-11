@@ -20,14 +20,17 @@
 
 const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-// Tracks how many ModalShell instances are currently mounted so the topmost
-// one can claim exclusive ownership of the Escape key.
-let _modalDepth = 0;
+// Module-level stack of open modal instance ids.
+// The id at the top of the stack is the "topmost" modal that owns Escape.
+// Using a stack (rather than a counter) means non-LIFO closes (a lower modal
+// closes first) don't corrupt the depth count or leave body scroll locked.
+let _modalStack = [];
+let _nextModalId = 0;
 
 const useModal = ({ onClose, initialFocus } = {}) => {
   const dialogRef     = React.useRef(null);
   const triggerRef    = React.useRef(null);
-  const depthRef      = React.useRef(0);
+  const instanceId    = React.useRef(++_nextModalId);
   // Stable refs so the effect never needs to re-run when these change.
   const onCloseRef      = React.useRef(onClose);
   const initialFocusRef = React.useRef(initialFocus);
@@ -35,7 +38,8 @@ const useModal = ({ onClose, initialFocus } = {}) => {
   React.useEffect(() => { initialFocusRef.current = initialFocus; });
 
   React.useEffect(() => {
-    depthRef.current = ++_modalDepth;
+    const id = instanceId.current;
+    _modalStack.push(id);
     triggerRef.current = document.activeElement;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -53,9 +57,8 @@ const useModal = ({ onClose, initialFocus } = {}) => {
 
     const onKey = (e) => {
       if (e.key === 'Escape') {
-        // Only the topmost modal handles Escape so stacked modals don't all
-        // close simultaneously when a single Escape is pressed.
-        if (depthRef.current !== _modalDepth) return;
+        // Only the topmost modal (last entry in the stack) handles Escape.
+        if (_modalStack[_modalStack.length - 1] !== id) return;
         e.stopPropagation();
         onCloseRef.current && onCloseRef.current();
         return;
@@ -73,15 +76,20 @@ const useModal = ({ onClose, initialFocus } = {}) => {
 
     return () => {
       clearTimeout(t);
-      _modalDepth = Math.max(0, _modalDepth - 1);
+      // Remove this id from wherever it sits in the stack (not necessarily
+      // the top — non-LIFO closes are safe with this approach).
+      _modalStack = _modalStack.filter(x => x !== id);
       document.removeEventListener('keydown', onKey, true);
-      document.body.style.overflow = prevOverflow;
+      // Only restore body scroll when no other modals remain open.
+      if (_modalStack.length === 0) {
+        document.body.style.overflow = prevOverflow;
+      }
       const trigger = triggerRef.current;
       if (trigger && typeof trigger.focus === 'function') {
         try { trigger.focus(); } catch (_) {}
       }
     };
-  }, []); // Stable: mutable values accessed via refs; depth managed by counter
+  }, []); // Stable: mutable values accessed via refs; depth managed by stack
 
   return { dialogRef };
 };

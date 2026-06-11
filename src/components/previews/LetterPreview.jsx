@@ -104,11 +104,11 @@ const LETTER_BINDINGS = [
 
 let _letterTemplateBuf = null;
 const loadLetterBuffer = async () => {
-  if (_letterTemplateBuf) return _letterTemplateBuf;
+  if (_letterTemplateBuf) return _letterTemplateBuf.slice(0);
   const res = await fetch("templates/Residential_Letter_Template (1).docx");
   if (!res.ok) throw new Error('Letter template not found');
   _letterTemplateBuf = await res.arrayBuffer();
-  return _letterTemplateBuf;
+  return _letterTemplateBuf.slice(0);
 };
 
 const xmlEscape = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -174,6 +174,7 @@ async function injectLetterXml(buffer, scheme, recipient) {
   };
 
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
+  const allXml = [];
   for (const xmlPath of xmlPaths) {
     const file = zip.file(xmlPath);
     if (!file) continue;
@@ -183,6 +184,20 @@ async function injectLetterXml(buffer, scheme, recipient) {
     }
     xml = injectYourRefValue(xml, letterRef);
     zip.file(xmlPath, xml);
+    allXml.push(xml);
+  }
+
+  // Warn if any <<...>> or «...» placeholders survived replacement — likely a
+  // run-split tag from a Word re-save. Does not block the save.
+  const combined = allXml.join('');
+  const surviving = [
+    ...[...combined.matchAll(/&lt;&lt;([A-Za-z0-9_]+)&gt;&gt;/g)].map(m => `<<${m[1]}>>`),
+    ...[...combined.matchAll(/«([A-Za-z0-9_]+)»/g)].map(m => `«${m[1]}»`),
+  ];
+  if (surviving.length > 0) {
+    const unique = [...new Set(surviving)];
+    window.Toast?.show({ kind: 'error', msg: `Letter: ${unique.length} placeholder${unique.length>1?'s':''} not replaced: ${unique.join(', ')}`, duration: 7000 });
+    console.warn('Letter injectLetterXml — unreplaced placeholders:', unique);
   }
 
   return zip.generateAsync({ type: 'arraybuffer' });
@@ -320,7 +335,8 @@ const applyLetter = (root, scheme, recipient) => {
         if (mG&&recipientBindings.hasOwnProperty(name)) { val=recipientBindings[name]; filled=val!==" "&&val!==undefined; }
         else { const b=byTag[mA?p:`<<${name}>>`]; val=b?b.derive(scheme):""; filled=val!==undefined&&val!=""; }
         const span=document.createElement("span"); span.className="pci-bound"+(filled?"":" pci-missing"); span.dataset.key=name;
-        String(filled?val:p).split("\n").forEach((line,i)=>{ if(i>0){span.appendChild(document.createElement("br"));span.appendChild(document.createElement("br"));} span.appendChild(document.createTextNode(line)); });
+        // One <br> per \n — two caused double spacing in the PDF render.
+        String(filled?val:p).split("\n").forEach((line,i)=>{ if(i>0){span.appendChild(document.createElement("br"));} span.appendChild(document.createTextNode(line)); });
         frag.appendChild(span);
       } else frag.appendChild(document.createTextNode(p));
     });
@@ -350,27 +366,37 @@ const applyLetter = (root, scheme, recipient) => {
 
 const LetterDoc = ({ scheme, recipient, onPageCount }) => {
   const ref = React.useRef(null);
+  const genRef = React.useRef(0);
   const [status, setStatus] = React.useState("loading");
   React.useEffect(() => {
-    let cancelled=false;
+    const gen = ++genRef.current;
     if (onPageCount) onPageCount(null);
     (async()=>{
       try {
         const buf=await loadLetterBuffer();
-        if(cancelled||!ref.current)return;
+        if(gen!==genRef.current||!ref.current)return;
+        // Render into a detached node so a stale run cannot write into the
+        // live container after a newer render has already committed.
+        const tmp=document.createElement("div");
+        await window.docx.renderAsync(buf,tmp,null,{className:"docx",inWrapper:true,ignoreWidth:false,ignoreHeight:false,ignoreFonts:false,breakPages:true,experimental:false,trimXmlDeclaration:true,useBase64URL:true});
+        if(gen!==genRef.current||!ref.current)return;
+        applyLetter(tmp,scheme,recipient);
         ref.current.innerHTML="";
-        await window.docx.renderAsync(buf,ref.current,null,{className:"docx",inWrapper:true,ignoreWidth:false,ignoreHeight:false,ignoreFonts:false,breakPages:true,experimental:false,trimXmlDeclaration:true,useBase64URL:true});
-        if(cancelled)return;
-        applyLetter(ref.current,scheme,recipient);
+        while(tmp.firstChild)ref.current.appendChild(tmp.firstChild);
         if (onPageCount) {
           const pages = ref.current.querySelectorAll('.docx-page-wrapper, .docx-page, section[class*="page"]');
           onPageCount(Math.max(1, pages.length));
         }
         setStatus("ready");
-      } catch(e){ console.error(e); setStatus("error:"+e.message); }
+      } catch(e){ if(gen===genRef.current){console.error(e); setStatus("error:"+e.message);} }
     })();
-    return ()=>{cancelled=true;};
-  }, [recipient?.address1, recipient?.name, scheme.letter_subject_override, scheme.letter_body_override]);
+  }, [JSON.stringify({
+    a1: recipient?.address1, a2: recipient?.name, pc: recipient?.postcode, town: recipient?.town,
+    subj: scheme.letter_subject_override, body: scheme.letter_body_override,
+    road: scheme.road_name, start: scheme.date_start, finish: scheme.date_finish,
+    ward: scheme.ward_num, proj: scheme.project_number, prep: scheme.prepared_by,
+    ext: scheme.scheme_extent,
+  })]);
   return (
     <div className="pci-doc-host">
       {status==="loading"&&<div className="pci-loading">Rendering letter…</div>}
@@ -381,58 +407,71 @@ const LetterDoc = ({ scheme, recipient, onPageCount }) => {
 };
 
 // ─── CAG CSV Parser ───────────────────────────────────────────────────────────
+// Single character-by-character pass over the entire text so quoted fields
+// can contain embedded newlines and "" escape sequences (RFC 4180 compliant).
+// Splitting on \n first (the original approach) breaks both of those cases.
 
 const parseCAGCsv = (text) => {
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
-  if (lines.length < 2) return [];
+  // Normalise line endings to \n — we handle them inside the parser itself.
+  const src = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  const headers = [];
-  let hField = '', hInQ = false;
-  for (let i = 0; i < lines[0].length; i++) {
-    const c = lines[0][i];
-    if (c === '"') { hInQ = !hInQ; }
-    else if (c === ',' && !hInQ) { headers.push(hField.trim()); hField = ''; }
-    else { hField += c; }
+  // ── Tokeniser ─────────────────────────────────────────────────────────────
+  const rows = [];
+  let row = [], field = '', inQ = false, i = 0;
+
+  while (i < src.length) {
+    const c = src[i];
+    if (inQ) {
+      if (c === '"') {
+        // "" inside a quoted field = a literal double-quote (RFC 4180 §2.7)
+        if (src[i + 1] === '"') { field += '"'; i += 2; }
+        else { inQ = false; i++; }
+      } else {
+        // Newlines inside a quoted field are kept as-is (part of the value)
+        field += c; i++;
+      }
+    } else {
+      if (c === '"') { inQ = true; i++; }
+      else if (c === ',') { row.push(field); field = ''; i++; }
+      else if (c === '\n') {
+        row.push(field); field = '';
+        rows.push(row); row = [];
+        i++;
+      } else { field += c; i++; }
+    }
   }
-  headers.push(hField.trim());
+  // Flush final field / row (file may not end with \n)
+  row.push(field);
+  if (row.some(f => f !== '')) rows.push(row);
 
+  if (rows.length < 2) return [];
+
+  // ── Column index lookup ───────────────────────────────────────────────────
+  const headers = rows[0].map(h => h.trim());
   const idx = name => headers.indexOf(name);
-  const iOrg  = idx('ORGANISATION');
-  const iA2   = idx('AddressLine2');
-  const iA3   = idx('AddressLine3');
-  const iA4   = idx('AddressLine4');
-  const iTown = idx('TOWN_NAME');
-  const iPost = idx('POSTCODE');
+  const iOrg   = idx('ORGANISATION');
+  const iA2    = idx('AddressLine2');
+  const iA3    = idx('AddressLine3');
+  const iA4    = idx('AddressLine4');
+  const iTown  = idx('TOWN_NAME');
+  const iPost  = idx('POSTCODE');
   const iClass = idx('CLASSIFICATION');
 
-  const parseRow = (line) => {
-    const fields = [];
-    let field = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') { inQ = !inQ; }
-      else if (c === ',' && !inQ) { fields.push(field); field = ''; }
-      else { field += c; }
-    }
-    fields.push(field);
-    return fields;
-  };
-
+  // ── Build address list ────────────────────────────────────────────────────
   const results = [];
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const f = parseRow(lines[i]);
+  for (let r = 1; r < rows.length; r++) {
+    const f = rows[r];
     const address1 = (f[iA4] || '').trim();
     if (!address1) continue;
     const org = (f[iOrg] || '').trim();
     const classification = (f[iClass] || '').trim();
     results.push({
-      type: classification === 'R' ? 'resident' : 'business',
-      name: org || 'The Current Occupier',
+      type:     classification === 'R' ? 'resident' : 'business',
+      name:     org || 'The Current Occupier',
       address1,
       address2: (f[iA3] || f[iA2] || '').trim(),
-      postcode: (f[iPost] || '').trim(),
-      town: (f[iTown] || 'DUNDEE').trim(),
+      postcode: (f[iPost]  || '').trim(),
+      town:     (f[iTown]  || 'DUNDEE').trim(),
     });
   }
   return results;
@@ -658,8 +697,9 @@ const CAGImportPanel = ({ scheme, onClose }) => {
 const LetterModal = ({ scheme: schemeProp, onClose }) => {
   const { getScheme, updateScheme } = React.useContext(window.SchemeContext);
   const scheme = getScheme(schemeProp.id);
-  if (!scheme) return null;
-  const recipients = scheme.recipients || [];
+  // All hooks must run unconditionally before any early return (rules of hooks).
+  // Keep the null guard BELOW all useState/useEffect calls.
+  const recipients = scheme ? (scheme.recipients || []) : [];
   const [selectedIdx, setSelectedIdx] = React.useState(0);
   const [showImport, setShowImport] = React.useState(false);
   const [merging, setMerging] = React.useState(false);
@@ -667,6 +707,12 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
   const [pageCount, setPageCount] = React.useState(null);
   // Mobile tab state — see RSRModal for explanation.
   const [activePane, setActivePane] = React.useState('form');
+
+  React.useEffect(() => {
+    if (selectedIdx >= recipients.length) setSelectedIdx(Math.max(0, recipients.length-1));
+  }, [recipients.length]);
+
+  if (!scheme) return null;
   const recipient = recipients[selectedIdx];
 
   const runMailMerge = async (mode) => {
@@ -686,10 +732,6 @@ const LetterModal = ({ scheme: schemeProp, onClose }) => {
   };
   const residents = recipients.filter(r=>r.type==="resident");
   const businesses = recipients.filter(r=>r.type==="business");
-
-  React.useEffect(() => {
-    if (selectedIdx >= recipients.length) setSelectedIdx(Math.max(0, recipients.length-1));
-  }, [recipients.length]);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

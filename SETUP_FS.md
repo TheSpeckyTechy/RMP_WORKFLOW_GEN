@@ -1,25 +1,26 @@
 # File System Access backend — local OneDrive setup
 
-This backend stores every scheme as a JSON file in a folder **you pick
-on your own work laptop**. Point it at your OneDrive folder and the
-OneDrive client automatically syncs everything to DCC's tenant — no
-Azure AD app registration, no IT involvement, no anon key in the
-published JS.
+This app stores every scheme as a JSON file in a folder **you pick on your
+own work laptop**. Point it at your OneDrive folder and the OneDrive client
+automatically syncs everything to DCC's tenant — no Azure AD app
+registration, no IT involvement, no third-party cloud service.
 
-## Constraints (be aware before flipping the switch)
+Scheme data is **not** shipped in the deployed app. The `seed-data/` directory
+in the repo holds one `{id}.json` file per scheme for the 2026/27 register.
+Copy those files into your data folder once on first setup (see step 3 below).
 
-- **Desktop only**. The File System Access API exists in Edge / Chrome
+## Constraints (be aware before first use)
+
+- **Desktop only.** The File System Access API is available in Edge / Chrome
   / Opera. **Not** Firefox, **not** Safari, **not** mobile browsers.
-  This is intentionally your fix for the work laptop, not a multi-
-  device solution.
-- **Per-device pick**. Each browser on each device asks once for the
-  folder. The OneDrive client carries data between devices, but each
-  browser still needs its own "Choose data folder" click.
-- **No cloud failover**. If the OneDrive client is paused or stopped,
-  saves go to the local file but don't reach the cloud until the
-  client catches up. Same as any other OneDrive document.
+- **Per-device pick.** Each browser on each device asks once for the folder.
+  The OneDrive client carries data between devices; each browser still needs
+  its own "Choose data folder" click.
+- **No cloud failover.** If the OneDrive client is paused or stopped, saves
+  go to the local file but don't reach the cloud until the client catches up —
+  same as any other OneDrive document.
 
-## Setup — three steps
+## Setup — four steps
 
 ### 1 · Make sure OneDrive is signed in and syncing
 
@@ -34,30 +35,33 @@ Wherever you like inside the synced OneDrive folder, e.g.
 C:\Users\jake.mcallister\OneDrive - dundeecity.gov.uk\Documents\RMP-Designs
 ```
 
-Empty folder is fine — the app will fill it.
+Empty folder is fine — you will add the seed files in the next step.
 
-### 3 · Flip the backend mode
+### 3 · Seed a new machine / fresh folder
 
-Edit `src/context/SchemeContext.jsx` near the top:
+Copy the contents of `seed-data/` from the repo into the folder you just
+created. Each file is named `{id}.json` and contains the scheme record for
+one scheme in the 2026/27 register.
 
-```diff
-- const BACKEND_MODE = 'supabase';
-+ const BACKEND_MODE = 'fs';
+If you already have a folder from another machine synced via OneDrive, the
+JSON files will already be there — skip this step.
+
+```
+# From the repo root (adjust paths as needed):
+cp seed-data/*.json "C:\Users\jake.mcallister\OneDrive - dundeecity.gov.uk\Documents\RMP-Designs\"
 ```
 
-Commit, push. GitHub Pages redeploys in 1–2 minutes.
+Or just drag-and-drop the files in Windows Explorer.
 
-## First use after deployment
+### 4 · Connect the folder in the app
 
 1. Open the deployed app in **Edge** (or Chrome).
 2. The sync chip in the top bar reads **📁 Choose data folder**.
-3. Click it → native folder picker → navigate to the folder from
-   step 2 → **Select**.
-4. Browser asks once: *"Let this site read and write files in this
-   folder?"* → **Allow**.
-5. The chip flips to **Saving… → Synced**. Every scheme edit from
-   this point writes `{id}.json` into your folder.
-6. The OneDrive client picks up the new files within seconds and
+3. Click it → native folder picker → navigate to the folder from step 2 → **Select**.
+4. Browser asks once: *"Let this site read and write files in this folder?"* → **Allow**.
+5. The chip flips to **Saving… → Synced**. Every scheme edit from this point
+   writes `{id}.json` into your folder.
+6. The OneDrive client picks up new and changed files within seconds and
    ferries them to the cloud.
 
 ## Verifying data residency
@@ -66,47 +70,31 @@ After making your first edit:
 
 1. Open File Explorer → navigate to the folder you picked.
 2. You should see one `.json` file per scheme.
-3. Right-click any file → look for the green-tick OneDrive overlay
-   icon. That means it's been synced to DCC's cloud.
-4. Open <https://office.com> → OneDrive → navigate to the same
-   path. Files visible there confirms cloud round-trip.
+3. Right-click any file → look for the green-tick OneDrive overlay icon.
+   That means it has been synced to DCC's cloud.
+4. Open <https://office.com> → OneDrive → navigate to the same path.
+   Files visible there confirms cloud round-trip.
 
-## What this backend gives you vs Supabase
+## What this backend gives you
 
-| | Supabase today | File System Access |
-|---|---|---|
-| Where data lives | AWS US/EU Postgres | Your work laptop + DCC OneDrive tenant |
-| Anon key in JS | Yes — anyone with the URL can read | None — file-system permissions |
-| IT involvement | None (already deployed) | None |
-| Audit trail | Supabase logs, outside DCC IG | M365 Unified Audit Log + version history |
-| Multi-device | Real-time across devices | Each device picks the folder once; OneDrive syncs between |
-| Mobile | Works | Doesn't work — desktop browsers only |
-| Recovery from accidental delete | Manual / Supabase backups | 93-day OneDrive recycle bin + version history per file |
+| | File System Access (this app) |
+|---|---|
+| Where data lives | Your work laptop + DCC OneDrive tenant |
+| Credentials in JS | None — file-system permissions only |
+| IT involvement | None |
+| Audit trail | M365 Unified Audit Log + version history per file |
+| Multi-device | Each device picks the folder once; OneDrive syncs between |
+| Mobile | Doesn't work — desktop browsers only |
+| Recovery from accidental delete | 93-day OneDrive recycle bin + version history per file |
 
-## What happens to existing data when you flip the switch
+## Re-generating seed-data/
 
-Nothing automatic. You have two paths:
+If the scheme register changes and you need a fresh set of seed files, run:
 
-**Path A — Start fresh.** Just flip the constant. The seed schemes
-load from `window.SCHEMES` as always; your edits accumulate in the
-new folder. Supabase data is untouched (and ignored).
-
-**Path B — Carry your edits over.** Before flipping, open the
-deployed app on Supabase mode, open DevTools, run:
-
-```js
-const ctx = React.useContext(window.SchemeContext);   // or grab via window.__schemeStore if exposed
-JSON.stringify(ctx.schemes, null, 2);
+```sh
+node scripts/export_seed_json.js
 ```
 
-Copy the output, save each scheme as `{id}.json` into your folder
-manually. Then flip the constant and the file backend picks them up.
-
-(In practice Path A is fine — your seed-derived data is in
-localStorage too, so the first FS render still shows everything;
-the next edit creates the matching JSON file.)
-
-## Rollback
-
-Flip `BACKEND_MODE` back to `'supabase'`. Both backends are still
-present in the source; the switch is one line.
+This reads the scheme definitions from `src/data/store.jsx` and writes one
+`{id}.json` per scheme into `seed-data/`. Commit the result and distribute to
+any machine that needs a fresh folder.

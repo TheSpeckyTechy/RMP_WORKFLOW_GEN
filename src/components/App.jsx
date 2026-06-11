@@ -44,7 +44,7 @@ class ErrorBoundary extends React.Component {
           <div style={{fontSize:32}}>⚠</div>
           <div style={{fontWeight:700,fontSize:18}}>Something went wrong</div>
           <div style={{fontSize:13,color:'var(--ink-2,#666)',maxWidth:480,lineHeight:1.6}}>
-            An unexpected error occurred. Your data is safe — it is stored in localStorage and Supabase.
+            An unexpected error occurred. Your data is safe — it is stored in localStorage and your OneDrive data folder.
           </div>
           <div style={{fontFamily:'monospace',fontSize:11,color:'var(--red)',background:'var(--red-wash)',padding:'8px 14px',borderRadius:6,maxWidth:560,wordBreak:'break-word'}}>
             {this.state.error?.message}
@@ -401,7 +401,7 @@ const GenerateModal = ({ scheme, onClose }) => {
 
 const SyncDot = ({ status }) => {
   const cfg = {
-    loading: { color: 'var(--amber)',       label: 'Connecting to Supabase…' },
+    loading: { color: 'var(--amber)',       label: 'Connecting to data folder…' },
     syncing: { color: 'var(--amber)',       label: 'Syncing…' },
     synced:  { color: 'var(--green)',       label: 'Synced' },
     error:   { color: 'var(--red,#c0392b)', label: 'Sync error' },
@@ -645,9 +645,9 @@ const SettingsView = ({ tweaks, setTweaks, darkMode, setDarkMode }) => {
               <div style={{display:"flex",alignItems:"center",gap:10}}>
                 <SyncDot status={syncStatus} />
                 <div>
-                  <div style={{fontSize:13,fontWeight:500}}>Supabase · Workload</div>
+                  <div style={{fontSize:13,fontWeight:500}}>Data Folder · Workload</div>
                   <div style={{fontSize:11,color:"var(--ink-3)",marginTop:2}}>
-                    {syncStatus==='synced' && `All changes synced · West EU (Ireland)${lastSynced ? ' · ' + relativeTime(lastSynced) : ''}`}
+                    {syncStatus==='synced' && `All changes saved to data folder${lastSynced ? ' · ' + relativeTime(lastSynced) : ''}`}
                     {syncStatus==='syncing' && 'Syncing…'}
                     {syncStatus==='loading' && 'Connecting…'}
                     {syncStatus==='error' && <span style={{color:"var(--red)"}}>Sync error — check console</span>}
@@ -828,12 +828,16 @@ const AppInner = () => {
   const [notifOpen, setNotifOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState([]);
   const notifRef = React.useRef(null);
+  const notifIdRef = React.useRef(0);
   const getSchemeRef = React.useRef(getScheme);
   React.useEffect(() => { getSchemeRef.current = getScheme; }, [getScheme]);
 
   React.useEffect(() => {
     const handler = (e) => {
-      setNotifications(n => [e.detail, ...n].slice(0, 10));
+      // Stamp each notification with a unique id so React keys remain stable
+      // even when prepending (avoids key-by-index churn on the array head).
+      const entry = { ...e.detail, _nid: ++notifIdRef.current };
+      setNotifications(n => [entry, ...n].slice(0, 10));
       const det = e.detail || {};
       if (window.Toast) {
         const action = (det.fn && window[det.fn] && det.schemeId)
@@ -970,7 +974,7 @@ const AppInner = () => {
               {saving ? '💾 Saving…' : lastSnapshot ? `💾 Backed up · ${relativeTime(lastSnapshot)}` : '💾 Save'}
             </button>
           )}
-          <button className="btn ghost sm" title="Save all data then reload — bypasses cache and fetches latest code" aria-label="Force reload"
+          <button className="btn ghost sm force-reload-btn" title="Save all data then reload — bypasses cache and fetches latest code" aria-label="Force reload"
             onClick={async () => {
               if (backendMode === 'fs' && syncAllToFolder) {
                 await syncAllToFolder();
@@ -988,8 +992,8 @@ const AppInner = () => {
                 <div style={{padding:"10px 14px 6px",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--ink-3)",borderBottom:"1px solid var(--line)"}}>Downloads this session</div>
                 {notifications.length === 0
                   ? <div style={{padding:"12px 14px",fontSize:12,color:"var(--ink-3)"}}>No downloads yet</div>
-                  : notifications.map((n, i) => (
-                    <div key={i} style={{padding:"8px 14px",borderBottom:"1px solid var(--line)",fontSize:12}}>
+                  : notifications.map((n) => (
+                    <div key={n._nid} style={{padding:"8px 14px",borderBottom:"1px solid var(--line)",fontSize:12}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
                         <div style={{color:"var(--ink)",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.label}</div>
                         {n.fn && window[n.fn] && (
@@ -1082,25 +1086,49 @@ const App = () => {
         setAuthed(false);
       }, INACTIVITY_MS);
     };
-    const events = ["mousemove", "keydown", "mousedown", "touchstart", "scroll"];
-    events.forEach(ev => window.addEventListener(ev, reset, { passive: true }));
+    // "scroll" doesn't bubble — use capture so we hear scrolls inside the
+    // inner .content container. "wheel" and "touchstart" cover active-scroll
+    // intent before the scroll event fires.
+    const passive = ["mousemove", "keydown", "mousedown", "touchstart", "wheel"];
+    passive.forEach(ev => window.addEventListener(ev, reset, { passive: true }));
+    window.addEventListener("scroll", reset, { capture: true, passive: true });
     reset();
     return () => {
       clearTimeout(timer);
-      events.forEach(ev => window.removeEventListener(ev, reset));
+      passive.forEach(ev => window.removeEventListener(ev, reset));
+      window.removeEventListener("scroll", reset, { capture: true });
     };
   }, [authed]);
 
-  if (!authed) return <PasswordGate onAuth={() => { setLockReason(null); setAuthed(true); }} reason={lockReason} />;
-  return (
+  // On first load (not yet authed) replace the whole tree with PasswordGate.
+  // On inactivity lock keep the app tree mounted and show PasswordGate as a
+  // full-screen overlay so no in-flight work is torn down mid-operation.
+  const appTree = (
     <ErrorBoundary>
       <SchemeProvider>
-        <AppInner />
-        <ToastHost />
+        {/* ShortcutsHost and ToastHost before AppInner so their effects run
+            first and window.Shortcuts / window.Toast exist when AppInner's
+            registration effects fire. */}
         <ShortcutsHost />
+        <ToastHost />
+        <AppInner />
         <ConfirmDialogHost />
       </SchemeProvider>
     </ErrorBoundary>
+  );
+
+  // Initial (not yet authenticated) load: show only the gate — no app tree yet.
+  if (!authed && !lockReason) return <PasswordGate onAuth={() => { setLockReason(null); setAuthed(true); }} reason={null} />;
+  return (
+    <>
+      {/* Keep appTree mounted even when locked by inactivity so any in-flight
+          work (generating modal, unsaved form changes) is not torn down. The
+          PasswordGate overlay sits above everything via z-index:9700. */}
+      {appTree}
+      {!authed && lockReason && (
+        <PasswordGate onAuth={() => { setLockReason(null); setAuthed(true); }} reason={lockReason} />
+      )}
+    </>
   );
 };
 

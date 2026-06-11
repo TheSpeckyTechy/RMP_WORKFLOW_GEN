@@ -35,7 +35,15 @@ const ConfirmDialogHost = () => {
       });
       setOpen(true);
     });
-    return () => { delete window.confirmDialog; };
+    return () => {
+      // Resolve any pending promise as cancelled so callers don't hang forever
+      // if the host unmounts (e.g. session logout) while a dialog is open.
+      if (resolverRef.current) {
+        try { resolverRef.current(false); } catch (_) {}
+        resolverRef.current = null;
+      }
+      delete window.confirmDialog;
+    };
   }, []);
 
   if (!open || !opts) return null;

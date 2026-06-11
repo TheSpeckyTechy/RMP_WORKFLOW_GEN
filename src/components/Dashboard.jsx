@@ -42,11 +42,19 @@ const parseStartDate = (s) => {
   return new Date(+parts[2], +parts[1] - 1, +parts[0]).getTime();
 };
 
+// Midnight of the current calendar day (local time) — compare against this
+// instead of Date.now() so a scheme that starts today is still "urgent" for
+// the full calendar day rather than dropping off once the clock passes the
+// exact parsed timestamp (which is 00:00:00 local on the start date).
+const todayMidnight = () => {
+  const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime();
+};
+
 const isUrgentScheme = (s) => {
   const ms = parseStartDate(s.date_start);
   if (!isFinite(ms)) return false;
-  const now = Date.now();
-  return ms > now && ms - now <= 42 * 24 * 60 * 60 * 1000;
+  const midnight = todayMidnight();
+  return ms >= midnight && ms - midnight <= 42 * 24 * 60 * 60 * 1000;
 };
 
 // Count how many pack documents are marked ready via docs_generated — matches
@@ -56,7 +64,9 @@ const packDoneFor = (s) => window.PACK_DOCS.filter(d => (s.docs_generated || {})
 const daysUntil = (s) => {
   const ms = parseStartDate(s.date_start);
   if (!isFinite(ms)) return null;
-  return Math.ceil((ms - Date.now()) / (24 * 60 * 60 * 1000));
+  // Diff against midnight-of-today so the start day itself shows 0 ("Today"),
+  // not 1 (ceil of a small positive fraction near 0).
+  return Math.round((ms - todayMidnight()) / (24 * 60 * 60 * 1000));
 };
 
 const Dashboard = ({ onOpen, onNew, filter, setFilter, search, designerView, setDesignerView }) => {

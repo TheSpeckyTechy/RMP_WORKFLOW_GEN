@@ -342,6 +342,29 @@ const TDFootwayPanel = ({ scheme, write }) => {
   );
 };
 
+// ── Ironworks panel — hoisted sub-components ────────────────────────────────
+// Counter and Block are hoisted to module scope so React sees stable component
+// identities across re-renders. Declaring them inside TDIronworksPanel's body
+// would create new function references on every render, causing React to
+// unmount/remount the inputs on each keystroke and drop focus.
+
+const TDIWCounter = ({ iw, section, k, label, setSection }) => (
+  <div className="field">
+    <label>{label}</label>
+    <input type="number" inputMode="decimal" className="mono" min="0" value={iw[section]?.[k] || 0}
+      onChange={e => setSection(section, { [k]: Math.max(0, +e.target.value || 0) })} />
+  </div>
+);
+
+const TDIWBlock = ({ iw, section, title, fields, setSection }) => (
+  <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: 14 }}>
+    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>{title}</div>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10 }}>
+      {fields.map(([k, label]) => <TDIWCounter key={k} iw={iw} section={section} k={k} label={label} setSection={setSection} />)}
+    </div>
+  </div>
+);
+
 // ── Ironworks panel ──────────────────────────────────────────────────────────
 const TDIronworksPanel = ({ scheme, write }) => {
   const design = scheme.design || window.defaultDesign();
@@ -350,23 +373,6 @@ const TDIronworksPanel = ({ scheme, write }) => {
   const setSection = (section, patch) =>
     write({ ironworks: { ...iw, [section]: { ...iw[section], ...patch } } });
 
-  const Counter = ({ section, k, label }) => (
-    <div className="field">
-      <label>{label}</label>
-      <input type="number" inputMode="decimal" className="mono" min="0" value={iw[section]?.[k] || 0}
-        onChange={e => setSection(section, { [k]: Math.max(0, +e.target.value || 0) })} />
-    </div>
-  );
-
-  const Block = ({ section, title, fields }) => (
-    <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius)', padding: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>{title}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 10 }}>
-        {fields.map(([k, label]) => <Counter key={k} section={section} k={k} label={label} />)}
-      </div>
-    </div>
-  );
-
   return (
     <div className="form-section" style={{ marginBottom: 16 }}>
       <div className="section-head" style={{ marginBottom: 14 }}>
@@ -374,12 +380,12 @@ const TDIronworksPanel = ({ scheme, write }) => {
         <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--ink-3)' }}>Number of items to reset / replace per surface</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <Block section="cway" title="Carriageway — reset to new level"
-          fields={[['mh','Manholes'],['water','Water'],['bt','BT'],['gas','Gas'],['gullies','Gullies']]} />
-        <Block section="fway" title="Footway — reset to new level"
-          fields={[['mh','Manholes'],['water','Water'],['bt','BT'],['gas','Gas']]} />
-        <Block section="raise" title="Raise / replace (any surface)"
-          fields={[['mh','Manholes'],['water','Water'],['bt','BT'],['gas','Gas'],['gullies','Gullies']]} />
+        <TDIWBlock iw={iw} section="cway" title="Carriageway — reset to new level"
+          fields={[['mh','Manholes'],['water','Water'],['bt','BT'],['gas','Gas'],['gullies','Gullies']]} setSection={setSection} />
+        <TDIWBlock iw={iw} section="fway" title="Footway — reset to new level"
+          fields={[['mh','Manholes'],['water','Water'],['bt','BT'],['gas','Gas']]} setSection={setSection} />
+        <TDIWBlock iw={iw} section="raise" title="Raise / replace (any surface)"
+          fields={[['mh','Manholes'],['water','Water'],['bt','BT'],['gas','Gas'],['gullies','Gullies']]} setSection={setSection} />
       </div>
     </div>
   );
@@ -553,6 +559,32 @@ const TDTMPanel = ({ scheme, write }) => {
   );
 };
 
+// ── Site conditions — hoisted sub-component ──────────────────────────────────
+// FactorGroup is hoisted here (outside TDSiteConditions) for the same reason
+// TDIWCounter/TDIWBlock are hoisted: stable component identity avoids remounts.
+// It receives mx and setMx as props rather than closing over them.
+
+const TDFactorGroup = ({ factors, mx, setMx }) => (
+  <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'12px 16px' }}>
+    {factors.map(f => (
+      <div key={f.key}>
+        <div style={{ fontSize:11, fontWeight:500, color:'var(--ink-2)', marginBottom:6 }}>{f.label}</div>
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+          {f.opts.map(([label]) => {
+            const active = mx[f.key] === label;
+            return <button key={label} onClick={() => setMx(f.key, label)} style={{
+              padding:'4px 10px', fontSize:11, borderRadius:'var(--radius-sm)',
+              border: active?'1px solid var(--accent)':'1px solid var(--line)',
+              background: active?'var(--accent-wash)':'var(--bg)',
+              color: active?'var(--accent-ink)':'var(--ink-2)',
+              cursor:'pointer', fontWeight: active?600:400, transition:'all 0.1s' }}>{label}</button>;
+          })}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
 // ── Site conditions / recommendation engine ──────────────────────────────────
 // Kept from the old Treatment tab — it's a per-scheme matrix that suggests a
 // surface treatment based on traffic + condition factors. Independent of the
@@ -589,37 +621,16 @@ const TDSiteConditions = ({ schemeId, scheme }) => {
   const scoreColor = score <= 7 ? 'var(--green)' : score <= 16 ? 'var(--accent)' : 'var(--red)';
   const scorePct   = Math.min(100, Math.round((score / MAX_SCORE) * 100));
 
-  const FactorGroup = ({ factors }) => (
-    <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'12px 16px' }}>
-      {factors.map(f => (
-        <div key={f.key}>
-          <div style={{ fontSize:11, fontWeight:500, color:'var(--ink-2)', marginBottom:6 }}>{f.label}</div>
-          <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-            {f.opts.map(([label]) => {
-              const active = mx[f.key] === label;
-              return <button key={label} onClick={() => setMx(f.key, label)} style={{
-                padding:'4px 10px', fontSize:11, borderRadius:'var(--radius-sm)',
-                border: active?'1px solid var(--accent)':'1px solid var(--line)',
-                background: active?'var(--accent-wash)':'var(--bg)',
-                color: active?'var(--accent-ink)':'var(--ink-2)',
-                cursor:'pointer', fontWeight: active?600:400, transition:'all 0.1s' }}>{label}</button>;
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
   return (
     <div className="form-section" style={{ marginBottom: 16 }}>
       <div className="section-head"><div className="section-title"><span className="section-num">01</span> Site conditions</div></div>
       <div className="td-site-conditions" style={{ gap:24, alignItems:'start' }}>
         <div>
           <div style={{ fontSize:10, fontWeight:700, color:'var(--ink-3)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Traffic &amp; Use</div>
-          <FactorGroup factors={TRAFFIC_FACTORS} />
+          <TDFactorGroup factors={TRAFFIC_FACTORS} mx={mx} setMx={setMx} />
           <div style={{ margin:'14px 0 8px', borderTop:'1px solid var(--line)' }} />
           <div style={{ fontSize:10, fontWeight:700, color:'var(--ink-3)', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Surface Condition</div>
-          <FactorGroup factors={SURFACE_FACTORS} />
+          <TDFactorGroup factors={SURFACE_FACTORS} mx={mx} setMx={setMx} />
         </div>
         <div style={{ background:'var(--bg-sunken)', borderRadius:'var(--radius)', padding:14, display:'flex', flexDirection:'column', gap:12 }}>
           <div>

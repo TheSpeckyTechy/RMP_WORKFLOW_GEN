@@ -16,7 +16,9 @@
 // This export therefore only needs to WRITE quantities — no clearing required.
 //
 // Item ID mapping: engine and JMCA template both use TC series notation (e.g. "7/023",
-// "2700/01"). Only the item part is normalised: leading zeros stripped via parseInt.
+// "2700/01"). The item part is normalised: leading zeros stripped while preserving any
+// alphanumeric suffix (e.g. "023A" → "23A", "023" → "23") so that "7/134A" maps
+// consistently from both the engine line list and the template column A cells.
 // Series 6400 Input is skipped — it contains lot/band designators, not quantities.
 
 const TC_BOQ_TEMPLATE = 'templates/TC_BoQ_JMCA_TEMPLATE.xlsx';
@@ -40,14 +42,18 @@ async function downloadTCBoQXlsx(scheme, computed) {
     }
   }
 
-  // 2. Build engine qty map: "series/itemNum" → qty  (e.g. "7/23" → 500)
+  // 2. Build engine qty map: "series/normalisedItem" → qty  (e.g. "7/23A" → 500)
+  // Normalise the item part by stripping leading zeros while keeping any alphanumeric
+  // suffix (e.g. "023" → "23", "023A" → "23A"). This matches the template side below.
+  // When duplicate catalogue ids appear (auto + user-added, or a Ledger Duplicate) the
+  // quantities are SUMMED so none are silently dropped.
+  const normItem = (s) => String(s).replace(/^0+(?=.)/, '');
   const qtyMap = {};
   for (const line of (computed.lines || [])) {
     const [series, item] = (line.id || '').split('/');
     if (!series || !item) continue;
-    const tcItem = parseInt(item, 10);
-    if (isNaN(tcItem)) continue;
-    qtyMap[`${series}/${tcItem}`] = line.qty || 0;
+    const key = `${series}/${normItem(item)}`;
+    qtyMap[key] = (qtyMap[key] || 0) + (+line.qty || 0);
   }
 
   // 3. Resolve "* Input" sheet file paths via workbook + rels
@@ -78,10 +84,11 @@ async function downloadTCBoQXlsx(scheme, computed) {
       const colAM = rowContent.match(/<c\b[^>]*r="A\d+"[^>]*t="s"[^>]*>\s*<v>(\d+)<\/v>/);
       if (!colAM) return full;
       const cellStr = (sharedStrings[parseInt(colAM[1])] || '').trim();
-      if (!/^\d+\/\d+$/.test(cellStr)) return full;
+      // Accept item ids like "7/134" and alphanumeric variants like "7/134A"
+      if (!/^\d+\/\w+$/.test(cellStr)) return full;
 
       const [idS, idN] = cellStr.split('/');
-      const qty = qtyMap[`${idS}/${parseInt(idN, 10)}`] ?? 0;
+      const qty = qtyMap[`${idS}/${normItem(idN)}`] ?? 0;
 
       // Update column C cell — preserves s="..." style attr
       const cRe = /<c r="C(\d+)"([^>]*)(?:\/>|>(?:<v>[^<]*<\/v>)?<\/c>)/;
@@ -121,7 +128,9 @@ async function downloadTCBoQXlsx(scheme, computed) {
   zip.remove('xl/calcChain.xml');
 
   // 6. Generate and save
-  const xlsxFilename = `TC_BoQ_${scheme.project_number}_${(scheme.road_name || '').replace(/\s+/g, '_')}.xlsx`;
+  const _tcRef  = (scheme.project_number || scheme.id || 'TC').replace(/[^\w-]+/g, '_');
+  const _tcRoad = (scheme.road_name      || 'scheme').replace(/[^\w-]+/g, '_');
+  const xlsxFilename = `TC_BoQ_${_tcRef}_${_tcRoad}.xlsx`;
   const out = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
   const saved = window.fsSaveToProjectFolder
     ? await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, out, { versioned: true })

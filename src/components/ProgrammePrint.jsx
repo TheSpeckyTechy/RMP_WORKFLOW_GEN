@@ -256,7 +256,17 @@ window.printProgramme = function(allSchemes, designerView, designers) {
   // ── Build group list ───────────────────────────────────────────────────────
   const groups = designerView
     ? [{ designer: designers.find(d => d.id === designerView), schemes: getSchemes(designerView) }]
-    : designers.map(d => ({ designer: d, schemes: getSchemes(d.id) })).filter(g => g.schemes.length > 0);
+    : (() => {
+        const named = designers.map(d => ({ designer: d, schemes: getSchemes(d.id) })).filter(g => g.schemes.length > 0);
+        // Schemes whose assigned_designer_id matches no known designer (including
+        // the empty-string / unset case) form an "Unassigned" group, mirroring
+        // ProgrammeTracker.jsx:158.
+        const unassigned = getSchemes(null).filter(s => !designers.find(d => d.id === s.assigned_designer_id));
+        if (unassigned.length > 0) {
+          named.push({ designer: { name: 'Unassigned', initials: '—', colour: '#9ca3af' }, schemes: unassigned });
+        }
+        return named;
+      })();
 
   // ── CSS ────────────────────────────────────────────────────────────────────
   const CSS = `

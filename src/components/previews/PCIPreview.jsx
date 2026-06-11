@@ -500,31 +500,51 @@ async function loadDocxBuffer(url) {
   return _pciTemplateBuf.slice(0);
 }
 
+// Convert a plain-text value to safe XML for insertion inside a <w:t> run.
+// Literal \n cannot appear inside <w:t> in WordprocessingML — each newline
+// must become a <w:br/> element that starts a new line within the same run.
+const multilineXml = (value) => {
+  const escaped = xmlEscape(value);
+  return escaped.replace(/\n/g, '</w:t><w:br/><w:t xml:space="preserve">');
+};
+
 async function injectValues(buffer, scheme) {
   const zip = new window.JSZip();
   await zip.loadAsync(buffer);
   const fields = buildPCIFields(scheme);
   const xmlPaths = ['word/document.xml','word/header1.xml','word/header2.xml','word/footer1.xml','word/footer2.xml'];
+  const allXml = [];
   for (const xmlPath of xmlPaths) {
     const file = zip.file(xmlPath);
     if (!file) continue;
     let xml = await file.async('string');
     for (const [tag, value] of Object.entries(fields)) {
-      xml = xml.split(`{{${tag}}}`).join(xmlEscape(value));
+      xml = xml.split(`{{${tag}}}`).join(multilineXml(value));
     }
     zip.file(xmlPath, xml);
+    allXml.push(xml);
+  }
+  // Warn if any {{...}} placeholders survived replacement — likely a run-split
+  // tag from a Word re-save. Does not block the save.
+  const combined = allXml.join('');
+  const surviving = [...combined.matchAll(/\{\{[A-Z0-9_]+\}\}/g)].map(m => m[0]);
+  if (surviving.length > 0) {
+    const unique = [...new Set(surviving)];
+    window.Toast?.show({ kind: 'error', msg: `PCI: ${unique.length} placeholder${unique.length>1?'s':''} not replaced: ${unique.join(', ')}`, duration: 7000 });
+    console.warn('PCI injectValues — unreplaced placeholders:', unique);
   }
   return zip.generateAsync({ type: 'arraybuffer' });
 }
 
 const PCIDoc = ({ scheme }) => {
   const containerRef = React.useRef(null);
+  const genRef       = React.useRef(0);
   const [status, setStatus]   = React.useState('idle');
   const [errMsg, setErrMsg]   = React.useState('');
 
   React.useEffect(() => {
     if (!scheme) return;
-    let cancelled = false;
+    const gen = ++genRef.current;
     setStatus('loading');
 
     (async () => {
@@ -535,35 +555,39 @@ const PCIDoc = ({ scheme }) => {
           buffer = await injectValues(buffer, scheme);
         } catch (_templateErr) {
           // No template — render a plain data summary
-          if (!cancelled && containerRef.current) {
+          if (gen === genRef.current && containerRef.current) {
             const rows = PCI_FIELDS
-              .map(f => { const v = resolveValue(scheme, f.path); return v ? `<tr><th>${f.tag}</th><td>${v}</td></tr>` : ''; })
+              .map(f => { const v = resolveValue(scheme, f.path); return v ? `<tr><th>${xmlEscape(f.tag)}</th><td>${xmlEscape(v)}</td></tr>` : ''; })
               .join('');
             containerRef.current.innerHTML =
-              `<div class="pci-fallback"><h2>${scheme.road_name || scheme.project_number}</h2><table class="pci-table">${rows}</table></div>`;
+              `<div class="pci-fallback"><h2>${xmlEscape(scheme.road_name || scheme.project_number)}</h2><table class="pci-table">${rows}</table></div>`;
             setStatus('ready');
           }
           return;
         }
 
-        if (cancelled) return;
+        if (gen !== genRef.current) return;
 
+        // Render into a detached node so a stale run cannot overwrite the
+        // live container after a newer render has already committed.
+        const tmp = document.createElement('div');
         if (window.docx && window.docx.renderAsync) {
-          await window.docx.renderAsync(buffer, containerRef.current, null, {
+          await window.docx.renderAsync(buffer, tmp, null, {
             className: 'docx-preview',
             inWrapper: false,
             useBase64URL: true,
           });
         } else {
-          containerRef.current.innerHTML = '<p class="pci-err">docx-preview library not loaded.</p>';
+          tmp.innerHTML = '<p class="pci-err">docx-preview library not loaded.</p>';
         }
-        if (!cancelled) setStatus('ready');
+        if (gen !== genRef.current || !containerRef.current) return;
+        containerRef.current.innerHTML = '';
+        while (tmp.firstChild) containerRef.current.appendChild(tmp.firstChild);
+        setStatus('ready');
       } catch (err) {
-        if (!cancelled) { setStatus('error'); setErrMsg(err.message); }
+        if (gen === genRef.current) { setStatus('error'); setErrMsg(err.message); }
       }
     })();
-
-    return () => { cancelled = true; };
   }, [scheme && JSON.stringify(buildPCIFields(scheme))]);
 
   return (
@@ -782,14 +806,20 @@ window.__downloadPCI = async (scheme) => {
       setTimeout(() => URL.revokeObjectURL(url), 100);
     }
     window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP — ${scheme.road_name}`, ref: scheme.project_number, fn: '__downloadPCI', schemeId: scheme.id } }));
-  } catch (e) { console.warn('PCI download failed', e); }
+  } catch (e) {
+    console.warn('PCI download failed', e);
+    window.Toast?.show({ kind: 'error', msg: `PCI/CPP download failed: ${e.message}`, duration: 6000 });
+  }
 };
 
 window.__downloadPCIPdf = async (scheme) => {
   try {
     await downloadPCIPdf(scheme);
     window.dispatchEvent(new CustomEvent('rmp-download', { detail: { label: `PCI/CPP PDF — ${scheme.road_name}`, ref: scheme.project_number, fn: '__downloadPCIPdf', schemeId: scheme.id } }));
-  } catch (e) { console.warn('PCI PDF download failed', e); }
+  } catch (e) {
+    console.warn('PCI PDF download failed', e);
+    window.Toast?.show({ kind: 'error', msg: `PCI/CPP PDF download failed: ${e.message}`, duration: 6000 });
+  }
 };
 
 window.__getPCIPdfBuffer = async (scheme) => {

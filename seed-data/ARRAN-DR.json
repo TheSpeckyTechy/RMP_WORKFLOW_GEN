@@ -1,0 +1,225 @@
+{
+  "scheme_type": "Carriageway",
+  "road_name": "Arran Drive",
+  "project_number": "",
+  "financial_year": "2026/27",
+  "carriageway_area_m2": 668,
+  "footway_area_m2": 0,
+  "scheme_extent": "Arran Drive — whole length",
+  "grid_ref": "",
+  "date_prepared": "07/04/2026",
+  "date_approved": "16/04/2026",
+  "date_start": "05/05/2026",
+  "date_finish": "",
+  "working_pattern": "Mon–Fri",
+  "shift_pattern": "Day",
+  "assigned_designer_id": "jake",
+  "prepared_by": "Jake McAllister",
+  "designer_email": "jake.mcallister@dundeecity.gov.uk",
+  "designer_phone": "01382 834028",
+  "reviewed_by": "Steve Lindsay",
+  "approved_by": "Steve Lindsay",
+  "client_officer": "James Mullen",
+  "client_email": "James.Mullen@dundeecity.gov.uk",
+  "client_phone": "01382 307921",
+  "contractor": "Tayside Contracts",
+  "contractor_ref": "",
+  "contractor_pe": "Ross Smith",
+  "contractor_ch": "",
+  "contractor_ooh": "07767 326827",
+  "supervisor_name": "",
+  "supervisor_phone": "",
+  "supervisor_email": "",
+  "budget": 0,
+  "tender_total": 0,
+  "cost_per_m2": 0,
+  "budget_code": "",
+  "cpp_ref": "",
+  "drawing_ref": "DCC-SD-001",
+  "sketch_pdf": "",
+  "network_length": 0,
+  "ward_selected": "Lochee",
+  "ward_num": 2,
+  "postcode": "",
+  "postcode_link": "Click to open DCC lookup",
+  "road_category": "",
+  "pci_before": "",
+  "pci_after": "",
+  "pci_justification": "Carriageway defects along Arran Drive require localised patching ahead of a full-length surface dressing treatment to restore surface integrity and extend serviceable life.",
+  "pci_description": "Pre-patching works on Arran Drive (whole length), followed by surface dressing.\n\nPatch A1 — 595m² 100mm AC14 patch: plane existing surface to 100mm and reinstate with AC20 binder course and AC14 surface course. Works carried out under road closure.\n\nPatches A2 (19m²), A3 (23m²), A4 (31m²) — 40mm AC14 patches: plane existing surface to 40mm and reinstate with AC14 surface course. Works carried out under two-way traffic lights (TTL) closures.\n\nSurface dressing: applied across the whole length of Arran Drive under road closure following completion of the patching works. Refer to drawing DCC-SD-001 S01 R0.",
+  "pci_ironwork_summary": "",
+  "pci_lining_summary": "",
+  "pci_occupiers": "Residents and businesses along Arran Drive to be notified in advance of works. Property number ranges along the scheme extent include: 131–141, 155–177, 181–191, 205–227, 231–241, 243–253, and no. 277.",
+  "client_name_address": "Fiona Welch\nDundee City Council, Executive Director of City Development",
+  "department": "Sustainable Transport and Roads",
+  "designer_head_of": "Head of Sustainable Transport and Roads",
+  "cdm_head_of": "Head of Design and Property",
+  "client_ref_work_order": "",
+  "contractor_address": "Tayside Contracts, Soutar Street, Dundee",
+  "contractor_email": "",
+  "pci_site_security": "Heras fencing to be erected around the perimeter of the site to segregate members of the public from the working area and prevent unauthorised access. All excavations to be covered or made safe at all times.",
+  "welfare_toilet": "Yes",
+  "welfare_washing": "Yes",
+  "welfare_rest": "Yes",
+  "welfare_water": "Yes",
+  "welfare_changing": "No",
+  "haz_working_height": "N/A",
+  "haz_slips": "No unusual slip or trip hazards. Contractor to ensure site is tidy at all times.",
+  "haz_excavations": "Utilities are present — plans in site file, however accuracy of plans is unreliable. Designs and construction should eliminate potential utility impact by not exceeding 300mm depth where practicable. Trial holes and CAT scanning to be undertaken. All excavations to be made safe when left unattended.",
+  "haz_structures": "N/A",
+  "haz_health": "The Construction Phase Plan to include risk assessments, method statements and procedures to protect all personnel working or attending site.",
+  "haz_asbestos": "N/A",
+  "haz_public": "Works to be carried out under a full road closure (main carriageway patching and surface dressing) with localised two-way traffic light closures for minor 40mm patches. Pedestrian access to be maintained for the duration of the works. Vehicular diversion: Westbound — High Street, Coupar Angus Road, South Road (and return). Eastbound — Charleston Drive, Ancrum Road, High Street, Coupar Angus Road, South Road (and return). Emergency services access to be maintained throughout.",
+  "haz_environment": "All waste generated through cold milling to be removed from site.",
+  "haz_other": "Contractor to adhere with latest government guidance relating to site safety.",
+  "haz_additional": "Contact has been made with each business and resident along the scheme extents. All informed of access restrictions during working hours.",
+  "cdm_principal_designer": "Jake McAllister",
+  "letter_subject_override": "",
+  "letter_body_override": "",
+  "utility_applied": {},
+  "boq": {
+    "custom_lines": [],
+    "recent_items": [],
+    "settings": {
+      "useBERR": false,
+      "berrIndex": 1,
+      "berrDate": "May 2022",
+      "showPWP": true,
+      "areaBandOverride": null,
+      "percentAdditions": {
+        "ohp": {
+          "enabled": true,
+          "pct": 0.125,
+          "label": "Overheads & Profit"
+        },
+        "contingency": {
+          "enabled": true,
+          "pct": 0.05,
+          "label": "Contingency"
+        },
+        "ois": {
+          "enabled": false,
+          "pct": 0.025,
+          "label": "Off-site Items"
+        },
+        "night_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Night-shift uplift (Series 6400/003)"
+        },
+        "saturday_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Saturday uplift (Series 6400/004)"
+        },
+        "sunday_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Sunday uplift (Series 6400/005)"
+        },
+        "dundee_area": {
+          "enabled": false,
+          "pct": 0.03,
+          "label": "Dundee City Council area (Series 6400/011)"
+        }
+      }
+    }
+  },
+  "design": {
+    "zones": [],
+    "ironworks": {
+      "cway": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0,
+        "gullies": 0
+      },
+      "fway": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0
+      },
+      "raise": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0,
+        "gullies": 0
+      }
+    },
+    "kerbs": [],
+    "lining": [],
+    "footway": {
+      "surface_tag": "",
+      "include_subbase": false
+    },
+    "tm": {
+      "type": "",
+      "hours": "",
+      "phases": 1,
+      "diversion_by": "",
+      "compound": "",
+      "duration_days": null
+    },
+    "touched": false
+  },
+  "status": "design",
+  "packProgress": 3,
+  "packTotal": 14,
+  "lastUpdated": "today",
+  "flags": [],
+  "docs_generated": {},
+  "id": "ARRAN-DR",
+  "treatment_type": "AC14 close binder 40/60",
+  "surface_depth_mm": 40,
+  "binder_depth_mm": 0,
+  "subbase_depth_mm": 0,
+  "total_depth_mm": 40,
+  "binder_grade": "40/60",
+  "traffic_category": "",
+  "treatments": [
+    {
+      "id": 1,
+      "zone": "A1 — 100mm AC14 patch (Road Closure)",
+      "area_m2": 595,
+      "depth_mm": 100,
+      "treatment_type": "AC14 Surface course, AC20 Binder"
+    },
+    {
+      "id": 2,
+      "zone": "A2 — 40mm AC14 patch (TTL Closure)",
+      "area_m2": 19,
+      "depth_mm": 40,
+      "treatment_type": "AC14 close binder 40/60"
+    },
+    {
+      "id": 3,
+      "zone": "A3 — 40mm AC14 patch (TTL Closure)",
+      "area_m2": 23,
+      "depth_mm": 40,
+      "treatment_type": "AC14 close binder 40/60"
+    },
+    {
+      "id": 4,
+      "zone": "A4 — 40mm AC14 patch (TTL Closure)",
+      "area_m2": 31,
+      "depth_mm": 40,
+      "treatment_type": "AC14 close binder 40/60"
+    }
+  ],
+  "tm_type": "Full road closure",
+  "tm_phases": 1,
+  "tm_hours": "",
+  "tm_diversion_by": "Tayside Contracts",
+  "tm_compound": "",
+  "iron_mh": 0,
+  "iron_bt": 0,
+  "iron_water": 0,
+  "iron_gas": 0,
+  "iron_gullies": 0,
+  "kerb_length": 0,
+  "lining_req": "",
+  "updated_at": "2026-06-11T00:00:00.000Z"
+}

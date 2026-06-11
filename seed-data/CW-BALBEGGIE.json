@@ -1,0 +1,176 @@
+{
+  "scheme_type": "Carriageway",
+  "road_name": "Balbeggie Street",
+  "project_number": "",
+  "financial_year": "2026/27",
+  "carriageway_area_m2": 3982,
+  "footway_area_m2": 0,
+  "scheme_extent": "4 Balbeggie Street to Baluniefield Road",
+  "grid_ref": "",
+  "date_prepared": "",
+  "date_approved": "",
+  "date_start": "27/07/2026",
+  "date_finish": "07/08/2026",
+  "working_pattern": "Mon–Fri",
+  "shift_pattern": "Day",
+  "assigned_designer_id": "barry",
+  "prepared_by": "Barry Carver",
+  "designer_email": "",
+  "designer_phone": "",
+  "reviewed_by": "Steve Lindsay",
+  "approved_by": "Steve Lindsay",
+  "client_officer": "James Mullen",
+  "client_email": "James.Mullen@dundeecity.gov.uk",
+  "client_phone": "01382 307921",
+  "contractor": "Tayside Contracts",
+  "contractor_ref": "",
+  "contractor_pe": "",
+  "contractor_ch": "",
+  "contractor_ooh": "07767 326827",
+  "supervisor_name": "",
+  "supervisor_phone": "",
+  "supervisor_email": "",
+  "budget": 139370,
+  "tender_total": 0,
+  "cost_per_m2": 0,
+  "budget_code": "",
+  "cpp_ref": "",
+  "drawing_ref": "",
+  "sketch_pdf": "",
+  "network_length": 0,
+  "ward_selected": "",
+  "ward_num": 1,
+  "postcode": "",
+  "postcode_link": "Click to open DCC lookup",
+  "road_category": "C",
+  "pci_before": "",
+  "pci_after": "",
+  "pci_justification": "",
+  "pci_description": "",
+  "pci_ironwork_summary": "",
+  "pci_lining_summary": "",
+  "pci_occupiers": "",
+  "client_name_address": "Fiona Welch\nDundee City Council, Executive Director of City Development",
+  "department": "Sustainable Transport and Roads",
+  "designer_head_of": "Head of Sustainable Transport and Roads",
+  "cdm_head_of": "Head of Design and Property",
+  "client_ref_work_order": "",
+  "contractor_address": "Contracts House, 1 Soutar Street, Dundee DD3 8SS",
+  "contractor_email": "",
+  "pci_site_security": "Heras fencing to be erected around the perimeter of the site to segregate members of the public from the working area and prevent unauthorised access. All excavations to be covered or made safe at all times.",
+  "welfare_toilet": "Yes",
+  "welfare_washing": "Yes",
+  "welfare_rest": "Yes",
+  "welfare_water": "Yes",
+  "welfare_changing": "No",
+  "haz_working_height": "N/A",
+  "haz_slips": "No unusual slip or trip hazards. Contractor to ensure site is tidy at all times.",
+  "haz_excavations": "Utilities are present — plans in site file, however accuracy of plans is unreliable. Designs and construction should eliminate potential utility impact by not exceeding 300mm depth where practicable. Trial holes and CAT scanning to be undertaken. All excavations to be made safe when left unattended.",
+  "haz_structures": "N/A",
+  "haz_health": "The Construction Phase Plan to include risk assessments, method statements and procedures to protect all personnel working or attending site.",
+  "haz_asbestos": "N/A",
+  "haz_public": "Works will be conducted under a road closure and protected in accordance with the Safety at Street Works and Road Works Code of Practice. Pedestrian access for businesses and residents will be maintained at all times. Vehicular access for emergency services will be maintained throughout the duration of the works.",
+  "haz_environment": "All waste generated through cold milling to be removed from site.",
+  "haz_other": "Contractor to adhere with latest government guidance relating to site safety.",
+  "haz_additional": "Contact has been made with each business and resident along the scheme extents. All informed of access restrictions during working hours.",
+  "cdm_principal_designer": "Jake McAllister",
+  "letter_subject_override": "",
+  "letter_body_override": "",
+  "utility_applied": {},
+  "boq": {
+    "custom_lines": [],
+    "recent_items": [],
+    "settings": {
+      "useBERR": false,
+      "berrIndex": 1,
+      "berrDate": "May 2022",
+      "showPWP": true,
+      "areaBandOverride": null,
+      "percentAdditions": {
+        "ohp": {
+          "enabled": true,
+          "pct": 0.125,
+          "label": "Overheads & Profit"
+        },
+        "contingency": {
+          "enabled": true,
+          "pct": 0.05,
+          "label": "Contingency"
+        },
+        "ois": {
+          "enabled": false,
+          "pct": 0.025,
+          "label": "Off-site Items"
+        },
+        "night_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Night-shift uplift (Series 6400/003)"
+        },
+        "saturday_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Saturday uplift (Series 6400/004)"
+        },
+        "sunday_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Sunday uplift (Series 6400/005)"
+        },
+        "dundee_area": {
+          "enabled": false,
+          "pct": 0.03,
+          "label": "Dundee City Council area (Series 6400/011)"
+        }
+      }
+    }
+  },
+  "design": {
+    "zones": [],
+    "ironworks": {
+      "cway": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0,
+        "gullies": 0
+      },
+      "fway": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0
+      },
+      "raise": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0,
+        "gullies": 0
+      }
+    },
+    "kerbs": [],
+    "lining": [],
+    "footway": {
+      "surface_tag": "",
+      "include_subbase": false
+    },
+    "tm": {
+      "type": "",
+      "hours": "",
+      "phases": 1,
+      "diversion_by": "",
+      "compound": "",
+      "duration_days": null
+    },
+    "touched": false
+  },
+  "status": "design",
+  "packProgress": 0,
+  "packTotal": 14,
+  "lastUpdated": "today",
+  "flags": [],
+  "docs_generated": {},
+  "id": "CW-BALBEGGIE",
+  "updated_at": "2026-06-11T00:00:00.000Z"
+}

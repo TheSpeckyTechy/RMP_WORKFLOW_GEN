@@ -286,7 +286,7 @@ const GrandTotalPanel = ({ computed, boq, onSettingsChange }) => {
       {computed.useBERR && (
         <div className="row">
           <span>BERR adjustment <span style={{opacity:0.6}}>({computed.berrDate} · ×{(computed.berrIndex ?? 0).toFixed(3)})</span></span>
-          <span className="mono">{(computed.berrAdjustmentAmt >= 0 ? '+ ' : '− ') + _E.fmtGBP(Math.abs(computed.berrAdjustmentAmt)).replace('£','£')}</span>
+          <span className="mono">{(computed.berrAdjustmentAmt >= 0 ? '+ ' : '− ') + _E.fmtGBP(Math.abs(computed.berrAdjustmentAmt))}</span>
         </div>
       )}
 

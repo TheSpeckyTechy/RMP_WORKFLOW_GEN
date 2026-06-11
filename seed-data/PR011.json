@@ -1,0 +1,213 @@
+{
+  "scheme_type": "Carriageway",
+  "road_name": "Guthrie Terrace",
+  "project_number": "R6083",
+  "financial_year": "2026/27",
+  "carriageway_area_m2": 2250,
+  "footway_area_m2": 0,
+  "scheme_extent": "Guthrie Terrace Full Length",
+  "grid_ref": "N04788931637",
+  "date_prepared": "05/05/2026",
+  "date_approved": "",
+  "date_start": "15/06/2026",
+  "date_finish": "19/06/2026",
+  "working_pattern": "Mon–Fri",
+  "shift_pattern": "Day",
+  "assigned_designer_id": "jake",
+  "prepared_by": "Jake McAllister",
+  "designer_email": "jake.mcallister@dundeecity.gov.uk",
+  "designer_phone": "01382 834028",
+  "reviewed_by": "Steve Lindsay",
+  "approved_by": "Steve Lindsay",
+  "client_officer": "James Mullen",
+  "client_email": "James.Mullen@dundeecity.gov.uk",
+  "client_phone": "01382 307921",
+  "contractor": "Tayside Contracts",
+  "contractor_ref": "TC/DCC/R6083",
+  "contractor_pe": "Garry Robertson",
+  "contractor_ch": "",
+  "contractor_ooh": "07771 765668",
+  "supervisor_name": "R Keen",
+  "supervisor_phone": "",
+  "supervisor_email": "",
+  "budget": 0,
+  "tender_total": 70075,
+  "cost_per_m2": 0,
+  "budget_code": "",
+  "cpp_ref": "CPP-R6083-2026",
+  "drawing_ref": "R6083-DCC-ZZ-DR-C-001",
+  "sketch_pdf": "Guthrie Terrace.pdf",
+  "network_length": 320,
+  "ward_selected": "Maryfield",
+  "ward_num": 4,
+  "postcode": "",
+  "postcode_link": "Click to open DCC lookup",
+  "road_category": "C",
+  "pci_before": "",
+  "pci_after": "",
+  "pci_justification": "Surface deterioration and cracking across the full width of Guthrie Terrace carriageway. Existing surface has exceeded its serviceable life and requires full resurfacing to restore ride quality and prevent further structural deterioration. Pre-design sketch R6083 PDS-01 and resurfacing plan R6083-DCC-ZZ-DR-C-001 confirm full-length scheme extent of 2,250m².",
+  "pci_description": "Carriageway resurfacing of Guthrie Terrace (full length) as per resurfacing plan R6083-DCC-ZZ-DR-C-001, ironwork plan R6083-DCC-ZZ-DR-C-002 and lining plan R6083-DCC-ZZ-DR-C-003 (Dundee City Council Roads Maintenance Partnership, drawn J McAllister, dated 05/05/2026).\n\n40mm AC 10 100/150 (Taycoat) Close Graded Surface Course — 2,250m² (carriageway surface course 1,920m²): plane off existing surface to a depth of 40mm across the full carriageway extent. Screed where required prior to laying. Form smooth transition ramps at all tie-in points. Works to be delivered in 1 phase of construction under complete road closure of Guthrie Terrace.\n\nWorks programme: 2 working days (15/06/2026 to 17/06/2026).\n\nIronwork: 12 no. Scottish Water covers to be adjusted to new surface level. 1 no. gully to be adjusted to new surface level. See ironwork plan R6083-DCC-ZZ-DR-C-002.\n\nRoad markings: road marking reinstatement required on completion of surfacing — see lining plan R6083-DCC-ZZ-DR-C-003.\n\nAll temporary reinstatements within the scheme extent to be made permanent prior to works commencing.",
+  "pci_ironwork_summary": "12 no. Scottish Water covers to be adjusted to new surface level. 1 no. gully to be adjusted to new surface level. Ref: R6083-DCC-ZZ-DR-C-002.",
+  "pci_lining_summary": "Road marking reinstatement required on completion of surfacing. Ref: R6083-DCC-ZZ-DR-C-003.",
+  "pci_occupiers": "Residential properties and businesses along full length of Guthrie Terrace to be notified in advance of works. St. Margaret's Church (adjacent to western end of scheme) to be informed — pedestrian access to be maintained at all times during working hours. Pedestrian access for all businesses to be maintained throughout. Pedestrian crossing points to be maintained at all times.",
+  "client_name_address": "Fiona Welch\nDundee City Council, Executive Director of City Development",
+  "department": "Sustainable Transport and Roads",
+  "designer_head_of": "Head of Sustainable Transport and Roads",
+  "cdm_head_of": "Head of Design and Property",
+  "client_ref_work_order": "",
+  "contractor_address": "Contracts House, 1 Soutar Street, Dundee DD3 8SS",
+  "contractor_email": "garry.robertson@tayside-contracts.co.uk",
+  "pci_site_security": "Heras fencing to be erected around the perimeter of the site to segregate members of the public from the working area and prevent unauthorised access. All excavations to be covered or made safe at all times.",
+  "welfare_toilet": "Yes",
+  "welfare_washing": "Yes",
+  "welfare_rest": "Yes",
+  "welfare_water": "Yes",
+  "welfare_changing": "No",
+  "haz_working_height": "N/A",
+  "haz_slips": "No unusual slip or trip hazards. Contractor to ensure site is tidy at all times.",
+  "haz_excavations": "Utilities are present — plans in site file, however accuracy of plans is unreliable. Designs and construction should eliminate potential utility impact by not exceeding 300mm depth where practicable. Trial holes and CAT scanning to be undertaken. All excavations to be made safe when left unattended.",
+  "haz_structures": "N/A",
+  "haz_health": "The Construction Phase Plan to include risk assessments, method statements and procedures to protect all personnel working or attending site.",
+  "haz_asbestos": "N/A",
+  "haz_public": "Works to be carried out under a complete road closure in accordance with the Safety at Street Works and Road Works Code of Practice. Works to be carried out in phases to minimise disruption to footway users and businesses. Pedestrian access to all properties and businesses along Guthrie Terrace to be maintained at all times. Pedestrian crossing points to be maintained throughout the duration of the works. Vehicular access for emergency services to be maintained throughout.",
+  "haz_environment": "All waste arisings from cold milling to be removed from site and disposed of at an approved facility. No materials to be stockpiled on the public footway overnight.",
+  "haz_other": "Contractor to adhere with latest government guidance relating to site safety.",
+  "haz_additional": "Residents and businesses along Guthrie Terrace have been / will be notified by letter in advance of commencement. St. Margaret's Church (adjacent site) to be contacted directly prior to works commencing to confirm access arrangements. On-street parking along the terrace will be suspended for the duration of the works under a Traffic Regulation Order.",
+  "cdm_principal_designer": "Jake McAllister",
+  "letter_subject_override": "",
+  "letter_body_override": "",
+  "utility_applied": {},
+  "boq": {
+    "custom_lines": [],
+    "recent_items": [],
+    "settings": {
+      "useBERR": false,
+      "berrIndex": 1,
+      "berrDate": "May 2022",
+      "showPWP": true,
+      "areaBandOverride": null,
+      "percentAdditions": {
+        "ohp": {
+          "enabled": true,
+          "pct": 0.125,
+          "label": "Overheads & Profit"
+        },
+        "contingency": {
+          "enabled": true,
+          "pct": 0.05,
+          "label": "Contingency"
+        },
+        "ois": {
+          "enabled": false,
+          "pct": 0.025,
+          "label": "Off-site Items"
+        },
+        "night_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Night-shift uplift (Series 6400/003)"
+        },
+        "saturday_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Saturday uplift (Series 6400/004)"
+        },
+        "sunday_uplift": {
+          "enabled": false,
+          "pct": 0.2,
+          "label": "Sunday uplift (Series 6400/005)"
+        },
+        "dundee_area": {
+          "enabled": false,
+          "pct": 0.03,
+          "label": "Dundee City Council area (Series 6400/011)"
+        }
+      }
+    }
+  },
+  "design": {
+    "zones": [],
+    "ironworks": {
+      "cway": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0,
+        "gullies": 0
+      },
+      "fway": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0
+      },
+      "raise": {
+        "mh": 0,
+        "water": 0,
+        "bt": 0,
+        "gas": 0,
+        "gullies": 0
+      }
+    },
+    "kerbs": [],
+    "lining": [],
+    "footway": {
+      "surface_tag": "",
+      "include_subbase": false
+    },
+    "tm": {
+      "type": "",
+      "hours": "",
+      "phases": 1,
+      "diversion_by": "",
+      "compound": "",
+      "duration_days": null
+    },
+    "touched": false
+  },
+  "status": "design",
+  "packProgress": 0,
+  "packTotal": 14,
+  "lastUpdated": "today",
+  "flags": [],
+  "docs_generated": {},
+  "id": "PR011",
+  "treatment_type": "AC10 Taycoat 100/150",
+  "surface_depth_mm": 40,
+  "binder_depth_mm": 0,
+  "subbase_depth_mm": 0,
+  "total_depth_mm": 40,
+  "binder_grade": "100/150",
+  "traffic_category": "Low",
+  "matrix": {
+    "traffic": "Light",
+    "bus_stops": "None",
+    "junctions": "Minor",
+    "turning": "None",
+    "parking": "On-street",
+    "condition": "Poor",
+    "cracking": "Block",
+    "rutting": "<5mm"
+  },
+  "treatments": [
+    {
+      "id": 1,
+      "zone": "Full carriageway — 40mm AC10 Taycoat 100/150",
+      "area_m2": 2250,
+      "depth_mm": 40,
+      "treatment_type": "AC10 Taycoat 100/150"
+    }
+  ],
+  "tm_type": "Complete Road Closure",
+  "tm_hours": "08:00-15:30",
+  "tm_phases": 1,
+  "tm_compound": "On-street adjacent to works",
+  "iron_mh": 0,
+  "iron_water": 12,
+  "iron_gas": 0,
+  "iron_bt": 0,
+  "iron_gullies": 1,
+  "kerb_length": 0,
+  "lining_req": "Yes",
+  "updated_at": "2026-06-11T00:00:00.000Z"
+}

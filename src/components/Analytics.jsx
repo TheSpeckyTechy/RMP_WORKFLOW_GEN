@@ -95,31 +95,50 @@ const parseMonth = (dmy) => {
   return ((+p[1] - 1) - 3 + 12) % 12; // Apr=0 … Mar=11
 };
 
+// ── Chart colour helpers (dark-mode-aware) ────────────────────────────────────
+// Read from CSS custom properties so charts remain legible in both themes.
+const _cv = (name, fallback) => {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  } catch { return fallback; }
+};
+const chartBorderColor  = () => _cv('--bg',    '#ffffff');
+const chartLabelColor   = () => _cv('--ink-2', '#444');
+const chartMutedColor   = () => _cv('--ink-3', '#888');
+const chartGridColor    = () => _cv('--line',   '#e4e4e4');
+
 // ── Chart.js: Status doughnut ─────────────────────────────────────────────────
 const StatusDonut = ({ schemes }) => {
   const canvasRef = React.useRef();
   const chartRef  = React.useRef();
+  // Serialize only the status counts so the effect only fires when data changes,
+  // not when the schemes array reference changes (e.g. during animation ticks).
+  const countsKey = React.useMemo(() => {
+    const counts = STATUS_ORDER.map(s => schemes.filter(x => x.status === s).length);
+    return JSON.stringify(counts);
+  }, [schemes]);
   React.useEffect(() => {
     if (!window.Chart || !canvasRef.current) return;
     if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
-    const counts = STATUS_ORDER.map(s => schemes.filter(x => x.status === s).length);
+    const counts = JSON.parse(countsKey);
     chartRef.current = new window.Chart(canvasRef.current, {
       type: 'doughnut',
       data: {
         labels: STATUS_ORDER.map(s => STATUS_LABEL[s] || s),
-        datasets: [{ data: counts, backgroundColor: STATUS_ORDER.map(s => STATUS_COLOUR[s]), borderWidth: 2, borderColor: '#ffffff' }],
+        datasets: [{ data: counts, backgroundColor: STATUS_ORDER.map(s => STATUS_COLOUR[s]), borderWidth: 2, borderColor: chartBorderColor() }],
       },
       options: {
         cutout: '68%',
         animation: { animateRotate: true, duration: 900 },
         plugins: {
-          legend: { position: 'right', labels: { font: { family: 'Inter', size: 12 }, padding: 14, color: '#444' } },
+          legend: { position: 'right', labels: { font: { family: 'Inter', size: 12 }, padding: 14, color: chartLabelColor() } },
           tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} scheme${ctx.raw !== 1 ? 's' : ''}` } },
         },
       },
     });
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [schemes]);
+  }, [countsKey]);
   return <canvas ref={canvasRef} style={{ maxHeight: 220 }} />;
 };
 
@@ -127,10 +146,8 @@ const StatusDonut = ({ schemes }) => {
 const WorkloadChart = ({ schemes }) => {
   const canvasRef = React.useRef();
   const chartRef  = React.useRef();
-  React.useEffect(() => {
-    if (!window.Chart || !canvasRef.current) return;
-    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
-    const months   = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+  // Serialize only starts/finishes counts so the effect only fires on actual data changes.
+  const dataKey = React.useMemo(() => {
     const starts   = Array(12).fill(0);
     const finishes = Array(12).fill(0);
     schemes.forEach(s => {
@@ -139,6 +156,13 @@ const WorkloadChart = ({ schemes }) => {
       if (sm >= 0) starts[sm]++;
       if (fm >= 0) finishes[fm]++;
     });
+    return JSON.stringify({ starts, finishes });
+  }, [schemes]);
+  React.useEffect(() => {
+    if (!window.Chart || !canvasRef.current) return;
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+    const months = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+    const { starts, finishes } = JSON.parse(dataKey);
     chartRef.current = new window.Chart(canvasRef.current, {
       type: 'bar',
       data: {
@@ -150,15 +174,15 @@ const WorkloadChart = ({ schemes }) => {
       },
       options: {
         animation: { duration: 800 },
-        plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 11 }, padding: 12, color: '#444' } } },
+        plugins: { legend: { position: 'top', labels: { font: { family: 'Inter', size: 11 }, padding: 12, color: chartLabelColor() } } },
         scales: {
-          y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 10 }, color: '#888' }, grid: { color: '#e4e4e4' } },
-          x: { ticks: { font: { family: 'Inter', size: 10 }, color: '#888' }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter', size: 10 }, color: chartMutedColor() }, grid: { color: chartGridColor() } },
+          x: { ticks: { font: { family: 'Inter', size: 10 }, color: chartMutedColor() }, grid: { display: false } },
         },
       },
     });
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [schemes]);
+  }, [dataKey]);
   return <canvas ref={canvasRef} style={{ maxHeight: 220 }} />;
 };
 
@@ -166,14 +190,18 @@ const WorkloadChart = ({ schemes }) => {
 const HorizBarChart = ({ labels, values, colours, formatTooltip }) => {
   const canvasRef = React.useRef();
   const chartRef  = React.useRef();
+  // Stable key: only rebuild the chart when the displayed data genuinely changes.
+  const dataKey = JSON.stringify({ labels, values, colours });
+  const h = Math.max(180, labels.length * 34);
   React.useEffect(() => {
     if (!window.Chart || !canvasRef.current || !labels.length) return;
     if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+    const { labels: l, values: v, colours: c } = JSON.parse(dataKey);
     chartRef.current = new window.Chart(canvasRef.current, {
       type: 'bar',
       data: {
-        labels,
-        datasets: [{ data: values, backgroundColor: colours || '#c46a2c', borderRadius: 4, borderSkipped: false }],
+        labels: l,
+        datasets: [{ data: v, backgroundColor: c || '#c46a2c', borderRadius: 4, borderSkipped: false }],
       },
       options: {
         indexAxis: 'y',
@@ -183,14 +211,13 @@ const HorizBarChart = ({ labels, values, colours, formatTooltip }) => {
           tooltip: { callbacks: { label: formatTooltip || (ctx => ` ${ctx.raw}`) } },
         },
         scales: {
-          x: { beginAtZero: true, ticks: { font: { family: 'JetBrains Mono', size: 10 }, color: '#888' }, grid: { color: '#e4e4e4' } },
-          y: { ticks: { font: { family: 'Inter', size: 11 }, color: '#444' }, grid: { display: false } },
+          x: { beginAtZero: true, ticks: { font: { family: 'JetBrains Mono', size: 10 }, color: chartMutedColor() }, grid: { color: chartGridColor() } },
+          y: { ticks: { font: { family: 'Inter', size: 11 }, color: chartLabelColor() }, grid: { display: false } },
         },
       },
     });
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [labels, values, colours]);
-  const h = Math.max(180, labels.length * 34);
+  }, [dataKey]); // eslint-disable-line react-hooks/exhaustive-deps
   return <canvas ref={canvasRef} style={{ height: h, maxHeight: h }} />;
 };
 
@@ -592,7 +619,13 @@ const Analytics = ({ designerView, setDesignerView }) => {
 
   const designers = (window.DESIGNERS||[]).filter(d => d.id !== 'new');
   const activeDesigner = designerView ? designers.find(d => d.id === designerView) : null;
-  const viewSchemes = designerView ? schemes.filter(s => s.assigned_designer_id === designerView) : schemes;
+  // Memoize viewSchemes so its array identity only changes when the underlying
+  // schemes data or the filter actually changes — not on every parent re-render
+  // triggered by useCounter animation ticks.
+  const viewSchemes = React.useMemo(
+    () => designerView ? schemes.filter(s => s.assigned_designer_id === designerView) : schemes,
+    [schemes, designerView]
+  );
 
   const metrics = React.useMemo(() => viewSchemes.map(deriveMetrics), [viewSchemes]);
 
@@ -659,9 +692,11 @@ const Analytics = ({ designerView, setDesignerView }) => {
 
       <div className="tabs" style={{ marginBottom:16 }}>
         {TABS.map(t => (
-          <div key={t.key} className={"tab" + (activeTab === t.key ? " active" : "")} onClick={() => setActiveTab(t.key)}>
+          <button type="button" key={t.key} className={"tab" + (activeTab === t.key ? " active" : "")}
+            onClick={() => setActiveTab(t.key)}
+            style={{ background:'none', border:'none', cursor:'pointer' }}>
             {t.label}
-          </div>
+          </button>
         ))}
       </div>
 
