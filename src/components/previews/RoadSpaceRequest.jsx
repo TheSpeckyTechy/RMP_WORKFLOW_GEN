@@ -20,61 +20,55 @@ const daysBetween = (dmyA, dmyB, pattern) => {
   return _daysBetweenLegacy(dmyA, dmyB);
 };
 const _daysBetweenLegacy = (dmyA, dmyB) => {
-  const p = (s) => { const [d,m,y] = (s||"").split("/"); return new Date(+y,+m-1,+d); };
+  const p = (s) => { const [d,m,y] = (s||'').split('/'); return new Date(+y,+m-1,+d); };
   const a = p(dmyA), b = p(dmyB);
-  if (isNaN(a)||isNaN(b)) return "___";
+  if (isNaN(a)||isNaN(b)) return '___';
   return Math.max(1, Math.round((b-a)/86400000*5/7));
 };
 
 const RoadSpaceRequestDoc = ({ scheme }) => {
   const Bound = ({ k, children, fallback }) => {
     const v = scheme[k];
-    const show = v!==undefined&&v!=="" ? (children||v) : (fallback||`[${k}]`);
+    const show = v!==undefined&&v!=='' ? (children||v) : (fallback||`[${k}]`);
     return <span className="bound" data-field={k}>{show}</span>;
   };
+  const duration = daysBetween(scheme.date_start, scheme.date_finish, scheme.working_pattern);
+  const diversion = window.schemeTM(scheme).diversion_by || scheme.tm_diversion_by || '';
   return (
     <div className="rsr-doc">
       <div className="rsr-page">
         <div className="rsr-header">
           <div className="rsr-title-bar">
             <div className="rsr-title">TEMPORARY ROAD CLOSURES</div>
-            <div className="rsr-sub">Information Sheet — to be submitted to Network Management</div>
+            <div className="rsr-sub">Information sheet to be submitted to Network Management</div>
           </div>
         </div>
-        <div className="rsr-section-title">1. Applicant Details</div>
         <table className="rsr-table"><tbody>
-          <tr><td className="rsr-th">Division</td><td>Road Maintenance Partnership</td></tr>
-          <tr><td className="rsr-th">Name of Applicant</td><td><Bound k="prepared_by" /></td></tr>
-          <tr><td className="rsr-th">Applicant Contact Email</td><td><Bound k="designer_email" /></td></tr>
-          <tr><td className="rsr-th">Applicant Contact Phone</td><td><Bound k="designer_phone" /></td></tr>
-          <tr><td className="rsr-th">Name &amp; Address of Contractor</td><td><Bound k="contractor" /><br/>Contracts House, 1 Soutar Street, Dundee DD3 8SS</td></tr>
-          <tr><td className="rsr-th">Contact Person (Contractor)</td><td><Bound k="contractor_pe" /></td></tr>
-          <tr><td className="rsr-th">Contractor Out-of-Hours</td><td><Bound k="contractor_ooh" /></td></tr>
+          <tr><td className="rsr-th">Division:</td><td>ROAD MAINTENANCE PARTNERSHIP</td></tr>
+          <tr><td className="rsr-th">Name of Applicant: (if not the Contractor)</td><td><Bound k="prepared_by" /></td></tr>
+          <tr><td className="rsr-th">Name &amp; Address of Contractor:</td><td><Bound k="contractor" /></td></tr>
+          <tr><td className="rsr-th">Contact Person:</td><td><Bound k="contractor_pe" /></td></tr>
+          <tr><td className="rsr-th">Name of Road:</td><td><Bound k="road_name" /></td></tr>
+          <tr><td className="rsr-th">Exact Location of Actual Length of Road to be Closed:</td><td><Bound k="scheme_extent" /></td></tr>
+          <tr><td className="rsr-th">Reason For Closure:</td><td>Planned Maintenance</td></tr>
+          <tr><td className="rsr-th">Alternative Routes for Vehicles &amp; Pedestrians:</td>
+            <td><span className="bound" data-field="tm_diversion">{diversion || '[tm_diversion]'}</span></td></tr>
+          <tr><td className="rsr-th">Starting Date:</td><td><Bound k="date_start" /></td></tr>
+          <tr><td className="rsr-th">Duration of Closure:</td><td>{duration} working days</td></tr>
+          <tr><td className="rsr-th">Project No. Chargeable or Works Order No. Where Applicable:</td><td><Bound k="project_number" /></td></tr>
         </tbody></table>
-        <div className="rsr-section-title">2. Closure Details</div>
-        <table className="rsr-table"><tbody>
-          <tr><td className="rsr-th">Name of Road</td><td><Bound k="road_name" /></td></tr>
-          <tr><td className="rsr-th">Project Number</td><td><Bound k="project_number" /></td></tr>
-          <tr><td className="rsr-th">Ward</td><td><Bound k="ward_selected" /></td></tr>
-          <tr><td className="rsr-th">Grid Reference</td><td><Bound k="grid_ref" /></td></tr>
-          <tr><td className="rsr-th">Exact Location</td><td><Bound k="scheme_extent" /></td></tr>
-          <tr><td className="rsr-th">Reason for Closure</td><td><Bound k="treatment_type" /> — planned maintenance resurfacing</td></tr>
-          <tr><td className="rsr-th">Starting Date</td><td><Bound k="date_start" /></td></tr>
-          <tr><td className="rsr-th">Finish Date</td><td><Bound k="date_finish" /></td></tr>
-          <tr><td className="rsr-th">Duration of Closure</td><td>{daysBetween(scheme.date_start,scheme.date_finish,scheme.working_pattern)} working days</td></tr>
-          <tr><td className="rsr-th">Working Hours</td><td>{window.schemeTM(scheme).hours || scheme.tm_hours || <span className="bound" data-field="tm_hours">[tm_hours]</span>}</td></tr>
-          <tr><td className="rsr-th">Diversion Route(s)</td><td>{window.schemeTM(scheme).diversion_by || scheme.tm_diversion_by || '—'}</td></tr>
-        </tbody></table>
-        <div className="rsr-section-title">3. Sign-Off</div>
-        <table className="rsr-table"><tbody>
-          <tr><td className="rsr-th">Signed:</td><td><Bound k="prepared_by" /></td></tr>
-          <tr><td className="rsr-th">Date:</td><td>{scheme.date_prepared || new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}</td></tr>
+        <table className="rsr-table rsr-table-sign"><tbody>
+          <tr>
+            <td className="rsr-th" style={{width:'46%'}}>Signed:</td>
+            <td style={{width:'54%'}}><Bound k="prepared_by" /></td>
+          </tr>
+          <tr>
+            <td className="rsr-th">Date:</td>
+            <td>{scheme.date_prepared || new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}</td>
+          </tr>
         </tbody></table>
         <div className="rsr-notes">
-          <div style={{fontWeight:600,marginBottom:4}}>Notes</div>
-          • Official diversion plan to be passed to Network team once produced.<br/>
-          • Emergency service vehicular access will be maintained throughout.<br/>
-          • Residents and businesses notified via the separate Residents &amp; Businesses Letter.
+          <strong>NB</strong> Pedestrian Routes Un-Affected
         </div>
       </div>
     </div>
@@ -87,27 +81,18 @@ const xmlEscapeRSR = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;
 
 function buildRSRFields(scheme) {
   const days = daysBetween(scheme.date_start, scheme.date_finish, scheme.working_pattern);
-  const treatment = window.schemeTreatment(scheme) || '';
   const tm = window.schemeTM(scheme);
   return {
-    PREPARED_BY:      scheme.prepared_by || '',
-    DESIGNER_EMAIL:   scheme.designer_email || '',
-    DESIGNER_PHONE:   scheme.designer_phone || '',
-    CONTRACTOR_NAME:  scheme.contractor || '',
-    CONTRACTOR_PE:    scheme.contractor_pe || '',
-    CONTRACTOR_OOH:   scheme.contractor_ooh || '',
-    ROAD_NAME:        scheme.road_name || '',
-    PROJECT_NUMBER:   scheme.project_number || '',
-    WARD_SELECTED:    scheme.ward_selected || '',
-    GRID_REF:         scheme.grid_ref || '',
-    SCHEME_EXTENT:    scheme.scheme_extent || '',
-    TREATMENT_TYPE:   treatment,
-    DATE_START:       scheme.date_start || '',
-    DATE_FINISH:      scheme.date_finish || '',
-    DURATION:         String(days),
-    TM_HOURS:         tm.hours || scheme.tm_hours || '',
-    TM_DIVERSION:     tm.diversion_by || scheme.tm_diversion_by || '',
-    DATE_PREPARED:    scheme.date_prepared || new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }),
+    PREPARED_BY:    scheme.prepared_by || '',
+    CONTRACTOR_NAME: scheme.contractor || '',
+    CONTRACTOR_PE:  scheme.contractor_pe || '',
+    ROAD_NAME:      scheme.road_name || '',
+    SCHEME_EXTENT:  scheme.scheme_extent || '',
+    TM_DIVERSION:   tm.diversion_by || scheme.tm_diversion_by || '',
+    DATE_START:     scheme.date_start || '',
+    DURATION:       String(days),
+    PROJECT_NUMBER: scheme.project_number || '',
+    DATE_PREPARED:  scheme.date_prepared || new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }),
   };
 }
 
@@ -211,7 +196,7 @@ async function downloadRSRPdf(scheme) {
   document.body.appendChild(container);
   try {
     const root = ReactDOM.createRoot(container);
-    const displayScheme = { ...scheme, treatment_type: window.schemeTreatment(scheme) || '' };
+    const displayScheme = { ...scheme };
     root.render(React.createElement(RoadSpaceRequestDoc, { scheme: displayScheme }));
     await new Promise(r => setTimeout(r, 400));
     const pdfFilename = `RSR_${scheme.project_number}_${(scheme.road_name||'').replace(/\s+/g,'_')}.pdf`;
@@ -229,22 +214,15 @@ async function downloadRSRPdf(scheme) {
 
 const RSR_FIELD_META = {
   prepared_by:    { label: "Applicant name" },
-  designer_email: { label: "Applicant email" },
-  designer_phone: { label: "Applicant phone" },
   contractor:     { label: "Contractor name" },
-  contractor_pe:  { label: "Contractor contact" },
-  contractor_ooh: { label: "Out-of-hours" },
-  road_name:      { label: "Road name" },
-  project_number: { label: "Project number" },
-  ward_selected:  { label: "Ward" },
-  grid_ref:       { label: "Grid reference" },
+  contractor_pe:  { label: "Contact person" },
+  road_name:      { label: "Name of road" },
   scheme_extent:  { label: "Exact location", multi: true },
-  treatment_type: { label: "Reason for closure" },
-  date_start:     { label: "Start date", hint: "DD/MM/YYYY" },
-  date_finish:    { label: "Finish date", hint: "DD/MM/YYYY" },
-  tm_hours:       { label: "Working hours", multi: true },
-  tm_diversion:   { label: "Diversion route(s)", multi: true },
-  date_prepared:  { label: "Date prepared", hint: "DD/MM/YYYY" },
+  tm_diversion:   { label: "Alternative routes", multi: true },
+  date_start:     { label: "Starting date", hint: "DD/MM/YYYY" },
+  date_finish:    { label: "Finish date (for duration)", hint: "DD/MM/YYYY" },
+  project_number: { label: "Project / works order no." },
+  date_prepared:  { label: "Date", hint: "DD/MM/YYYY" },
 };
 
 const RSRModal = ({ scheme: schemeProp, onClose }) => {
@@ -283,7 +261,7 @@ const RSRModal = ({ scheme: schemeProp, onClose }) => {
     finally { setDownloadingDocx(false); }
   };
 
-  const displayScheme = { ...scheme, treatment_type: window.schemeTreatment(scheme) || '' };
+  const displayScheme = { ...scheme };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -356,7 +334,7 @@ window.__getRSRPdfBuffer = async (scheme) => {
   container.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:white;';
   document.body.appendChild(container);
   try {
-    const displayScheme = { ...scheme, treatment_type: window.schemeTreatment(scheme) || '' };
+    const displayScheme = { ...scheme };
     const root = ReactDOM.createRoot(container);
     root.render(React.createElement(RoadSpaceRequestDoc, { scheme: displayScheme }));
     await new Promise(r => setTimeout(r, 400));
