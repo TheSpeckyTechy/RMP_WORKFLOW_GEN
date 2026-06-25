@@ -304,6 +304,33 @@ const fsSaveToProjectFolder = async (scheme, subfolderParts, filename, data, { v
 };
 window.fsSaveToProjectFolder = fsSaveToProjectFolder;
 
+// Triggers a real browser download (file lands in the user's Downloads folder).
+// This is the counterpart to fsSaveToProjectFolder, NOT a replacement: exports
+// call BOTH so the user always gets a download even when a OneDrive data folder
+// is connected (in which case an archived copy is also written to the project
+// tree). data: ArrayBuffer | Uint8Array | Blob. Returns true on success.
+const fsDownloadFile = (filename, data, mime) => {
+  try {
+    const safe = (filename || 'download').replace(/[/\\:*?"<>|]/g, '_').trim() || 'download';
+    const blob = data instanceof Blob ? data : new Blob([data], mime ? { type: mime } : undefined);
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = safe;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revoke on the next tick so the click has fully consumed the object URL.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
+  } catch (e) {
+    console.warn('[fsDownloadFile] failed:', filename, e?.message || e);
+    return false;
+  }
+};
+window.fsDownloadFile = fsDownloadFile;
+
 // Converts a base64 data URL to an ArrayBuffer for FS writes.
 const dataUrlToArrayBuffer = (dataUrl) => {
   const base64 = dataUrl.split(',')[1];

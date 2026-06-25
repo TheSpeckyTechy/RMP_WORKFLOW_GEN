@@ -428,18 +428,38 @@
 
     const xlsxFilename = makeFilename(scheme);
     const bytes = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const saved = window.fsSaveToProjectFolder
-      ? await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, bytes, { versioned: true })
-      : false;
 
-    if (!saved) {
-      XLSX.writeFile(wb, xlsxFilename);
-    } else {
-      try {
-        const pdfBuf = await window.__getBoQPdfBuffer(scheme);
-        await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename.replace('.xlsx', '.pdf'), pdfBuf, { versioned: true });
-      } catch { /* PDF generation is best-effort */ }
-      if (window.Toast) window.Toast.show({ kind: 'success', msg: `BoQ saved to ${window.schemeFolderName(scheme)}/Contract/`, duration: 4000 });
+    // Always deliver a real browser download — the button is labelled
+    // "Download", so the file must reach the user's Downloads folder whether or
+    // not a OneDrive data folder is connected. Previously a successful folder
+    // save short-circuited the download, so connected users got only the
+    // Contract/ copy and nothing in their browser downloads.
+    const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    if (window.fsDownloadFile) window.fsDownloadFile(xlsxFilename, bytes, XLSX_MIME);
+    else XLSX.writeFile(wb, xlsxFilename);
+
+    // Additionally archive to the scheme's OneDrive Contract/ folder when one is
+    // connected, with a best-effort PDF alongside. The download above does not
+    // depend on this step succeeding.
+    let archived = false;
+    if (window.fsSaveToProjectFolder) {
+      archived = await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, bytes, { versioned: true });
+      if (archived) {
+        try {
+          const pdfBuf = await window.__getBoQPdfBuffer(scheme);
+          await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename.replace('.xlsx', '.pdf'), pdfBuf, { versioned: true });
+        } catch { /* PDF generation is best-effort */ }
+      }
+    }
+
+    if (window.Toast) {
+      window.Toast.show({
+        kind: 'success',
+        msg: archived
+          ? `BoQ downloaded — also saved to ${window.schemeFolderName(scheme)}/Contract/`
+          : 'BoQ downloaded',
+        duration: 4000,
+      });
     }
 
     // Notify the app's download log (existing convention from legacy BoQTab)
