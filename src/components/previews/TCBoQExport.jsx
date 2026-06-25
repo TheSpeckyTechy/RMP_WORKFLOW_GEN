@@ -132,19 +132,35 @@ async function downloadTCBoQXlsx(scheme, computed) {
   const _tcRoad = (scheme.road_name      || 'scheme').replace(/[^\w-]+/g, '_');
   const xlsxFilename = `TC_BoQ_${_tcRef}_${_tcRoad}.xlsx`;
   const out = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
-  const saved = window.fsSaveToProjectFolder
-    ? await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, out, { versioned: true })
-    : false;
+  const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-  if (!saved) {
-    const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  // Always deliver a real browser download — the button is labelled "Download",
+  // so the file must reach the user's Downloads folder whether or not a OneDrive
+  // data folder is connected. The folder save below is an additional archive,
+  // not a replacement for the download.
+  if (window.fsDownloadFile) {
+    window.fsDownloadFile(xlsxFilename, out, XLSX_MIME);
+  } else {
+    const blob = new Blob([out], { type: XLSX_MIME });
     const _url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = _url; a.download = xlsxFilename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(_url), 100);
-  } else {
-    if (window.Toast) window.Toast.show({ kind: 'success', msg: `TC BoQ saved to ${window.schemeFolderName(scheme)}/Contract/`, duration: 4000 });
+  }
+
+  const archived = window.fsSaveToProjectFolder
+    ? await window.fsSaveToProjectFolder(scheme, ['Contract'], xlsxFilename, out, { versioned: true })
+    : false;
+
+  if (window.Toast) {
+    window.Toast.show({
+      kind: 'success',
+      msg: archived
+        ? `TC BoQ downloaded — also saved to ${window.schemeFolderName(scheme)}/Contract/`
+        : 'TC BoQ downloaded',
+      duration: 4000,
+    });
   }
 
   window.dispatchEvent(new CustomEvent('rmp-download', {
