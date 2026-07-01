@@ -9,8 +9,8 @@
   "grid_ref": "",
   "date_prepared": "",
   "date_approved": "",
-  "date_start": "",
-  "date_finish": "",
+  "date_start": "05/10/2026",
+  "date_finish": "09/10/2026",
   "working_pattern": "Mon–Fri",
   "shift_pattern": "Day",
   "assigned_designer_id": "jake",
@@ -172,5 +172,5 @@
   "flags": [],
   "docs_generated": {},
   "id": "CW-BALGARTHNO",
-  "updated_at": "2026-06-11T00:00:00.000Z"
+  "updated_at": "2026-07-01T00:00:00.000Z"
 }
